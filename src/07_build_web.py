@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import argparse,json,re,pandas as pd,numpy as np
-from common import load_config, CSV_MUN_TO_UI, fmt_int_spaces
+import argparse,json,re,pandas as pd
+from common import load_config, CSV_MUN_TO_UI, MUN_CODES, fmt_int_spaces
 
 TOPO_KEEP=[
  "elev_mean_m","elev_p05_m","elev_p95_m","relief_p95_p05_m",
@@ -22,13 +22,16 @@ HYDRO_KEEP=[
 ]
 HYDRO_MAP=["twi_mean","twi_p90","twi_ge_farmland_p90_pct","twi_ge_farmland_p95_pct","ln_sca_p90"]
 
+
 def jval(v):
  if pd.isna(v):return None
  return round(float(v),5)
 
+
 def ui_name(name):
  """Translate legacy ASCII municipality names; already-correct UI names pass through."""
  return CSV_MUN_TO_UI.get(str(name),str(name))
+
 
 def ranges_by_municipality(df,cols,municipalities):
  out={m:{} for m in municipalities}
@@ -42,6 +45,16 @@ def ranges_by_municipality(df,cols,municipalities):
                if len(x) else [None,None])
  return out
 
+
+def municipality_buttons(municipalities):
+ """Generate municipality controls from data instead of hard-coding three towns."""
+ rows=[]
+ for m in municipalities:
+  active=" active" if m=="Lomma" else ""
+  rows.append(f'     <button class="mun{active}" data-mun="{m}">{m}</button>')
+ return "\n".join(rows)
+
+
 def main():
  ap=argparse.ArgumentParser();ap.add_argument("--config",default="config/local_paths.json")
  a=ap.parse_args()
@@ -53,7 +66,12 @@ def main():
  soil=json.loads((d/"soil_payload.json").read_text(encoding="utf-8"))
  topo=pd.read_csv(d/"topography_features_blocks.csv",dtype={"blockid":str,"region_kod":str})
  hyd=pd.read_csv(d/"hydrology_features_final.csv",dtype={"blockid":str,"region_kod":str})
- municipalities=list(data.keys())
+
+ # Stable Skåne ordering from common.py, with any unexpected payload keys appended.
+ municipalities=[m for m in MUN_CODES if m in data]
+ municipalities += [m for m in data if m not in municipalities]
+ if "Lomma" not in municipalities:
+  raise RuntimeError("Lomma saknas i geometry_payload; kan inte använda v0.92-startvy.")
 
  TOPO={m:{} for m in municipalities}
  TR=ranges_by_municipality(topo,TOPO_MAP,municipalities)
@@ -86,9 +104,21 @@ def main():
  }
  out=template
  for k,v in replacements.items():out=out.replace(k,v)
+
+ # The HTML template remains the validated v0.92 shell. Replace its historical
+ # three fixed municipality buttons during build so the generated MVP exposes
+ # every municipality present in the Skåne payload.
+ legacy='''   <div class="row" id="munBtns">\n     <button class="mun active" data-mun="Lomma">Lomma</button>\n     <button class="mun" data-mun="Kävlinge">Kävlinge</button>\n     <button class="mun" data-mun="Eslöv">Eslöv</button>\n   </div>'''
+ generated='   <div class="row" id="munBtns">\n'+municipality_buttons(municipalities)+'\n   </div>'
+ if legacy not in out:
+  raise RuntimeError("Kunde inte hitta v0.92-kommunblock i HTML-templaten.")
+ out=out.replace(legacy,generated,1)
+
  left=re.findall(r"__[A-Z0-9_]+__",out)
  if left:raise RuntimeError("Oersatta placeholders: "+str(sorted(set(left))))
  (dist/"index.html").write_text(out,encoding="utf-8")
- print("WEB BUILD: OK",dist/"index.html",f"{(dist/'index.html').stat().st_size/1024/1024:.1f} MB")
+ print("WEB BUILD: OK",dist/"index.html",f"{(dist/'index.html').stat().st_size/1024/1024:.1f} MB",
+       f"kommuner={len(municipalities)}")
+
 
 if __name__=="__main__":main()
