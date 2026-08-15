@@ -26,6 +26,22 @@ def jval(v):
  if pd.isna(v):return None
  return round(float(v),5)
 
+def ui_name(name):
+ """Translate legacy ASCII municipality names; already-correct UI names pass through."""
+ return CSV_MUN_TO_UI.get(str(name),str(name))
+
+def ranges_by_municipality(df,cols,municipalities):
+ out={m:{} for m in municipalities}
+ if "municipality" not in df.columns:return out
+ for csvm,sub in df.groupby("municipality",dropna=True):
+  ui=ui_name(csvm)
+  if ui not in out:continue
+  for c in cols:
+   x=pd.to_numeric(sub[c],errors="coerce").dropna()
+   out[ui][c]=([round(float(x.quantile(.05)),5),round(float(x.quantile(.95)),5)]
+               if len(x) else [None,None])
+ return out
+
 def main():
  ap=argparse.ArgumentParser();ap.add_argument("--config",default="config/local_paths.json")
  a=ap.parse_args()
@@ -37,29 +53,19 @@ def main():
  soil=json.loads((d/"soil_payload.json").read_text(encoding="utf-8"))
  topo=pd.read_csv(d/"topography_features_blocks.csv",dtype={"blockid":str,"region_kod":str})
  hyd=pd.read_csv(d/"hydrology_features_final.csv",dtype={"blockid":str,"region_kod":str})
+ municipalities=list(data.keys())
 
- TOPO={"Lomma":{},"Kävlinge":{},"Eslöv":{}}
- TR={}
- for ui,csvm in [("Lomma","Lomma"),("Kävlinge","Kavlinge"),("Eslöv","Eslov")]:
-  sub=topo[topo.municipality==csvm]
-  TR[ui]={}
-  for c in TOPO_MAP:
-   x=pd.to_numeric(sub[c],errors="coerce").dropna()
-   TR[ui][c]=[round(float(x.quantile(.05)),5),round(float(x.quantile(.95)),5)]
+ TOPO={m:{} for m in municipalities}
+ TR=ranges_by_municipality(topo,TOPO_MAP,municipalities)
  for _,r in topo.iterrows():
-  ui=CSV_MUN_TO_UI.get(r.municipality)
-  if ui:TOPO[ui][str(r.blockid)]={c:jval(r.get(c)) for c in TOPO_KEEP}
+  ui=ui_name(r.municipality)
+  if ui in TOPO:TOPO[ui][str(r.blockid)]={c:jval(r.get(c)) for c in TOPO_KEEP}
 
- HYDRO={"Lomma":{},"Kävlinge":{},"Eslöv":{}}
- HR={}
- for ui,csvm in [("Lomma","Lomma"),("Kävlinge","Kavlinge"),("Eslöv","Eslov")]:
-  sub=hyd[hyd.municipality==csvm];HR[ui]={}
-  for c in HYDRO_MAP:
-   x=pd.to_numeric(sub[c],errors="coerce").dropna()
-   HR[ui][c]=[round(float(x.quantile(.05)),5),round(float(x.quantile(.95)),5)]
+ HYDRO={m:{} for m in municipalities}
+ HR=ranges_by_municipality(hyd,HYDRO_MAP,municipalities)
  for _,r in hyd.iterrows():
-  ui=CSV_MUN_TO_UI.get(r.municipality)
-  if ui:HYDRO[ui][str(r.blockid)]={c:jval(r.get(c)) for c in HYDRO_KEEP}
+  ui=ui_name(r.municipality)
+  if ui in HYDRO:HYDRO[ui][str(r.blockid)]={c:jval(r.get(c)) for c in HYDRO_KEEP}
 
  p90=float(hyd.farmland_twi_p90_threshold.dropna().iloc[0])
  p95=float(hyd.farmland_twi_p95_threshold.dropna().iloc[0])
