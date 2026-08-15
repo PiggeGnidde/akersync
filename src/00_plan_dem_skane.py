@@ -88,6 +88,18 @@ def main():
     df=pd.DataFrame(rows)
     csv=outdir/"dem_plan_skane.csv";df.to_csv(csv,index=False,encoding="utf-8-sig")
 
+    # Convenience outputs for the next acquisition step.  The missing list is
+    # intentionally just one exact legacy filename per line so it can be used
+    # for manual checking or by a later downloader without parsing CSV.
+    missing=df.loc[~df.already_downloaded].copy()
+    existing=df.loc[df.already_downloaded].copy()
+    missing_csv=outdir/"dem_plan_skane_missing.csv"
+    missing.to_csv(missing_csv,index=False,encoding="utf-8-sig")
+    missing_txt=outdir/"dem_missing_skane_2p5km.txt"
+    missing_txt.write_text("\n".join(missing.filename.astype(str))+"\n",encoding="utf-8")
+    existing_txt=outdir/"dem_existing_skane_2p5km.txt"
+    existing_txt.write_text("\n".join(existing.filename.astype(str))+"\n",encoding="utf-8")
+
     bbox=outdir/"dem_plan_skane_bbox.txt"
     bbox.write_text(
         "Skåne DEM plan · SWEREF 99 TM (EPSG:3006)\n"
@@ -104,11 +116,14 @@ def main():
     print(f"Contiguous rectangle: {len(rectangle):,}")
     print(f"DEM-filer redan i {dem_dir}: {len(existing_names):,}")
     print(f"Matchar rectangle-namn: {int(df.already_downloaded.sum()):,}")
+    print(f"Saknas i rectangle: {len(missing):,}")
     print(f"BBox EPSG:3006: {minx}, {miny}, {maxx+TILE}, {maxy+TILE}")
     print("\nOBS: hydrologi behöver sammanhängande terrängkontext; enbart fältrutor")
     print("kan skapa konstgjorda NoData-kanter. Rectangle är därför den säkra")
     print("första Skåne-MVP-planen; havsrutor kan naturligt saknas.")
     print("\nPlan:",csv)
+    print("Missing CSV:",missing_csv)
+    print("Missing filenames:",missing_txt)
     print("BBox:",bbox)
 
 
