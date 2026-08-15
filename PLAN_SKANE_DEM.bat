@@ -1,7 +1,8 @@
 @echo off
 setlocal
-cd /d %~dp0
-python src\00_plan_dem_skane.py --config config\local_paths.json
+chcp 65001 >nul
+cd /d "%~dp0"
+py -3 src\00_plan_dem_skane.py --config config\local_paths.json
 if errorlevel 1 (
   echo.
   echo DEM-planeringen misslyckades.
