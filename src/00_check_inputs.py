@@ -28,8 +28,8 @@ def main():
  codes=tuple(MUN_CODES.values())
  b=blocks[blocks.region_kod.astype(str).str.startswith(codes)]
  s=skiften[skiften.blockid.isin(b.blockid)]
- print(f"Block i målkommuner: {len(b)} (referens 5919)")
- print(f"Skiften i målkommuner: {len(s)} (referens 7364)")
+ print(f"Block i Skåne: {len(b):,} (planeringsreferens 24,619)")
+ print(f"Skiften i Skåne: {len(s):,}")
 
  with zipfile.ZipFile(cfg["soil_zip"]) as z:
   names=z.namelist()
@@ -39,7 +39,7 @@ def main():
    if not ok: raise SystemExit(2)
 
  dem=sorted(Path(cfg["dem_dir"]).glob("*.tif"))
- print(f"DEM .tif: {len(dem)} (v0.92-referens ~231 landrutor)")
+ print(f"DEM .tif: {len(dem):,} (Skåne-MVP har 561 tillgängliga legacy 2.5 km-rutor)")
  if not dem: raise SystemExit("Inga DEM-filer.")
  epsgs=set()
  for p in dem[:min(20,len(dem))]:
