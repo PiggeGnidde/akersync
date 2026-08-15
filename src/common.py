@@ -87,7 +87,10 @@ CSV_MUN_TO_UI = {
 
 def load_config(path):
     p=Path(path)
-    return json.loads(p.read_text(encoding="utf-8"))
+    # utf-8-sig accepts both ordinary UTF-8 and UTF-8 files with a BOM.
+    # Windows PowerShell 5.x writes a BOM when using -Encoding UTF8, so this
+    # keeps local config files robust regardless of which helper wrote them.
+    return json.loads(p.read_text(encoding="utf-8-sig"))
 
 
 def save_json(obj,path):
