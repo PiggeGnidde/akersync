@@ -28,8 +28,10 @@ def main():
     extra=present-expected
 
     mdf=df[df.filename.str.lower().isin(missing)].copy()
-    missing_core=int(mdf.core_farmland.fillna(False).astype(bool).sum()) if len(mdf) else 0
-    missing_ring=int(mdf.one_ring.fillna(False).astype(bool).sum()) if len(mdf) else 0
+    missing_core_rows=mdf[mdf.core_farmland.fillna(False).astype(bool)].copy() if len(mdf) else mdf.copy()
+    missing_ring_rows=mdf[mdf.one_ring.fillna(False).astype(bool)].copy() if len(mdf) else mdf.copy()
+    missing_core=len(missing_core_rows)
+    missing_ring=len(missing_ring_rows)
 
     print("="*72)
     print("ÅkerSync · kontroll Skåne DEM 2.5 km")
@@ -45,6 +47,17 @@ def main():
     out=root/"data"/"derived"/"dem_still_missing_skane.csv"
     mdf.to_csv(out,index=False,encoding="utf-8-sig")
     print("\nÅterstående lista:",out)
+
+    if missing_core:
+        print("\nSAKNADE CORE-RUTOR:")
+        for name in missing_core_rows.filename:
+            print("  ",name)
+
+    if missing_ring:
+        print("\nSAKNADE ONE-RING-RUTOR:")
+        for name in missing_ring_rows.filename:
+            marker=" [CORE]" if str(name).lower() in {str(x).lower() for x in missing_core_rows.filename} else ""
+            print("  ",str(name)+marker)
 
     if not missing:
         print("\nDEM CHECK: KOMPLETT 598/598")
