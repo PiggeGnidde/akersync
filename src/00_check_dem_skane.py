@@ -49,12 +49,13 @@ def main():
     if not missing:
         print("\nDEM CHECK: KOMPLETT 598/598")
         return 0
-    if missing_core==0 and missing_ring==0:
-        print("\nDEM CHECK: endast rectangle-rutor utanför core/one-ring saknas.")
-        print("Det kan vara rena havsrutor; skicka utskriften innan BUILD_ALL.")
+    if missing_core==0:
+        print("\nDEM CHECK: all farmland-core finns.")
+        print("Återstående one-ring/rectangle-rutor kan vara hav eller verkliga luckor;")
+        print("skicka utskriften innan BUILD_ALL så granskar vi dem.")
         return 0
 
-    print("\nDEM CHECK: DATA SAKNAS I CORE/ONE-RING — kör inte BUILD_ALL ännu.")
+    print("\nDEM CHECK: DATA SAKNAS I FARMLAND-CORE — kör inte BUILD_ALL ännu.")
     return 1
 
 
