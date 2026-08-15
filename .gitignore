@@ -1,0 +1,22 @@
+# Local paths / credentials-ish machine configuration
+config/local_paths.json
+
+# Raw / large data: never commit
+data/raw/*
+!data/raw/README.md
+
+# Derived data and built HTML are reproducible
+data/derived/
+dist/
+
+# Whitebox / temp
+work/
+*.tif
+*.gpkg
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+qa/input_manifest.json

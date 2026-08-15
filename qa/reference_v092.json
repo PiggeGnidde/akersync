@@ -1,0 +1,36 @@
+{
+  "date": "2026-08-15",
+  "blocks": 5919,
+  "skiften": 7364,
+  "topography": {
+    "median_elevation_m": 59.4,
+    "median_mean_slope_deg": 1.54,
+    "median_relief_p95_p05_m": 3.16
+  },
+  "hydrology": {
+    "dem_tiles": 231,
+    "farmland_twi_p90": 11.750808,
+    "farmland_twi_p95": 14.565125,
+    "farmland_cells": 4500687
+  },
+  "soil": {
+    "Lomma": {
+      "median_clay": 15.995,
+      "median_sand": 53.595,
+      "median_silt": 30.55,
+      "median_clay_coverage": 99.76
+    },
+    "Kävlinge": {
+      "median_clay": 10.315,
+      "median_sand": 65.665,
+      "median_silt": 24.135,
+      "median_clay_coverage": 99.7
+    },
+    "Eslöv": {
+      "median_clay": 13.92,
+      "median_sand": 52.67,
+      "median_silt": 32.8,
+      "median_clay_coverage": 99.84
+    }
+  }
+}

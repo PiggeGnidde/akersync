@@ -1,0 +1,161 @@
+# ÅkerSync – reproducible build v1
+
+Målet är att kunna återskapa **ÅkerSync v0.92 från rådata** utan att vara
+beroende av historiska v0.4/v0.7/v0.9-filer.
+
+## Första gången
+
+1. Packa upp repot i en enkel arbetsmapp, exempelvis `C:\AkerSyncRepo`.
+2. Kör `INSTALL_REQUIREMENTS.bat`.
+3. Kör `SETUP_PATHS.bat`.
+4. Peka ut fyra rådatakällor:
+   - `arslager_block.gpkg`
+   - `arslager_skifte.gpkg`
+   - `akermarkens-jordarter.zip`
+   - DEM-mappen med Markhöjdmodell `.tif`
+5. Kör `CHECK_INPUTS.bat`.
+
+## Rebuild från noll
+
+Kör:
+
+`BUILD_ALL.bat`
+
+Pipeline:
+
+    rådata
+      │
+      ├─ 01_geometry.py
+      ├─ 02_soil.py
+      ├─ 03_topography.py
+      ├─ 04_hydrology.py
+      ├─ 05_farmland_twi.py
+      ├─ 06_finalize_hydrology.py
+      ├─ 07_build_web.py
+      └─ 08_verify.py
+            │
+            ▼
+        dist/index.html
+
+### Steg 1 – geometri
+Input: Jordbruksverket block + skiften.
+
+Output:
+- `geometry_payload.json`
+- `geometry_summary.csv`
+
+Beräknar även skifte↔block alignment.
+
+### Steg 2 – jord
+Input: block/skiften + SLU/DSMS ZIP.
+
+Lager:
+- ler
+- sand
+- silt
+- organisk klass
+
+Output:
+- `soil_payload.json`
+- `soil_features_blocks.csv`
+- `soil_features_skiften.csv`
+- `soil_summary.csv`
+
+### Steg 3 – topografi
+Input: Lantmäteriet DEM + block.
+
+Känt fungerande topografiscript från v0.8c.
+1 m källa → 5 m arbetsgrid.
+
+Output:
+- `topography_features_blocks.csv`
+- `topography_features_blocks.gpkg`
+- QA
+
+### Steg 4 – hydrologi
+Input: hela DEM-mosaiken + block.
+
+Känt fungerande Whitebox-pipeline från v0.9c:
+- 10 m mosaik
+- FillDepressions + fix_flats
+- slope
+- D∞ Specific Contributing Area
+- TWI
+
+Whitebox-mellanraster ligger utanför OneDrive i den lokala arbetsmapp som
+står i `config/local_paths.json`.
+
+Output:
+- `hydrology_features_blocks.csv`
+- hydrology QA
+- `twi_10m.tif` i Whitebox-workdir
+
+### Steg 5 – åkermarks-TWI
+Maskar TWI mot samtliga jordbruksblock och räknar P90/P95 bara på åkermark.
+Ger även andelen av varje block bland de topografiskt våtaste 10/5 procenten.
+
+### Steg 6 – final hydrology table
+Slår ihop hydrologin med åkermarkströsklar och räknar block-/kommunpercentiler.
+
+### Steg 7 – webb
+`web/template_v092.html` innehåller UI/CSS/JavaScript men **inga data**.
+Buildsteget injicerar:
+- DATA (block/skiften)
+- SOIL
+- TOPO
+- HYDRO
+
+Slutprodukten är en fristående `dist/index.html`.
+
+### Steg 8 – QA
+Jämför mot referens från den validerade 2026-08-15-builden:
+- 5919 block
+- 7364 skiften
+- median elevation ≈59.4 m
+- median mean slope ≈1.54°
+- farmland TWI P90 ≈11.7508
+- farmland TWI P95 ≈14.5651
+
+## Git
+
+Git ska innehålla:
+- kod
+- webbtemplate
+- README/dokumentation
+- QA-regler
+- eventuellt input-manifest/checksummor
+
+Git ska INTE innehålla:
+- 325 MB jord-ZIP
+- GeoPackages
+- 231 DEM-rutor
+- Whitebox mellanraster
+- genererad 30–40 MB HTML
+
+Detta regleras av `.gitignore`.
+
+När du vill skapa repo:
+
+    git init
+    git add .
+    git commit -m "ÅkerSync reproducible v0.92 baseline"
+
+Sedan kan det kopplas till GitHub.
+
+## Två buildlägen
+
+`BUILD_ALL.bat`
+: full analys från rådata.
+
+`BUILD_ALL_REUSE_HYDRO.bat`
+: återanvänder Whitebox-mellanraster när de redan finns.
+
+`BUILD_WEB_ONLY.bat`
+: bygger bara HTML från redan existerande `data/derived`.
+Bra när vi ändrar popup/UI men inte matematiken.
+
+## Viktig designprincip
+
+Blockgränser påverkar inte hydrologiberäkningen.
+Hydrologi/TWI räknas på hela DEM-landskapet först; zonstatistik per block görs
+därefter. Vatten från uppströms grannfält kan därför bidra till ett blocks SCA/TWI.

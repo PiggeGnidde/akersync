@@ -1,0 +1,9 @@
+{
+  "blocks": "C:\\PATH\\TO\\arslager_block.gpkg",
+  "skiften": "C:\\PATH\\TO\\arslager_skifte.gpkg",
+  "soil_zip": "C:\\PATH\\TO\\akermarkens-jordarter.zip",
+  "dem_dir": "C:\\PATH\\TO\\dem_lomma_kavlinge_eslov",
+  "whitebox_work_dir": "C:\\Users\\YOURNAME\\AppData\\Local\\AkerSyncWork\\hydrology",
+  "build_dir": "data/derived",
+  "dist_dir": "dist"
+}
