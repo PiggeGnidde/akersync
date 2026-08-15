@@ -67,8 +67,8 @@ def main():
     ok &= tok
     print("Topography/Hydrology rows:",len(topo),len(hyd),"expected",blocks,"->","OK" if tok else "VARNING")
 
-    # Absolute features for the original three municipalities should remain the
-    # same even though the study area is now all of Skåne.
+    # Absolute terrain features for the original three municipalities should
+    # remain unchanged even though the reference population is now all Skåne.
     topo_ui=topo.municipality.map(ui_name)
     legacy_topo=topo[topo_ui.isin(LEGACY_MUN)]
     lok=len(legacy_topo)>0
@@ -79,8 +79,7 @@ def main():
         ok &= close("Legacy median mean slope",float(legacy_topo.slope_mean_deg.median()),1.540,0.03)
         ok &= close("Legacy median relief",float(legacy_topo.relief_p95_p05_m.median()),3.16,0.08)
 
-    # Soil regression checks are municipality-local and therefore should be
-    # invariant to adding the rest of Skåne.
+    # Soil regression checks are municipality-local and should be invariant.
     for mun,refs in REF_SOIL.items():
         sub=soil[soil.kommun==mun]
         if len(sub)!=1:
@@ -95,7 +94,7 @@ def main():
         ok &= close(f"{mun} median clay coverage",float(r.median_clay_coverage_pct),refs["coverage"],0.06)
 
     # Full-Skåne completeness / sanity. Relative TWI thresholds are expected to
-    # change versus v0.92, so verify ordering and finite coverage rather than old values.
+    # change versus v0.92, so verify ordering and finite coverage, not old values.
     topo_complete=int(pd.to_numeric(topo.elev_mean_m,errors="coerce").notna().sum())==blocks
     hydro_complete=int(pd.to_numeric(hyd.twi_mean,errors="coerce").notna().sum())==blocks
     ok &= topo_complete and hydro_complete
@@ -116,11 +115,20 @@ def main():
     else:
         print("Skåne farmland TWI thresholds saknas -> VARNING")
 
-    idx=root/cfg.get("dist_dir","dist")/"index.html"
-    iok=idx.exists() and idx.stat().st_size>1_000_000
-    ok &= iok
-    print("index.html:",idx.exists(),f"{idx.stat().st_size/1024/1024:.1f} MB" if idx.exists() else "",
-          "->","OK" if iok else "VARNING")
+    # Web is intentionally split into one page per municipality.  This is a
+    # scalability check: no giant all-Skåne HTML is required in the browser.
+    dist=root/cfg.get("dist_dir","dist")
+    idx=dist/"index.html";manifest_path=dist/"municipalities.json";page_dir=dist/"municipalities"
+    pages=sorted(page_dir.glob("*.html")) if page_dir.exists() else []
+    try:
+        manifest=json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    except Exception:
+        manifest={}
+    web_ok=(idx.exists() and len(pages)==len(expected) and set(manifest)==expected and all(p.stat().st_size>100_000 for p in pages))
+    ok &= web_ok
+    max_mb=max((p.stat().st_size for p in pages),default=0)/1024/1024
+    total_mb=sum((p.stat().st_size for p in pages),0)/1024/1024
+    print(f"Web: landing={idx.exists()} pages={len(pages)}/{len(expected)} manifest={len(manifest)} total={total_mb:.1f} MB max={max_mb:.1f} MB -> {'OK' if web_ok else 'VARNING'}")
 
     print("\nSKÅNE BUILD VERIFICATION:", "PASS" if ok else "CHECK WARNINGS")
     raise SystemExit(0 if ok else 1)
