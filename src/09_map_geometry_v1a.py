@@ -42,7 +42,7 @@ HTML = '''<!doctype html><html lang="sv"><head><meta charset="utf-8"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 html,body,#map{height:100%;margin:0}
-.panel{position:absolute;top:10px;left:10px;z-index:1000;background:#fffffff2;padding:10px 12px;border-radius:8px;max-width:430px;font:13px Arial;box-shadow:0 2px 10px #0002}
+.panel{position:absolute;top:10px;left:10px;z-index:1000;background:#fffffff2;padding:10px 12px;border-radius:8px;max-width:440px;font:13px Arial;box-shadow:0 2px 10px #0002}
 .sw{display:inline-block;width:12px;height:12px;margin-right:6px;vertical-align:middle}
 .filters{margin:9px 0 6px}.filters button{font:12px Arial;margin:2px 2px 2px 0;padding:5px 7px;border:1px solid #bbb;border-radius:5px;background:white;cursor:pointer}.filters button.active{background:#333;color:white;border-color:#333}
 .note{font-size:11px;color:#555;line-height:1.3;margin-top:6px}
@@ -59,17 +59,40 @@ html,body,#map{height:100%;margin:0}
 <button id="f-pasture" onclick="setFilter('pasture')">Bete/slåtter (__N_PASTURE__)</button>
 <button id="f-unknown" onclick="setFilter('unknown')">Okänd/annan (__N_UNKNOWN__)</button>
 </div>
-<div class="note">"Odling/åker" är ett konservativt QA-filter: tydliga betes-/slåtterkoder och kod 314 tas bort. Rå grödkod visas alltid i popup. Ingen Geometry-score ändras.</div>
+<div class="note">"Odling/åker" är ett konservativt QA-filter: tydliga betes-/slåtterkoder och kod 314 tas bort. Rå grödkod visas alltid i popup. De små färgade prickarna är endast klickhandtag placerade inne i respektive polygon; de påverkar inga mått eller urval.</div>
 </div><div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map');L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 const gj=__GEOJSON__;
-function sty(f){const c=f.properties.map_class; const m={konigsegg:'#18a558',strong:'#0b72ff',extreme:'#f39c12',difficult:'#d81b60'}; return {color:m[c]||'#666',weight:c==='konigsegg'?3:2,fillColor:m[c]||'#666',fillOpacity:.42};}
+const colors={konigsegg:'#18a558',strong:'#0b72ff',extreme:'#f39c12',difficult:'#d81b60'};
+function colorFor(c){return colors[c]||'#666';}
+function sty(f){const c=f.properties.map_class; return {color:colorFor(c),weight:c==='konigsegg'?3:2,fillColor:colorFor(c),fillOpacity:.42};}
 function fmt(v,n=3){return (v===null||v===undefined||Number.isNaN(Number(v)))?'–':Number(v).toFixed(n)}
 function pop(p){return `<b>${p.kommun} · ${p.skiftesbeteckning}</b><br>Block: ${p.blockid}<br>Kategori: ${p.category}<br><b>Grödkod: ${p.crop_code_display}</b><br>Markgrupp: ${p.crop_group_label}<br>Areal: ${fmt(p.area_ha,2)} ha<br>Rectangularity: ${fmt(p.rectangularity)}<br>Convexity: ${fmt(p.convexity)}<br>MBR-aspekt: ${fmt(p.mbr_aspect_ratio)}<br>ERL-proxy: ${fmt(p.erl_proxy_m,1)} m<br>Hål: ${p.hole_count}`;}
 let layer=null;
 function featuresFor(kind){if(kind==='all')return gj.features;if(kind==='crop')return gj.features.filter(f=>f.properties.crop_group==='crop');if(kind==='pasture')return gj.features.filter(f=>f.properties.crop_group==='pasture');return gj.features.filter(f=>f.properties.crop_group==='unknown'||f.properties.crop_group==='other');}
-function setFilter(kind){if(layer)map.removeLayer(layer);const data={type:'FeatureCollection',features:featuresFor(kind)};layer=L.geoJSON(data,{style:sty,onEachFeature:(f,l)=>l.bindPopup(pop(f.properties))}).addTo(map);document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));document.getElementById('f-'+kind).classList.add('active');}
+function setFilter(kind){
+  if(layer)map.removeLayer(layer);
+  const features=featuresFor(kind);
+  const data={type:'FeatureCollection',features:features};
+  const polygons=L.geoJSON(data,{style:sty,onEachFeature:(f,l)=>l.bindPopup(pop(f.properties))});
+  const markers=L.layerGroup();
+  features.forEach(f=>{
+    const p=f.properties;
+    const lat=Number(p.rep_lat), lon=Number(p.rep_lon);
+    if(Number.isFinite(lat)&&Number.isFinite(lon)){
+      L.circleMarker([lat,lon],{
+        radius:p.map_class==='difficult'?5:3.5,
+        color:'#fff',weight:1,
+        fillColor:colorFor(p.map_class),fillOpacity:.95,
+        bubblingMouseEvents:false
+      }).bindPopup(pop(p)).addTo(markers);
+    }
+  });
+  layer=L.featureGroup([polygons,markers]).addTo(map);
+  document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('f-'+kind).classList.add('active');
+}
 const allLayer=L.geoJSON(gj);if(allLayer.getLayers().length)map.fitBounds(allLayer.getBounds(),{padding:[20,20]});setFilter('all');
 </script></body></html>'''
 
@@ -160,12 +183,22 @@ def main():
     ]).drop_duplicates(["blockid", "skiftesbeteckning"]); difficult["category"] = "Svår form"; difficult["map_class"] = "difficult"
 
     sel = pd.concat([konig, strong, extreme, difficult]).drop_duplicates(["blockid", "skiftesbeteckning"]).copy()
-    out_cols = ["kommun", "blockid", "skiftesbeteckning", "category", "map_class", "crop_code", "crop_code_int", "crop_code_display", "crop_group", "crop_group_label", "area_ha", "rectangularity", "convexity", "mbr_aspect_ratio", "erl_proxy_m", "hole_count", "perimeter_per_ha_m"]
-    sel[out_cols].to_csv(out_csv, index=False, encoding="utf-8-sig")
 
     g = gpd.read_file(skiften)[["blockid", "skiftesbeteckning", "geometry"]].copy()
     g["blockid"] = g["blockid"].astype(str); g["skiftesbeteckning"] = g["skiftesbeteckning"].astype(str)
-    g = g.merge(sel, on=["blockid", "skiftesbeteckning"], how="inner").to_crs(4326)
+    g = g.merge(sel, on=["blockid", "skiftesbeteckning"], how="inner")
+    if g.crs is None:
+        raise RuntimeError("Skiftefilen saknar CRS")
+
+    # representative_point() is guaranteed to lie inside the polygon. It is used
+    # only as a convenient click handle for narrow/very concave 'difficult' fields.
+    rep = gpd.GeoSeries(g.geometry.representative_point(), crs=g.crs).to_crs(4326)
+    g["rep_lat"] = rep.y.to_numpy()
+    g["rep_lon"] = rep.x.to_numpy()
+    g = g.to_crs(4326)
+
+    out_cols = ["kommun", "blockid", "skiftesbeteckning", "category", "map_class", "crop_code", "crop_code_int", "crop_code_display", "crop_group", "crop_group_label", "area_ha", "rectangularity", "convexity", "mbr_aspect_ratio", "erl_proxy_m", "hole_count", "perimeter_per_ha_m", "rep_lat", "rep_lon"]
+    g.drop(columns="geometry")[out_cols].to_csv(out_csv, index=False, encoding="utf-8-sig")
     gj = json.loads(g.to_json())
 
     counts = g["crop_group"].value_counts().to_dict()
@@ -183,6 +216,7 @@ def main():
     print(f"Bete/slåtter-filter:         {int(counts.get('pasture', 0)):,}")
     print(f"Okänd/annan markanvändning:  {int(counts.get('unknown', 0) + counts.get('other', 0)):,}")
     print(f"Königsegg-kandidater (4/4): {len(konig):,}")
+    print("Klickhjälp: representativ punkt i varje visat skifte.")
     print("Output:"); print(" ", out_html); print(" ", out_csv)
     print("Geometry-råmåtten och 4/4-screenen är oförändrade; detta är bara ett QA-lager/filter.")
 
