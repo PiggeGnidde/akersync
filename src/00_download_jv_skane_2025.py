@@ -61,27 +61,46 @@ def cql(code):
     return f"arslager={YEAR} AND region_kod LIKE '{code}%'"
 
 
-def hit_count(typename, code):
-    params = {
-        "SERVICE": "WFS",
-        "VERSION": "1.0.0",
-        "REQUEST": "GetFeature",
-        "TYPENAMES": typename,
-        "CQL_FILTER": cql(code),
-        "RESULTTYPE": "hits",
-    }
-    raw = request_bytes(params, timeout=120)
+def _parse_hits(raw):
     try:
         root = ET.fromstring(raw)
     except ET.ParseError:
         return None
     for k, v in root.attrib.items():
-        if k.lower().endswith("numberoffeatures") or k.lower().endswith("numbermatched"):
+        key = k.lower()
+        if key.endswith("numbermatched") or key.endswith("numberoffeatures"):
             try:
                 return int(v)
             except ValueError:
                 pass
     return None
+
+
+def hit_count(typename, code):
+    """Return a reliable positive WFS hit count when the service provides one.
+
+    The endpoint has been observed returning numberOfFeatures=0 for WFS 1.0
+    resultType=hits while a normal GetFeature with the exact same CQL filter
+    returns thousands of rows. Try newer WFS versions first. Zero is therefore
+    treated as 'hits unavailable' for municipality queries; a genuinely empty
+    municipality is still rejected after the GeoPackage download.
+    """
+    for version in ("2.0.0", "1.1.0", "1.0.0"):
+        params = {
+            "SERVICE": "WFS",
+            "VERSION": version,
+            "REQUEST": "GetFeature",
+            "TYPENAMES": typename,
+            "CQL_FILTER": cql(code),
+            "RESULTTYPE": "hits",
+        }
+        try:
+            n = _parse_hits(request_bytes(params, timeout=120))
+        except Exception:
+            continue
+        if n is not None and n > 0:
+            return n, version
+    return None, None
 
 
 def download_gpkg(typename, code, path):
@@ -130,6 +149,8 @@ def validate_part(g, info, code, expected):
         raise RuntimeError(f"{info['typename']} {code}: oväntade årslager {sorted(years)}")
     if g.crs is None:
         raise RuntimeError(f"{info['typename']} {code}: CRS saknas")
+    if g.geometry.isna().all() or g.geometry.is_empty.all():
+        raise RuntimeError(f"{info['typename']} {code}: alla geometrier saknas/tomma")
 
 
 def fetch_layer(kind, outdir, resume=True):
@@ -142,8 +163,11 @@ def fetch_layer(kind, outdir, resume=True):
     print("=" * 78)
 
     for i, (name, code) in enumerate(MUN_CODES.items(), 1):
-        expected = hit_count(info["typename"], code)
-        exp_txt = "?" if expected is None else f"{expected:,}"
+        expected, hits_version = hit_count(info["typename"], code)
+        if expected is None:
+            exp_txt = "? (hits opålitlig/ej tillgänglig)"
+        else:
+            exp_txt = f"{expected:,} (WFS {hits_version})"
         p = parts_dir / f"{code}_{kind}.gpkg"
         print(f"[{i:02d}/33] {name:<15} {code}  hits={exp_txt}", end="")
 
@@ -153,16 +177,24 @@ def fetch_layer(kind, outdir, resume=True):
                 candidate = gpd.read_file(p)
                 validate_part(candidate, info, code, expected)
                 g = candidate
-                print("  cache OK")
+                print(f"  cache OK ({len(g):,} rader)")
             except Exception as e:
                 print(f"  cache ogiltig ({e}); hämtar om")
                 p.unlink(missing_ok=True)
         if g is None:
             g = download_gpkg(info["typename"], code, p)
             validate_part(g, info, code, expected)
-            print(f"  hämtad {len(g):,} rader, {p.stat().st_size/1024/1024:.1f} MB")
+            suffix = ""
+            if expected is None:
+                suffix = "; hits ej användbar, år/kommun/geometri OK"
+            print(f"  hämtad {len(g):,} rader, {p.stat().st_size/1024/1024:.1f} MB{suffix}")
 
-        counts[name] = {"code": code, "rows": int(len(g)), "wfs_hits": expected}
+        counts[name] = {
+            "code": code,
+            "rows": int(len(g)),
+            "wfs_hits": expected,
+            "wfs_hits_version": hits_version,
+        }
         parts.append(g)
 
     crs = parts[0].crs
@@ -197,7 +229,7 @@ def main():
     print("=" * 78)
     print("Källa:", BASE)
     print("Output:", outdir)
-    print("Strategi: 33 kommunfilter per lager + WFS hits-kontroll + resumable cache")
+    print("Strategi: 33 kommunfilter per lager + resumable cache + WFS hits när tillförlitligt")
 
     bpath, blocks, bcounts = fetch_layer("blocks", outdir, resume=not a.no_resume)
     spath, skiften, scounts = fetch_layer("skiften", outdir, resume=not a.no_resume)
@@ -215,6 +247,7 @@ def main():
         "blocks": {"path": str(bpath), "rows": int(len(blocks)), "municipalities": bcounts},
         "skiften": {"path": str(spath), "rows": int(len(skiften)), "municipalities": scounts},
         "orphan_skifte_blockids": 0,
+        "note": "WFS resultType=hits can return zero on this endpoint; positive hits are enforced when available, otherwise year/region/geometry invariants are enforced.",
     }
     mpath = outdir / "manifest_skane_2025.json"
     mpath.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
