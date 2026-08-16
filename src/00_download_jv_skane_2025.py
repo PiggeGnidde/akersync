@@ -66,6 +66,19 @@ def year_cql():
     return f"arslager={YEAR}"
 
 
+def skifte_bbox_cql(x0, y0, x1, y1):
+    """One CQL filter containing both year and spatial restriction.
+
+    Jordbruksverkets GeoServer rejects simultaneous BBOX= and CQL_FILTER=
+    query parameters. The skifte feature type uses the geometry property
+    name 'geom', so put BBOX inside CQL instead.
+    """
+    return (
+        f"arslager={YEAR} AND "
+        f"BBOX(geom,{x0:.3f},{y0:.3f},{x1:.3f},{y1:.3f},'EPSG:3006')"
+    )
+
+
 def _parse_hits(raw):
     try:
         root = ET.fromstring(raw)
@@ -261,10 +274,9 @@ def fetch_skiften(outdir, blocks, resume=True):
     """Fetch skiften by municipality block extent, then assign municipality by blockid.
 
     arslager_skifte does not expose region_kod, so CQL region filtering is invalid.
-    We instead query a padded bbox around each municipality's blocks and retain
-    only skiften whose blockid belongs to that municipality. The bbox candidate
-    count is checked against WFS hits whenever the endpoint provides a positive
-    count, protecting against silent result truncation.
+    Jordbruksverkets GeoServer also rejects BBOX and CQL_FILTER as two separate
+    request parameters. We therefore combine year + BBOX(geom, ...) into one
+    CQL filter, then retain only skiften whose blockid belongs to the municipality.
     """
     parts_dir = outdir / "parts" / "skiften"
     parts_dir.mkdir(parents=True, exist_ok=True)
@@ -281,6 +293,7 @@ def fetch_skiften(outdir, blocks, resume=True):
     print("Jordbruksverket 2025 · skiften")
     print("=" * 78)
     print("Obs: skifteslagret saknar region_kod; kommun härleds via blockid.")
+    print("Spatialt urval: år + BBOX(geom, ...) i samma CQL-filter.")
 
     all_regions = blocks.region_kod.astype(str)
     for i, (name, code) in enumerate(MUN_CODES.items(), 1):
@@ -289,12 +302,17 @@ def fetch_skiften(outdir, blocks, resume=True):
             raise RuntimeError(f"Inga block för {name} ({code}) i det kompletta blocklagret")
         allowed = set(b.blockid.astype(str))
         x0, y0, x1, y1 = [float(v) for v in b.total_bounds]
-        bbox = f"{x0-BBOX_PAD_M:.3f},{y0-BBOX_PAD_M:.3f},{x1+BBOX_PAD_M:.3f},{y1+BBOX_PAD_M:.3f},EPSG:3006"
-        expected, hits_version = hit_count_query(SKIFTE_INFO["typename"], year_cql(), bbox=bbox)
+        qx0 = x0 - BBOX_PAD_M
+        qy0 = y0 - BBOX_PAD_M
+        qx1 = x1 + BBOX_PAD_M
+        qy1 = y1 + BBOX_PAD_M
+        bbox_label = f"{qx0:.3f},{qy0:.3f},{qx1:.3f},{qy1:.3f},EPSG:3006"
+        spatial_cql = skifte_bbox_cql(qx0, qy0, qx1, qy1)
+        expected, hits_version = hit_count_query(SKIFTE_INFO["typename"], spatial_cql)
         exp_txt = "? (hits opålitlig/ej tillgänglig)" if expected is None else f"{expected:,} (WFS {hits_version})"
         p = parts_dir / f"{code}_skiften.gpkg"
         meta = parts_dir / f"{code}_skiften.json"
-        print(f"[{i:02d}/33] {name:<15} {code}  bbox-hits={exp_txt}", end="")
+        print(f"[{i:02d}/33] {name:<15} {code}  cql-bbox-hits={exp_txt}", end="")
 
         g = None
         cached_meta = {}
@@ -314,7 +332,7 @@ def fetch_skiften(outdir, blocks, resume=True):
         candidate_rows = cached_meta.get("candidate_rows")
         if g is None:
             cand_path = parts_dir / f"{code}_skiften_bbox_candidate.gpkg"
-            cand = download_gpkg_query(SKIFTE_INFO["typename"], cand_path, year_cql(), bbox=bbox)
+            cand = download_gpkg_query(SKIFTE_INFO["typename"], cand_path, spatial_cql)
             validate_skifte_candidate(cand, expected)
             candidate_rows = int(len(cand))
             ids = cand.blockid.astype(str)
@@ -327,7 +345,8 @@ def fetch_skiften(outdir, blocks, resume=True):
             cand_path.unlink(missing_ok=True)
             meta.write_text(json.dumps({
                 "code": code,
-                "bbox": bbox,
+                "bbox": bbox_label,
+                "cql_filter": spatial_cql,
                 "candidate_rows": candidate_rows,
                 "bbox_wfs_hits": expected,
                 "bbox_wfs_hits_version": hits_version,
@@ -376,7 +395,7 @@ def main():
     print("=" * 78)
     print("Källa:", BASE)
     print("Output:", outdir)
-    print("Strategi: block per kommun; skiften via block-bbox + lokal blockid-koppling; resumable cache")
+    print("Strategi: block per kommun; skiften via CQL year+BBOX + lokal blockid-koppling; resumable cache")
 
     bpath, blocks, bcounts = fetch_blocks(outdir, resume=not a.no_resume)
     spath, skiften, scounts = fetch_skiften(outdir, blocks, resume=not a.no_resume)
@@ -396,7 +415,8 @@ def main():
         "orphan_skifte_blockids": 0,
         "notes": [
             "arslager_skifte saknar region_kod; kommun härleds via blockid mot arslager_block.",
-            "Skiften hämtas som bbox-kandidater per kommun och filtreras lokalt på kommunens blockid.",
+            "Skiften hämtas med ett kombinerat CQL-filter: arslager + BBOX(geom,...), eftersom tjänsten avvisar separata BBOX- och CQL_FILTER-parametrar.",
+            "BBox-kandidater filtreras lokalt på kommunens blockid.",
             "Positiva WFS hits används som trunceringskontroll när tjänsten ger tillförlitligt resultat.",
         ],
     }
