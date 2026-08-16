@@ -19,6 +19,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+from pyproj import Transformer
 
 from common import load_config, MUN_CODES
 
@@ -107,6 +108,24 @@ def main():
         f"tile_size_m={TILE}\n",
         encoding="utf-8")
 
+    # The proven legacy downloader searches the Lantmäteriet catalogue in
+    # WGS84. Emit that envelope dynamically so the downloader helper never
+    # hard-codes the extent of an earlier, incomplete raw-data extract.
+    tf=Transformer.from_crs(3006,4326,always_xy=True)
+    corners=[
+        tf.transform(minx,miny),
+        tf.transform(minx,maxy+TILE),
+        tf.transform(maxx+TILE,miny),
+        tf.transform(maxx+TILE,maxy+TILE),
+    ]
+    west=min(p[0] for p in corners); east=max(p[0] for p in corners)
+    south=min(p[1] for p in corners); north=max(p[1] for p in corners)
+    bbox_wgs=outdir/"dem_plan_skane_bbox_wgs84.txt"
+    bbox_wgs.write_text(
+        "Skåne DEM plan · WGS84 search bbox\n"
+        f"west={west:.7f}\nsouth={south:.7f}\neast={east:.7f}\nnorth={north:.7f}\n",
+        encoding="utf-8")
+
     print("="*72)
     print("ÅkerSync · Skåne DEM-plan")
     print("="*72)
@@ -118,6 +137,7 @@ def main():
     print(f"Matchar rectangle-namn: {int(df.already_downloaded.sum()):,}")
     print(f"Saknas i rectangle: {len(missing):,}")
     print(f"BBox EPSG:3006: {minx}, {miny}, {maxx+TILE}, {maxy+TILE}")
+    print(f"BBox WGS84: {west:.7f}, {south:.7f}, {east:.7f}, {north:.7f}")
     print("\nOBS: hydrologi behöver sammanhängande terrängkontext; enbart fältrutor")
     print("kan skapa konstgjorda NoData-kanter. Rectangle är därför den säkra")
     print("första Skåne-MVP-planen; havsrutor kan naturligt saknas.")
@@ -125,6 +145,7 @@ def main():
     print("Missing CSV:",missing_csv)
     print("Missing filenames:",missing_txt)
     print("BBox:",bbox)
+    print("BBox WGS84:",bbox_wgs)
 
 
 if __name__=="__main__":main()
