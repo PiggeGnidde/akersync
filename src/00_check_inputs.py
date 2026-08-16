@@ -28,18 +28,24 @@ def main():
  codes=tuple(MUN_CODES.values())
  b=blocks[region.str.startswith(codes)]
  s=skiften[skiften.blockid.isin(b.blockid)]
- print(f"Block i Skåne: {len(b):,} (planeringsreferens 24,619)")
+ print(f"Block i Skåne: {len(b):,}")
  print(f"Skiften i Skåne: {len(s):,}")
- print("Kommunvis blockkontroll:")
- zero=[]
+ print("Kommunvis rådatakontroll:")
+ zero_blocks=[]; zero_skiften=[]
  for name,code in MUN_CODES.items():
-  n=int(region.str.startswith(code).sum())
-  print(f"  {name:<15} {code}: {n:>5,}")
-  if n==0: zero.append((name,code))
- if zero:
-  print("\nSAKNAR BLOCK FÖR KOMMUN(ER):",", ".join(f"{n} ({c})" for n,c in zero))
-  print("Detta är ett rådata-/urvalsproblem, inte ett jordberäkningsfel.")
-  print("Bygget stoppas så att en ofullständig Skåne-MVP inte kan passera som komplett.")
+  bm=blocks[region.str.startswith(code)]
+  sm=skiften[skiften.blockid.isin(bm.blockid)]
+  nb=len(bm); ns=len(sm)
+  print(f"  {name:<15} {code}: block {nb:>5,}  skiften {ns:>5,}")
+  if nb==0: zero_blocks.append((name,code))
+  if ns==0: zero_skiften.append((name,code))
+ if zero_blocks or zero_skiften:
+  if zero_blocks:
+   print("\nSAKNAR BLOCK FÖR KOMMUN(ER):",", ".join(f"{n} ({c})" for n,c in zero_blocks))
+  if zero_skiften:
+   print("\nSAKNAR SKIFTEN FÖR KOMMUN(ER):",", ".join(f"{n} ({c})" for n,c in zero_skiften))
+  print("Detta är ett rådata-/urvalsproblem. Bygget stoppas så att en ofullständig")
+  print("Skåne-MVP inte kan passera som komplett.")
   raise SystemExit(3)
 
  with zipfile.ZipFile(cfg["soil_zip"]) as z:
@@ -50,7 +56,7 @@ def main():
    if not ok: raise SystemExit(2)
 
  dem=sorted(Path(cfg["dem_dir"]).glob("*.tif"))
- print(f"DEM .tif: {len(dem):,} (Skåne-MVP har 561 tillgängliga legacy 2.5 km-rutor)")
+ print(f"DEM .tif: {len(dem):,}")
  if not dem: raise SystemExit("Inga DEM-filer.")
  epsgs=set()
  for p in dem[:min(20,len(dem))]:
