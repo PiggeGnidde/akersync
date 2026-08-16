@@ -9,17 +9,31 @@ $ErrorActionPreference = 'Stop'
 $source = Join-Path $DownloaderDir 'download_dem.ps1'
 $target = Join-Path $DownloaderDir 'download_dem_skane.ps1'
 $missingTxt = Join-Path $RepoDir 'data\derived\dem_missing_skane_2p5km.txt'
+$bboxWgsTxt = Join-Path $RepoDir 'data\derived\dem_plan_skane_bbox_wgs84.txt'
 $wantedCsv = Join-Path $DownloaderDir 'wanted_tiles_skane.csv'
 
 if (-not (Test-Path $source)) { throw "Saknar originalnedladdaren: $source" }
 if (-not (Test-Path $missingTxt)) { throw "Saknar Skåne-listan: $missingTxt" }
+if (-not (Test-Path $bboxWgsTxt)) { throw "Saknar dynamisk WGS84-bbox: $bboxWgsTxt. Kör PLAN_SKANE_DEM.bat igen först." }
 
 $files = @(Get-Content $missingTxt | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-if ($files.Count -ne 367) {
-    throw "Väntade 367 saknade DEM-filer, fick $($files.Count). Kör PLAN_SKANE_DEM.bat igen först."
+if ($files.Count -lt 1) {
+    throw "Inga saknade DEM-filer finns i planen. Ingen downloader behöver förberedas."
 }
 
-# Create a dedicated CSV for the Skåne downloader. Leave yesterday's files untouched.
+$bboxMap = @{}
+Get-Content $bboxWgsTxt | ForEach-Object {
+    if ($_ -match '^([^=]+)=(.+)$') {
+        $bboxMap[$matches[1].Trim()] = $matches[2].Trim()
+    }
+}
+foreach ($k in @('west','south','east','north')) {
+    if (-not $bboxMap.ContainsKey($k)) { throw "Saknar $k i $bboxWgsTxt" }
+}
+$west=$bboxMap['west']; $south=$bboxMap['south']; $east=$bboxMap['east']; $north=$bboxMap['north']
+
+# Create a dedicated CSV for the Skåne downloader. Leave the proven original
+# downloader and any older wanted lists untouched.
 @('filename;municipalities') + ($files | ForEach-Object { "$_;Skane" }) |
     Set-Content -Path $wantedCsv -Encoding UTF8
 
@@ -45,10 +59,8 @@ foreach ($line in $lines) {
     }
 
     if ($line -match '^\$Areas\s*=\s*\[ordered\]@\{') {
-        # WGS84 envelope of the verified 2.5 km rectangle
-        # EPSG:3006 bbox: 362500,6152500,420000,6217500.
         $out.Add('$Areas = [ordered]@{')
-        $out.Add('    "Skane" = @(12.7904, 55.4992, 13.7332, 56.0959)')
+        $out.Add(('    "Skane" = @({0}, {1}, {2}, {3})' -f $west,$south,$east,$north))
         $out.Add('}')
         $mode = 'areas'
         $areasDone = $true
@@ -104,7 +116,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 echo ============================================================
 echo AkerSync DEM v1.9 - SKANE - LADDA NER
- echo Output: $OutputDir
+echo Output: $OutputDir
 echo ============================================================
 echo.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0download_dem_skane.ps1"
@@ -116,11 +128,12 @@ Write-Host ('='*72)
 Write-Host 'ÅkerSync · Skåne-downloader förberedd'
 Write-Host ('='*72)
 Write-Host "Saknade filer i wanted-listan: $($files.Count)"
+Write-Host "WGS84 search bbox:           $west, $south, $east, $north"
 Write-Host "Källa (orörd):              $source"
 Write-Host "Skåne-kopia:                $target"
 Write-Host "Wanted CSV:                 $wantedCsv"
 Write-Host "Output:                     $OutputDir"
-Write-Host "Torrkörning:                 $listBat"
-Write-Host "Nedladdning:                 $startBat"
+Write-Host "Torrkörning:                $listBat"
+Write-Host "Nedladdning:                $startBat"
 Write-Host ''
 Write-Host 'Kör BARA_LISTA_SKANE.bat först. STARTA_SKANE.bat först efter kontroll.'
