@@ -60,12 +60,12 @@ def main():
             print("  ",str(name)+marker)
 
     if not missing:
-        print("\nDEM CHECK: KOMPLETT 598/598")
+        print(f"\nDEM CHECK: KOMPLETT {len(expected):,}/{len(expected):,}")
         return 0
     if missing_core==0:
         print("\nDEM CHECK: all farmland-core finns.")
         print("Återstående one-ring/rectangle-rutor kan vara hav eller verkliga luckor;")
-        print("skicka utskriften innan BUILD_ALL så granskar vi dem.")
+        print("granska topologin innan BUILD_ALL.")
         return 0
 
     print("\nDEM CHECK: DATA SAKNAS I FARMLAND-CORE — kör inte BUILD_ALL ännu.")
