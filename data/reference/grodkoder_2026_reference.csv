@@ -1,0 +1,101 @@
+crop_code,crop_name_reference_2026
+1,Korn (höst)
+2,Korn (vår)
+3,Havre
+4,Vete (höst)
+5,Vete (vår)
+6,Blandningar av baljväxter eller klöver till grovfoder/ensilage
+7,Rågvete (höst)
+8,Råg
+9,Majs
+10,Bovete
+11,Spannmålsförsök
+12,Blandsäd (stråsädesblandningar) (vår)
+13,"Blandsäd (spannmåls-/baljväxt-blandning), mer än 50% spannmål"
+14,Kanariefrö
+15,Hirs
+16,Stråsäd till grönfoder/ensilage
+20,Raps (höst)
+21,Raps (vår)
+22,Rybs (höst)
+23,Rybs (vår)
+24,Solros
+25,Oljeväxtförsök
+26,Högerukaraps
+27,Vitsenap
+28,Oljerättika
+29,Rågvete (vår)
+30,Ärter (ej konservärter)
+31,Konservärter
+32,Åkerbönor
+33,Sötlupiner
+34,Proteingrödsblandningar (baljväxter/spannmål)*
+35,Bruna bönor
+36,Vicker
+37,Kikärter
+38,Sojabönor (oljeväxt)
+39,Sojabönor (foderväxt)
+40,Oljelin
+41,Spånadslin
+42,Hampa
+43,Bönor övriga
+45,Matpotatis
+46,Stärkelsepotatis
+47,Sockerbetor
+48,Foderbetor
+49,Slåtter och betesvall på åkermark med  en vallgröda som ej är godkänd för ersättning för ekologisk produktion
+50,Slåtter och betesvall på åkermark
+52,Betesmark (ej åker)
+53,Slåtteräng (ej åker) 
+54,Skogsbete 
+55,Fäbodbete som inte ger rätt till gårdsstöd och kompensationsstöd
+56,"Alvarbete (Öland, Gotland)"
+57,"Slåttervall på åker (kontrakt med vallfodertork, Grovfoder)"
+58,Gräsfrövall (ettårig)
+59,Gräsfrövall (flerårig)
+60,Träda
+61,Fäbodbete som ger rätt till gårdsstöd och kompensationsstöd
+62,Klöverfrövall
+63,Energigräs 
+65,Salix
+66,Anpassad skyddszon
+67,Poppel
+68,Hybridasp
+70,Jordgubbsodling
+71,Övrig bärodling 
+72,Fruktodling
+73,Nötodling
+74,Grönsaksodling (köksväxter)
+77,Skyddszon mot vattenområde
+78,Plantskolor med odling av permanenta grödor
+79,Kryddväxter och utsäde grönsaker
+80,Grönfoder
+81,Gröngödsling
+82,Våtmark
+83,Julgransodling
+85,"Trädgårdsodling (ej köksväxter, frukt eller bär)"
+86,Ej stödberättigande gröda (bara för ersättningarna inom ekologisk produktion)
+87,Annan stödberättigande gröda 
+88,Övrig odling på åkermark***
+89,Mosaikbetesmark
+90,Gräsfattiga marker
+95,Betesmark och slåtteräng under restaurering
+300,Fodermärgkål
+301,Westerwoldiskt rajgräs
+302,Lusern
+303,Cikoria
+304,Gräsmatteodling
+305,Humle
+306,Quinoa
+307,Speltvete
+308,Sötväppling
+309,Tobak
+310,Viltåker
+311,Färskpotatis
+312,Sparris
+313,Rabarber
+314,Annan markanvändning som inte är stödberättigande
+315,Blandsäd (stråsädesblandningar) (höst)
+316,Vete (flerårigt)
+317,Råg (flerårigt)
+318,Blommande åker och fältkant
