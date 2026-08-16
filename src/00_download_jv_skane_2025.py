@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
-import tempfile
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -98,7 +96,7 @@ def download_gpkg(typename, code, path):
     }
     raw = request_bytes(params)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
+    tmp = path.with_name(path.stem + ".tmp.gpkg")
     tmp.write_bytes(raw)
     try:
         g = gpd.read_file(tmp)
@@ -106,6 +104,8 @@ def download_gpkg(typename, code, path):
         head = raw[:1000].decode("utf-8", errors="replace")
         tmp.unlink(missing_ok=True)
         raise RuntimeError(f"Svaret för {typename} {code} var inte en läsbar GeoPackage.\n{head}")
+    if path.exists():
+        path.unlink()
     tmp.replace(path)
     return g
 
@@ -134,7 +134,6 @@ def validate_part(g, info, code, expected):
 
 def fetch_layer(kind, outdir, resume=True):
     info = dict(LAYERS[kind])
-    info["typename"] = LAYERS[kind]["typename"]
     parts_dir = outdir / "parts" / kind
     parts = []
     counts = {}
