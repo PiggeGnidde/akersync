@@ -57,7 +57,7 @@ html,body,#map{height:100%;margin:0}
 <button id="f-all" class="active" onclick="setFilter('all')">Alla (__N_ALL__)</button>
 <button id="f-crop" onclick="setFilter('crop')">Odling/åker (__N_CROP__)</button>
 <button id="f-pasture" onclick="setFilter('pasture')">Bete/slåtter (__N_PASTURE__)</button>
-<button id="f-unknown" onclick="setFilter('unknown')">Okänd kod (__N_UNKNOWN__)</button>
+<button id="f-unknown" onclick="setFilter('unknown')">Okänd/annan (__N_UNKNOWN__)</button>
 </div>
 <div class="note">"Odling/åker" är ett konservativt QA-filter: tydliga betes-/slåtterkoder och kod 314 tas bort. Rå grödkod visas alltid i popup. Ingen Geometry-score ändras.</div>
 </div><div id="map"></div>
@@ -68,7 +68,7 @@ function sty(f){const c=f.properties.map_class; const m={konigsegg:'#18a558',str
 function fmt(v,n=3){return (v===null||v===undefined||Number.isNaN(Number(v)))?'–':Number(v).toFixed(n)}
 function pop(p){return `<b>${p.kommun} · ${p.skiftesbeteckning}</b><br>Block: ${p.blockid}<br>Kategori: ${p.category}<br><b>Grödkod: ${p.crop_code_display}</b><br>Markgrupp: ${p.crop_group_label}<br>Areal: ${fmt(p.area_ha,2)} ha<br>Rectangularity: ${fmt(p.rectangularity)}<br>Convexity: ${fmt(p.convexity)}<br>MBR-aspekt: ${fmt(p.mbr_aspect_ratio)}<br>ERL-proxy: ${fmt(p.erl_proxy_m,1)} m<br>Hål: ${p.hole_count}`;}
 let layer=null;
-function featuresFor(kind){if(kind==='all')return gj.features;if(kind==='crop')return gj.features.filter(f=>f.properties.crop_group==='crop');if(kind==='pasture')return gj.features.filter(f=>f.properties.crop_group==='pasture');return gj.features.filter(f=>f.properties.crop_group==='unknown');}
+function featuresFor(kind){if(kind==='all')return gj.features;if(kind==='crop')return gj.features.filter(f=>f.properties.crop_group==='crop');if(kind==='pasture')return gj.features.filter(f=>f.properties.crop_group==='pasture');return gj.features.filter(f=>f.properties.crop_group==='unknown'||f.properties.crop_group==='other');}
 function setFilter(kind){if(layer)map.removeLayer(layer);const data={type:'FeatureCollection',features:featuresFor(kind)};layer=L.geoJSON(data,{style:sty,onEachFeature:(f,l)=>l.bindPopup(pop(f.properties))}).addTo(map);document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));document.getElementById('f-'+kind).classList.add('active');}
 const allLayer=L.geoJSON(gj);if(allLayer.getLayers().length)map.fitBounds(allLayer.getBounds(),{padding:[20,20]});setFilter('all');
 </script></body></html>'''
