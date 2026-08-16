@@ -30,6 +30,30 @@ def check_range(name,series,lo,hi):
     return ok
 
 
+def audited_subpixel_ok(d:Path,missing_ids:set[str]):
+    if not missing_ids:
+        return True,"inga undantag"
+    p=d/"hydrology_missing_blocks_audit.csv"
+    if not p.exists():
+        return False,f"audit saknas: {p}"
+    a=pd.read_csv(p,dtype={"blockid":str,"region_kod":str})
+    if not {"blockid","reason"}.issubset(a.columns):
+        return False,"audit saknar blockid/reason"
+    ids=set(a.blockid.astype(str))
+    if ids!=missing_ids:
+        return False,f"audit-id matchar inte hydrologins NaN-block: audit={len(ids)}, missing={len(missing_ids)}"
+    if not bool((a.reason.astype(str)=="SUBPIXEL_10M").all()):
+        return False,"minst ett hydrologiundantag är inte SUBPIXEL_10M"
+    if "dem_inside_centres" in a.columns:
+        c=pd.to_numeric(a.dem_inside_centres,errors="coerce")
+        if not bool((c==0).all()):
+            return False,"subpixel-audit innehåller DEM-cellcentrum"
+    area=float(pd.to_numeric(a.get("area_ha",pd.Series(dtype=float)),errors="coerce").fillna(0).sum())
+    if len(a)>12 or area>0.10:
+        return False,f"för många/stora subpixel-undantag: n={len(a)}, area={area:.6f} ha"
+    return True,f"{len(a)} SUBPIXEL_10M, total area {area:.6f} ha"
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--config",default="config/local_paths.json")
@@ -94,11 +118,15 @@ def main():
         ok &= close(f"{mun} median clay coverage",float(r.median_clay_coverage_pct),refs["coverage"],0.06)
 
     # Full-Skåne completeness / sanity. Relative TWI thresholds are expected to
-    # change versus v0.92, so verify ordering and finite coverage, not old values.
+    # change versus v0.92. Hydrology may have audited 10 m subpixel exceptions:
+    # polygons with no 10 m cell centre are retained as explicit NaN, not imputed.
     topo_complete=int(pd.to_numeric(topo.elev_mean_m,errors="coerce").notna().sum())==blocks
-    hydro_complete=int(pd.to_numeric(hyd.twi_mean,errors="coerce").notna().sum())==blocks
+    hyd_missing=set(hyd.loc[pd.to_numeric(hyd.twi_mean,errors="coerce").isna(),"blockid"].astype(str))
+    subpixel_ok,subpixel_msg=audited_subpixel_ok(d,hyd_missing)
+    hydro_complete=(len(hyd)-len(hyd_missing)==blocks-len(hyd_missing) and subpixel_ok)
     ok &= topo_complete and hydro_complete
-    print("Topography complete:",topo_complete,"Hydrology complete:",hydro_complete,
+    print("Topography complete:",topo_complete,
+          f"Hydrology valid: {blocks-len(hyd_missing)}/{blocks}; exceptions={len(hyd_missing)} ({subpixel_msg})",
           "->","OK" if topo_complete and hydro_complete else "VARNING")
 
     ok &= check_range("DEM coverage %",topo.dem_coverage_pct,0,100.0001)
@@ -115,7 +143,7 @@ def main():
     else:
         print("Skåne farmland TWI thresholds saknas -> VARNING")
 
-    # Web is intentionally split into one page per municipality.  This is a
+    # Web is intentionally split into one page per municipality. This is a
     # scalability check: no giant all-Skåne HTML is required in the browser.
     dist=root/cfg.get("dist_dir","dist")
     idx=dist/"index.html";manifest_path=dist/"municipalities.json";page_dir=dist/"municipalities"
