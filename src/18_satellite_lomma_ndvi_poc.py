@@ -17,6 +17,7 @@ import pandas as pd
 import rasterio
 from rasterio.features import geometry_mask
 from rasterio.windows import from_bounds, Window
+from shapely.geometry import box
 
 from common import load_config
 
@@ -90,8 +91,10 @@ def main() -> int:
         raise RuntimeError("Hittade inte Lomma-block/skiften")
 
     # Small buffer so edge fields are not clipped by the requested raster extent.
+    # Use Shapely box instead of GeoSeries.from_bbox for compatibility with the
+    # GeoPandas version used by the validated ÅkerSync environment.
     minx, miny, maxx, maxy = lomma_skiften.total_bounds
-    bbox3006 = gpd.GeoSeries.from_bbox((minx-100, miny-100, maxx+100, maxy+100), crs=3006)
+    bbox3006 = gpd.GeoSeries([box(minx-100, miny-100, maxx+100, maxy+100)], crs=3006)
     west, south, east, north = [float(x) for x in bbox3006.to_crs(4326).total_bounds]
     spatial = {"west": west, "south": south, "east": east, "north": north, "crs": "EPSG:4326"}
 
