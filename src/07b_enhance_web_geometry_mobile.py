@@ -8,7 +8,8 @@ alone.  The enhancer runs immediately after the normal web build and adds:
 * compact Geometry V1a raw descriptors to skifte popups (NO score),
 * a scrollable popup also on desktop; mobile keeps its existing bounded popup,
 * expandable secondary geometry details,
-* a small GPS dot instead of Leaflet's large default pin.
+* a small GPS dot instead of Leaflet's large default pin,
+* skifte click priority over the parent block so field geometry is actually reachable.
 
 Geometry is embedded as compact arrays per skifte to avoid repeating long JSON
 property names in already-large municipality HTML files.
@@ -99,6 +100,16 @@ NEW_GPS = """gpsLayer=L.layerGroup([\n     L.circle([lat,lon],{radius:acc,color:
 POPUP_CHAIN = "${textureSummaryHtml(st)}${detailedSoilHtml(st,parent)}${topoSummaryHtml(blockTopo(p.blockid))}${hydroSummaryHtml(blockHydro(p.blockid))}"
 POPUP_CHAIN_GEOM = "${geometrySummaryHtml(p)}${textureSummaryHtml(st)}${detailedSoilHtml(st,parent)}${topoSummaryHtml(blockTopo(p.blockid))}${hydroSummaryHtml(blockHydro(p.blockid))}"
 
+# In the validated v0.92 shell, the block layer was brought to the front after
+# the skifte layer. Since a skifte lies inside its parent block, the block then
+# captured the click almost everywhere and the skifte popup (where Geometry V1a
+# lives) was effectively hidden. Keep the same visual layers but make skiften
+# the top interactive layer; warnings remain topmost.
+OLD_SOIL_LAYER_ORDER = "if(skifteLayer&&map.hasLayer(skifteLayer))skifteLayer.bringToFront();\n if(blockLayer&&map.hasLayer(blockLayer))blockLayer.bringToFront();\n if(warningLayer&&map.hasLayer(warningLayer))warningLayer.bringToFront();"
+NEW_SOIL_LAYER_ORDER = "if(blockLayer&&map.hasLayer(blockLayer))blockLayer.bringToFront();\n if(skifteLayer&&map.hasLayer(skifteLayer))skifteLayer.bringToFront();\n if(warningLayer&&map.hasLayer(warningLayer))warningLayer.bringToFront();"
+OLD_VIS_LAYER_ORDER = "if(ss)skifteLayer.bringToFront();if(sb)blockLayer.bringToFront();if(sw)warningLayer.bringToFront();"
+NEW_VIS_LAYER_ORDER = "if(sb)blockLayer.bringToFront();if(ss)skifteLayer.bringToFront();if(sw)warningLayer.bringToFront();"
+
 
 def jnum(v):
     if pd.isna(v):
@@ -148,6 +159,8 @@ def enhance_html(html: str, geom: dict[str, list]) -> str:
     )
     html = replace_once(html, POPUP_CHAIN, POPUP_CHAIN_GEOM, "Geometry popup-innehåll")
     html = replace_once(html, OLD_GPS, NEW_GPS, "GPS-prick")
+    html = replace_once(html, OLD_SOIL_LAYER_ORDER, NEW_SOIL_LAYER_ORDER, "skifte klickprioritet efter jordlager")
+    html = replace_once(html, OLD_VIS_LAYER_ORDER, NEW_VIS_LAYER_ORDER, "skifte klickprioritet vid lager-visning")
 
     # Human-facing wording. Keep the model/scoring distinction explicit.
     html = html.replace(
@@ -217,7 +230,7 @@ def main():
     print(f"  Geometrimatchning: {total_geom:,} / {int(g.shape[0]):,} Geometry V1a-rader")
     print(f"  Extra HTML totalt: {total_added/1024/1024:.1f} MB")
     print("  Popup: geometri + jord + topografi + hydrologi")
-    print("  UI: desktop-popup begränsad/scrollbar; befintlig mobil-scroll kvar")
+    print("  UI: skifte ligger över block för klick; desktop-popup scroll; mobil-scroll kvar")
     print("  GPS: 4 px blå prick + diskret noggrannhetscirkel")
     print("  Score: INGEN")
     return 0
