@@ -18,10 +18,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 import urllib.error
 import urllib.request
-from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
@@ -69,7 +67,11 @@ def mgrs_tile(item: dict) -> str:
     for k in ("mgrs:tile", "s2:mgrs_tile", "grid:code"):
         v = p.get(k)
         if v:
-            s = str(v).upper().replace("MGRS-", "").replace("T", "", 1) if str(v).upper().startswith("T") else str(v).upper()
+            s = str(v).upper()
+            if s.startswith("MGRS-"):
+                s = s[5:]
+            if s.startswith("T") and re.fullmatch(r"T[0-9]{2}[A-Z]{3}", s):
+                s = s[1:]
             if re.fullmatch(r"[0-9]{2}[A-Z]{3}", s):
                 return s
     return "UNKNOWN"
@@ -107,7 +109,6 @@ def main() -> int:
     outdir = root / cfg.get("build_dir", "data/derived")
     outdir.mkdir(parents=True, exist_ok=True)
 
-    # Validate dates early.
     start = date.fromisoformat(args.start)
     end = date.fromisoformat(args.end)
     if end < start:
@@ -127,8 +128,8 @@ def main() -> int:
     if len(blocks) == 0:
         raise RuntimeError("Inga blockgeometrier")
 
-    bbox4326 = gpd.GeoSeries.from_bbox(tuple(blocks.to_crs(4326).total_bounds), crs=4326).total_bounds
-    west, south, east, north = [float(x) for x in bbox4326]
+    blocks4326 = blocks.to_crs(4326)
+    west, south, east, north = [float(x) for x in blocks4326.total_bounds]
     print(f"Skåne-block: {len(blocks):,}")
     print(f"BBox WGS84: {west:.6f}, {south:.6f}, {east:.6f}, {north:.6f}")
 
@@ -225,7 +226,6 @@ def main() -> int:
         })
     tile_summary = pd.DataFrame(summary_rows).sort_values("tile")
 
-    # Save planning artifacts.
     stem = f"sentinel2_preflight_{args.start.replace('-', '')}_{args.end.replace('-', '')}"
     obs_csv = outdir / f"{stem}_items.csv"
     tiles_csv = outdir / f"{stem}_tiles.csv"
