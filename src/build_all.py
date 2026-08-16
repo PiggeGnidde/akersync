@@ -23,7 +23,8 @@ def main():
  d=ROOT/cfg.get("build_dir","data/derived");d.mkdir(parents=True,exist_ok=True)
 
  run("0. Kontrollera rådata",[PY,"src/00_check_inputs.py","--config",a.config])
- run("1. Geometri · Skåne",[PY,"src/01_geometry.py","--config",a.config])
+ run("1. Geometri · baspayload · Skåne",[PY,"src/01_geometry.py","--config",a.config])
+ run("1b. Geometry V1a · råa skiftesmått · Skåne",[PY,"src/09_geometry_v1a.py","--config",a.config])
  run("2. Jord · Skåne",[PY,"src/02_soil.py","--config",a.config])
  run("3. Topografi · Skåne",[PY,"src/03_topography_region.py",
      "--dem",cfg["dem_dir"],"--blocks",cfg["blocks"],"--out",str(d)])
@@ -36,8 +37,9 @@ def main():
  run("5. Åkermarks-TWI · Skåne",[PY,"src/05_farmland_twi.py","--config",a.config,"--twi",str(twi)])
  run("6. Slutför hydrologifeatures",[PY,"src/06_finalize_hydrology.py","--config",a.config])
  run("7. Bygg Skåne-webb",[PY,"src/07_build_web.py","--config",a.config])
+ run("7b. Lägg in Geometry V1a + mobil/GPS UI",[PY,"src/07b_enhance_web_geometry_mobile.py","--config",a.config])
  run("8. QA · Skåne",[PY,"src/08_verify.py","--config",a.config])
- print("\nKLART: dist/index.html")
+ print("\nKLART: dist/index.html · geometri + jord + topografi + hydrologi")
 
 
 if __name__=="__main__":main()
