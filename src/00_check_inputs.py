@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import argparse, csv, json, zipfile
+import argparse, zipfile
 import geopandas as gpd
 import rasterio
 from common import load_config, MUN_CODES, sha256_file, save_json
@@ -22,14 +22,25 @@ def main():
   p=Path(cfg[k])
   if not p.exists(): raise SystemExit(f"SAKNAS: {k}: {p}")
 
- blocks=gpd.read_file(cfg["blocks"])
- skiften=gpd.read_file(cfg["skiften"])
- blocks=blocks.to_crs(3006); skiften=skiften.to_crs(3006)
+ blocks=gpd.read_file(cfg["blocks"]).to_crs(3006)
+ skiften=gpd.read_file(cfg["skiften"]).to_crs(3006)
+ region=blocks.region_kod.astype(str)
  codes=tuple(MUN_CODES.values())
- b=blocks[blocks.region_kod.astype(str).str.startswith(codes)]
+ b=blocks[region.str.startswith(codes)]
  s=skiften[skiften.blockid.isin(b.blockid)]
  print(f"Block i Skåne: {len(b):,} (planeringsreferens 24,619)")
  print(f"Skiften i Skåne: {len(s):,}")
+ print("Kommunvis blockkontroll:")
+ zero=[]
+ for name,code in MUN_CODES.items():
+  n=int(region.str.startswith(code).sum())
+  print(f"  {name:<15} {code}: {n:>5,}")
+  if n==0: zero.append((name,code))
+ if zero:
+  print("\nSAKNAR BLOCK FÖR KOMMUN(ER):",", ".join(f"{n} ({c})" for n,c in zero))
+  print("Detta är ett rådata-/urvalsproblem, inte ett jordberäkningsfel.")
+  print("Bygget stoppas så att en ofullständig Skåne-MVP inte kan passera som komplett.")
+  raise SystemExit(3)
 
  with zipfile.ZipFile(cfg["soil_zip"]) as z:
   names=z.namelist()
