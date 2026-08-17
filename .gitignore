@@ -5,6 +5,9 @@ config/local_paths.json
 data/raw/*
 !data/raw/README.md
 
+# ATL transaction exports are local/private experiment inputs; never commit
+ATL_AkerSync_*.csv
+
 # Derived data and built HTML are reproducible
 data/derived/
 dist/
