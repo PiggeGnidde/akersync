@@ -197,9 +197,11 @@ def add_transaction_soil_features(
 
     sale_rows = []
     block_rows = list(block_stats.values())
-    for sid, _ in mem.groupby("sale_id", sort=False):
+    for sid, gm in mem.groupby("sale_id", sort=False):
         sid = str(sid)
         row = {"sale_id": sid}
+        selected_area_ha = pd.to_numeric(gm.get("block_area_ha"), errors="coerce").sum(min_count=1)
+        row["tx_soil_selected_block_area_ha_raw"] = selected_area_ha
         continuous = {}
         for kind in ("clay", "silt", "sand"):
             chunks = [v for v in sale_vals.get((sid, kind), []) if v.size]
@@ -208,6 +210,10 @@ def add_transaction_soil_features(
             continuous[kind] = st
             for nm in ("mean", "sd", "p10", "p50", "p90", "n"):
                 row[f"tx_soil_{kind}_{nm}_raw"] = st[nm]
+            row[f"tx_soil_{kind}_coverage_pct_raw"] = (
+                min(100.0, 100.0 * float(st["n"]) * 0.04 / float(selected_area_ha))
+                if np.isfinite(selected_area_ha) and selected_area_ha > 0 and np.isfinite(st["n"]) else np.nan
+            )
             row[f"tx_soil_{kind}_p90_p10_raw"] = (
                 st["p90"] - st["p10"] if np.isfinite(st["p90"]) and np.isfinite(st["p10"]) else np.nan
             )
@@ -262,6 +268,7 @@ def add_transaction_soil_features(
         "tx_soil_clay_p10_raw": "tx_soil_clay_p10_pct",
         "tx_soil_clay_p90_raw": "tx_soil_clay_p90_pct",
         "tx_soil_clay_p90_p10_raw": "tx_soil_clay_p90_p10_pct",
+        "tx_soil_clay_coverage_pct_raw": "tx_soil_clay_coverage_pct",
         "tx_soil_silt_mean_raw": "tx_soil_silt_mean_pct",
         "tx_soil_sand_mean_raw": "tx_soil_sand_mean_pct",
         "tx_soil_texture_sum_mean_pct_raw": "tx_soil_texture_sum_mean_pct",
