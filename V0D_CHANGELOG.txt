@@ -1,0 +1,1 @@
+v0d added: compare G1 linear geography with G2 quadratic geography; test clay point, clay 100m, TWI point, TWI P90 and predeclared clay+TWI; add delete-one robustness summaries. Multi-block geometry remains isolated in v0c.
