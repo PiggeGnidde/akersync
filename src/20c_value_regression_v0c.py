@@ -37,6 +37,8 @@ def models(v,df,out):
 def sensitivity(v,df,out):
     rows=[]
     for pct,flag in [(10,'tx_recon_match_10pct'),(20,'tx_recon_match_20pct'),(30,'tx_recon_match_30pct')]:
+        if flag not in df.columns:
+            continue
         x=df.loc[df[flag].fillna(False).astype(bool)].copy()
         for label,raw in RAW.items():
             x['_g']=pd.to_numeric(x.get(raw),errors='coerce');r=eval1(v,x,'_g')
@@ -52,18 +54,21 @@ def main():
     print('='*88);print('ÅkerSync · Value Regression v0c · multi-block');print('='*88);print('ATL:',atl);print('Output:',out);print(f'Reconstruction: radius {args.recon_radius_m:g} m, max gap {args.max_link_gap_m:g} m, max {args.max_blocks} blocks');print('Selection uses location + sold area only; geometry is calculated afterwards.\n')
     audit,allc=v.load_and_select_clean(atl);dates=pd.to_datetime(audit.datum,errors='coerce');audit['q_v0c_date_window']=dates.ge(since);audit['selected_clean_v0c']=audit.selected_clean.fillna(False).astype(bool)&audit.q_v0c_date_window.fillna(False).astype(bool);clean=allc.loc[pd.to_datetime(allc.datum,errors='coerce').ge(since)].copy().reset_index(drop=True);audit.to_csv(out/'selection_audit.csv',index=False,encoding='utf-8-sig');clean.to_csv(out/'clean_cases.csv',index=False,encoding='utf-8-sig')
     print(f'ATL-rader: {len(pd.read_csv(atl,sep=";",encoding="utf-8-sig")):,}\nUnika transaktioner: {len(audit):,}\nRena före datumfilter: {len(allc):,}\nRena v0c-case: {len(clean):,}\n')
-    e=clean.copy();members=pd.DataFrame()
+    e=clean.copy();members=pd.DataFrame();sens=pd.DataFrame()
     if not args.baseline_only:
         print('[1/3] Multi-block reconstruction...');e,members=mb.add_features(e,cfg,v,args.recon_radius_m,args.max_link_gap_m,args.max_blocks)
         print('[2/3] Jord punkt + 100 m...');e=v.add_soil_features(e,cfg,args.radius_m)
         print('[3/3] TWI/topografi punkt + 100 m...');e=v.add_hydro_topo_features(e,cfg,args.radius_m)
     e.to_csv(out/'point_features.csv',index=False,encoding='utf-8-sig')
-    if len(members):members.to_csv(out/'multiblock_members.csv',index=False,encoding='utf-8-sig')
-    cols=[c for c in ['sale_id','datum','fastighetsbeteckning','municipality_county','akermark_ha_n','tx_recon_available','tx_recon_reason','tx_recon_anchor_blockid','tx_recon_candidate_pool_n','tx_recon_block_count','tx_recon_area_ha','tx_recon_area_ratio_to_sale','tx_recon_area_abs_pct_diff','tx_recon_max_point_distance_m','tx_recon_max_link_gap_m','tx_recon_blockids','tx_recon_match_10pct','tx_recon_match_20pct','tx_recon_match_30pct']+list(RAW.values()) if c in e.columns]
-    if cols:e[cols].to_csv(out/'multiblock_reconstruction.csv',index=False,encoding='utf-8-sig');sens=sensitivity(v,e,out)
+    if not args.baseline_only:
+        if len(members):members.to_csv(out/'multiblock_members.csv',index=False,encoding='utf-8-sig')
+        cols=[c for c in ['sale_id','datum','fastighetsbeteckning','municipality_county','akermark_ha_n','tx_recon_available','tx_recon_reason','tx_recon_anchor_blockid','tx_recon_candidate_pool_n','tx_recon_block_count','tx_recon_area_ha','tx_recon_area_ratio_to_sale','tx_recon_area_abs_pct_diff','tx_recon_max_point_distance_m','tx_recon_max_link_gap_m','tx_recon_blockids','tx_recon_match_10pct','tx_recon_match_20pct','tx_recon_match_30pct']+list(RAW.values()) if c in e.columns]
+        if cols:
+            e[cols].to_csv(out/'multiblock_reconstruction.csv',index=False,encoding='utf-8-sig')
+            sens=sensitivity(v,e,out)
     res=models(v,e,out);L=['ÅkerSync Value Regression v0c — multi-block','='*76,f'ATL source: {atl}',f'Unique transactions after dedup: {len(audit)}',f'Clean cases before date window: {len(allc)}',f'Sample start: {since.date()}',f'Clean v0c cases: {len(clean)}']
     if 'tx_recon_available' in e:
-        ok=e.tx_recon_available.fillna(False).astype(bool);L += [f'Anchor block available: {int(ok.sum())}/{len(e)}']+[f'Multi-block area match ±{p}%: {int(e[f"tx_recon_match_{p}pct"].fillna(False).sum())}/{len(e)}' for p in (10,20,30)];L += [f'Median reconstruction area error: {pd.to_numeric(e.loc[ok,"tx_recon_area_abs_pct_diff"],errors="coerce").median():.1f}%',f'Median reconstructed block count: {pd.to_numeric(e.loc[ok,"tx_recon_block_count"],errors="coerce").median():.1f}']
+        ok=e.tx_recon_available.fillna(False).astype(bool);L += [f'Anchor block available: {int(ok.sum())}/{len(e)}']+[f'Multi-block area match ±{p}%: {int(e[f"tx_recon_match_{p}pct"].fillna(False).sum())}/{len(e)}' for p in (10,20,30) if f'tx_recon_match_{p}pct' in e.columns];L += [f'Median reconstruction area error: {pd.to_numeric(e.loc[ok,"tx_recon_area_abs_pct_diff"],errors="coerce").median():.1f}%',f'Median reconstructed block count: {pd.to_numeric(e.loc[ok,"tx_recon_block_count"],errors="coerce").median():.1f}']
     L += ['','RECONSTRUCTION RULE','Mandatory anchor = block containing ATL point.','Grow by nearest polygon gap; stop at sold ha / gap cap / block cap.','No shape metric participates in block selection.','Selected blocks stay separate; they are never merged for geometry scoring.','','BASELINE','log(kr/åker-ha) ~ year + log(area) + lat + lon',f'n={res["n"]}',f'R2={res["r2"]:.6f}',f'Adjusted R2={res["adj"]:.6f}',f'LOO R2={res["loo"]:.6f}',f'LOO median absolute percentage error={res["mape"]:.2f}%','','Coefficients:']+[f'  {n:18s} {b: .8f}' for n,b in zip(res['names'],res['beta'])]
     if len(res['comp']):L += ['','MODEL COMPARISON — sorted by Δ LOO R2']+[f'  {r.feature}: n={int(r.n)}, LOO={r.loo_r2_augmented:.4f}, Δ={r.delta_loo_r2:+.4f}, beta={r.feature_coefficient:+.4g}, medianAPE={r.median_abs_pct_error_loo:.1f}%' for _,r in res['comp'].iterrows()]
     L += ['','BAD20 = area-weighted rectangularity of the worst 20% of reconstructed hectares.','Reconstruction is a proximity/area proxy, not cadastral identification.','Primary metric: Δ LOO R2 versus baseline on the SAME rows.'];report='\n'.join(L)+'\n';(out/'report.txt').write_text(report,encoding='utf-8');print('\n'+report);print('Output:',out);return 0
