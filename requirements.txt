@@ -8,3 +8,4 @@ shapely
 pyproj
 Pillow
 whitebox
+certifi
