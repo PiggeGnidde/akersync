@@ -1,0 +1,7 @@
+ÅkerSync Value Regression v0d expected sanity values for ATL_AkerSync_2026-08-17_436_poster_v03.csv
+
+Clean v0d cases: 56
+G1 linear geography LOO R2: approximately 0.449810
+G2 quadratic geography (year + log area + lat + lon + lat^2 + lon^2 + lat*lon): approximately 0.450049
+
+G2 is expected to improve in-sample R2 but not materially improve LOO R2; that is precisely why it is used as a robustness baseline for clay/TWI rather than as a claimed better model.
