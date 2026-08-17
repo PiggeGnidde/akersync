@@ -1,0 +1,1 @@
+v0d is the geography-robustness experiment. Use CHECK_VALUE_BASELINE_V0D.bat first, then RUN_VALUE_REGRESSION_V0D.bat. Main outputs: report.txt, geography_baseline_comparison.csv, physics_model_comparison.csv, robustness_summary.csv.
