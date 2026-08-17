@@ -4,38 +4,32 @@
 
 Purpose
 -------
-Before downloading historical Sentinel pixels, classify the candidate years by
-weather using official SMHI meteorological observations.  The goal is NOT to
-build a physical soil-water-balance model yet.  This step creates a transparent
-regional weather proxy that can be used to choose contrasting years for the
-TWI↔vegetation experiment.
+Before downloading historical Sentinel pixels, classify candidate years by
+weather using official SMHI meteorological observations. This is a transparent
+regional weather stratification for selecting contrasting years in the
+TWI↔vegetation experiment; it is not yet a physical soil-water-balance model.
 
-Data
-----
-SMHI Open Data Meteorological Observations REST API:
-  parameter 5 : daily precipitation amount (mm/day)
-  parameter 2 : daily mean air temperature (deg C)
+SMHI parameters
+---------------
+  5 : daily precipitation amount (mm/day)
+  2 : daily mean air temperature (deg C)
 
-The script:
-  * finds nearby SMHI CORE stations from the API,
-  * downloads corrected-archive data and supplements recent missing dates with
-    latest-months JSON when available,
-  * selects up to three nearby stations per parameter with good target-period
-    coverage,
-  * makes an inverse-distance-weighted Lomma regional daily proxy,
-  * summarizes March..July weather for each year,
-  * defines a relative 2018..2026 hydroclimate score from early-summer
-    precipitation and temperature,
-  * combines the result with the Sentinel multiyear preflight, if present, and
-    recommends one dry/hot, one middle and one wet/cool year for the first
+Method
+------
+  * nearby SMHI CORE stations are discovered from the API,
+  * corrected-archive data are preferred,
+  * recent missing dates are supplemented from latest-months when available,
+  * up to three nearby stations per parameter are inverse-distance weighted,
+  * March..July summaries are calculated for 2018..2026,
+  * a relative early-summer hydroclimate score is defined as
+        z(precip Jun01-Jul15) - z(Tmean Jun01-Jul15),
+  * the Sentinel multiyear preflight is joined when available,
+  * one dry/hot, one middle and one wet/cool year are recommended for the first
     controlled historical pixel download.
 
-Important
----------
-"dry/hot" and "wet/cool" are RELATIVE labels within 2018..2026, not SMHI
-climatological normals and not a measured field water balance.  Precipitation is
-spatially variable, evapotranspiration is not explicitly modelled, and the
-station proxy is deliberately only a first weather stratification.
+Labels are RELATIVE within 2018..2026, not SMHI climatological normals and not
+measured field water balance. Precipitation is spatially variable and ET is not
+explicitly modelled here.
 """
 from __future__ import annotations
 
@@ -52,16 +46,14 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from shapely.geometry import Point
 
 from common import load_config
 
 ROOT = Path(__file__).resolve().parents[1]
 MUN_CODE = "1262"
 SMHI_BASE = "https://opendata-download-metobs.smhi.se/api/version/1.0"
-PARAMS = {
-    "precip_mm": 5,
-    "tmean_c": 2,
-}
+PARAMS = {"precip_mm": 5, "tmean_c": 2}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -92,9 +84,13 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
-def ms_to_ts(v):
+def parse_api_time(v):
+    if v is None or v == "":
+        return pd.NaT
     try:
-        return pd.to_datetime(int(v), unit="ms", utc=True).tz_convert(None)
+        if isinstance(v, (int, float)) or (isinstance(v, str) and v.strip().isdigit()):
+            return pd.to_datetime(int(v), unit="ms", utc=True).tz_convert(None)
+        return pd.to_datetime(v, utc=True).tz_convert(None)
     except Exception:
         return pd.NaT
 
@@ -124,8 +120,8 @@ def station_catalogue(param: int, lat0: float, lon0: float) -> pd.DataFrame:
             "distance_km": haversine_km(lat0, lon0, lat, lon),
             "active": bool(s.get("active", False)),
             "network": network or "CORE",
-            "from": ms_to_ts(s.get("from")),
-            "to": ms_to_ts(s.get("to")),
+            "from": parse_api_time(s.get("from")),
+            "to": parse_api_time(s.get("to")),
         })
     if not rows:
         raise RuntimeError(f"SMHI parameter {param}: inga CORE-stationer i katalogen")
@@ -133,41 +129,82 @@ def station_catalogue(param: int, lat0: float, lon0: float) -> pd.DataFrame:
 
 
 def parse_archive_csv(raw: bytes) -> pd.DataFrame:
-    # SMHI corrected archive is a semicolon-separated CSV with metadata lines
-    # before the observations. Observation rows begin with YYYY-MM-DD and have
-    # date, time, value, quality in the first columns.
+    """Parse SMHI sample-style and interval-style corrected archive CSV."""
     txt = raw.decode("utf-8-sig", errors="replace")
+    table = list(csv.reader(io.StringIO(txt), delimiter=";"))
+    header_i = rep_i = value_i = quality_i = None
+
+    for i, row in enumerate(table):
+        cells = [c.strip() for c in row]
+        low = [c.lower() for c in cells]
+        for j, c in enumerate(low):
+            if "representativt dygn" in c:
+                header_i, rep_i = i, j
+                break
+        if header_i is not None:
+            for j, c in enumerate(low):
+                if "nederbördsmängd" in c or "lufttemperatur" in c:
+                    value_i = j
+                if "kvalitet" in c:
+                    quality_i = j
+            if value_i is None and rep_i + 1 < len(cells):
+                value_i = rep_i + 1
+            if quality_i is None and value_i is not None and value_i + 1 < len(cells):
+                quality_i = value_i + 1
+            break
+
     rows = []
-    for r in csv.reader(io.StringIO(txt), delimiter=";"):
-        if len(r) < 3:
-            continue
-        d = r[0].strip()
-        if not DATE_RE.match(d):
-            continue
-        valtxt = r[2].strip().replace(",", ".")
-        try:
-            val = float(valtxt)
-        except ValueError:
-            continue
-        quality = r[3].strip() if len(r) > 3 else ""
-        rows.append({"date": pd.Timestamp(d), "value": val, "quality": quality, "source": "corrected-archive"})
+    if header_i is not None and rep_i is not None and value_i is not None:
+        for r in table[header_i + 1:]:
+            if max(rep_i, value_i) >= len(r):
+                continue
+            d = r[rep_i].strip()
+            if not DATE_RE.match(d):
+                continue
+            try:
+                val = float(r[value_i].strip().replace(",", "."))
+            except ValueError:
+                continue
+            quality = r[quality_i].strip() if quality_i is not None and quality_i < len(r) else ""
+            rows.append({"date": pd.Timestamp(d), "value": val, "quality": quality, "source": "corrected-archive"})
+    else:
+        for r in table:
+            if len(r) < 3:
+                continue
+            d = r[0].strip()
+            if not DATE_RE.match(d):
+                continue
+            try:
+                val = float(r[2].strip().replace(",", "."))
+            except ValueError:
+                continue
+            quality = r[3].strip() if len(r) > 3 else ""
+            rows.append({"date": pd.Timestamp(d), "value": val, "quality": quality, "source": "corrected-archive"})
+
     if not rows:
         return pd.DataFrame(columns=["date", "value", "quality", "source"])
-    out = pd.DataFrame(rows).sort_values("date").drop_duplicates("date", keep="last")
-    return out.reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
 
 
 def parse_latest_json(obj: dict) -> pd.DataFrame:
+    """Parse latest-months JSON for both SAMPLING and INTERVAL value types."""
     vals = obj.get("value", []) or []
     rows = []
     for x in vals:
+        raw_date = x.get("date")
+        if raw_date is None:
+            raw_date = x.get("ref")
+        if raw_date is None:
+            raw_date = x.get("to")
+        ts = parse_api_time(raw_date)
         try:
-            ts = pd.to_datetime(int(x.get("date")), unit="ms", utc=True).tz_convert(None).normalize()
-            val = float(x.get("value"))
-        except (TypeError, ValueError, OverflowError):
+            val = float(str(x.get("value")).replace(",", "."))
+        except (TypeError, ValueError):
+            continue
+        if pd.isna(ts):
             continue
         rows.append({
-            "date": ts,
+            "date": pd.Timestamp(ts).normalize(),
             "value": val,
             "quality": str(x.get("quality", "")),
             "source": "latest-months",
@@ -178,19 +215,13 @@ def parse_latest_json(obj: dict) -> pd.DataFrame:
 
 
 def fetch_station_series(param: int, station_key: str) -> pd.DataFrame:
-    archive_url = (
-        f"{SMHI_BASE}/parameter/{param}/station/{station_key}/period/"
-        "corrected-archive/data.csv"
-    )
+    archive_url = f"{SMHI_BASE}/parameter/{param}/station/{station_key}/period/corrected-archive/data.csv"
     try:
         arc = parse_archive_csv(get_bytes(archive_url))
     except RuntimeError:
         arc = pd.DataFrame(columns=["date", "value", "quality", "source"])
 
-    latest_url = (
-        f"{SMHI_BASE}/parameter/{param}/station/{station_key}/period/"
-        "latest-months/data.json"
-    )
+    latest_url = f"{SMHI_BASE}/parameter/{param}/station/{station_key}/period/latest-months/data.json"
     try:
         recent = parse_latest_json(get_json(latest_url))
     except RuntimeError:
@@ -203,7 +234,6 @@ def fetch_station_series(param: int, station_key: str) -> pd.DataFrame:
     if recent.empty:
         return arc
 
-    # Corrected archive wins on overlapping dates; latest-months only fills gaps.
     x = pd.concat([recent, arc], ignore_index=True)
     x["priority"] = np.where(x.source.eq("corrected-archive"), 1, 0)
     x = x.sort_values(["date", "priority"]).drop_duplicates("date", keep="last")
@@ -212,18 +242,10 @@ def fetch_station_series(param: int, station_key: str) -> pd.DataFrame:
 
 def target_dates(year_start: int, year_end: int) -> pd.DatetimeIndex:
     chunks = [pd.date_range(f"{y}-03-01", f"{y}-07-15", freq="D") for y in range(year_start, year_end + 1)]
-    return chunks[0].append(chunks[1:]) if len(chunks) > 1 else chunks[0]
+    return chunks[0] if len(chunks) == 1 else chunks[0].append(chunks[1:])
 
 
-def select_stations(
-    param_name: str,
-    param: int,
-    cat: pd.DataFrame,
-    dates: pd.DatetimeIndex,
-    n_stations: int,
-    candidates: int,
-    min_station_coverage: float,
-):
+def select_stations(param_name, param, cat, dates, n_stations, candidates, min_station_coverage):
     target_set = pd.DataFrame({"date": dates})
     tested = []
     for r in cat.head(candidates).itertuples(index=False):
@@ -236,7 +258,6 @@ def select_stations(
 
     good = [x for x in tested if x[2] >= min_station_coverage]
     if len(good) < n_stations:
-        # Graceful fallback: use best-coverage nearby stations rather than fail.
         good = sorted(tested, key=lambda x: (-x[2], x[0].distance_km))
     else:
         good = sorted(good, key=lambda x: x[0].distance_km)
@@ -246,17 +267,12 @@ def select_stations(
     return chosen
 
 
-def aggregate_region(chosen, dates: pd.DatetimeIndex, value_name: str, min_daily_stations: int) -> tuple[pd.DataFrame, list[dict]]:
+def aggregate_region(chosen, dates, value_name: str, min_daily_stations: int):
     base = pd.DataFrame({"date": dates})
-    meta = []
-    value_cols = []
-    weight_cols = []
-
+    meta, value_cols, weight_cols = [], [], []
     for j, (r, s, cov) in enumerate(chosen, 1):
         c = f"s{j}"
-        t = s[["date", "value"]].rename(columns={"value": c})
-        base = base.merge(t, on="date", how="left")
-        # A small distance floor prevents an extremely close gauge dominating.
+        base = base.merge(s[["date", "value"]].rename(columns={"value": c}), on="date", how="left")
         w = 1.0 / (max(float(r.distance_km), 5.0) ** 2)
         value_cols.append(c)
         weight_cols.append(w)
@@ -276,9 +292,11 @@ def aggregate_region(chosen, dates: pd.DatetimeIndex, value_name: str, min_daily
     weights = np.asarray(weight_cols, dtype=float)
     valid = np.isfinite(vals)
     n = valid.sum(axis=1)
-    num = np.nansum(np.where(valid, vals * weights[None, :], 0.0), axis=1)
+    num = np.sum(np.where(valid, vals * weights[None, :], 0.0), axis=1)
     den = np.sum(np.where(valid, weights[None, :], 0.0), axis=1)
-    reg = np.where((n >= min_daily_stations) & (den > 0), num / den, np.nan)
+    reg = np.full(len(base), np.nan, dtype=float)
+    ok = (n >= min_daily_stations) & (den > 0)
+    reg[ok] = num[ok] / den[ok]
     base[value_name] = reg
     base[f"{value_name}_stations"] = n
     return base[["date", value_name, f"{value_name}_stations"]], meta
@@ -296,14 +314,13 @@ def summarize_years(daily: pd.DataFrame, year_start: int, year_end: int) -> pd.D
     rows = []
     for y in range(year_start, year_end + 1):
         def win(md0: str, md1: str):
-            x = daily[(daily.date >= pd.Timestamp(f"{y}-{md0}")) & (daily.date <= pd.Timestamp(f"{y}-{md1}"))]
-            n_expected = (pd.Timestamp(f"{y}-{md1}") - pd.Timestamp(f"{y}-{md0}")).days + 1
-            return x, n_expected
+            a, b = pd.Timestamp(f"{y}-{md0}"), pd.Timestamp(f"{y}-{md1}")
+            x = daily[(daily.date >= a) & (daily.date <= b)]
+            return x, (b - a).days + 1
 
         marjul, n_marjul = win("03-01", "07-15")
-        aprmay, n_aprmay = win("04-01", "05-31")
+        aprmay, _ = win("04-01", "05-31")
         earlysum, n_earlysum = win("06-01", "07-15")
-
         rows.append({
             "year": y,
             "precip_mar01_jul15_mm": marjul.precip_mm.sum(min_count=1),
@@ -312,7 +329,7 @@ def summarize_years(daily: pd.DataFrame, year_start: int, year_end: int) -> pd.D
             "tmean_mar01_jul15_c": marjul.tmean_c.mean(),
             "tmean_apr01_may31_c": aprmay.tmean_c.mean(),
             "tmean_jun01_jul15_c": earlysum.tmean_c.mean(),
-            "gdd5_mar01_jul15": np.maximum(marjul.tmean_c.to_numpy(dtype=float) - 5.0, 0.0).sum() if marjul.tmean_c.notna().any() else np.nan,
+            "gdd5_mar01_jul15": np.nansum(np.maximum(marjul.tmean_c.to_numpy(dtype=float) - 5.0, 0.0)) if marjul.tmean_c.notna().any() else np.nan,
             "precip_coverage_marjul_pct": 100.0 * marjul.precip_mm.notna().sum() / n_marjul,
             "temp_coverage_marjul_pct": 100.0 * marjul.tmean_c.notna().sum() / n_marjul,
             "precip_coverage_earlysummer_pct": 100.0 * earlysum.precip_mm.notna().sum() / n_earlysum,
@@ -320,8 +337,6 @@ def summarize_years(daily: pd.DataFrame, year_start: int, year_end: int) -> pd.D
         })
 
     out = pd.DataFrame(rows)
-    # Primary relative score for the first controlled experiment:
-    # high = wetter/cooler early summer, low = drier/hotter.
     out["z_precip_earlysummer"] = zscore(out.precip_jun01_jul15_mm)
     out["z_temp_earlysummer"] = zscore(out.tmean_jun01_jul15_c)
     out["hydroclimate_score"] = out.z_precip_earlysummer - out.z_temp_earlysummer
@@ -332,12 +347,7 @@ def summarize_years(daily: pd.DataFrame, year_start: int, year_end: int) -> pd.D
     labels = []
     for rank in ranks:
         frac = (rank - 0.5) / max(1, n)
-        if frac < 1 / 3:
-            labels.append("dry_hot_relative")
-        elif frac >= 2 / 3:
-            labels.append("wet_cool_relative")
-        else:
-            labels.append("middle_relative")
+        labels.append("dry_hot_relative" if frac < 1/3 else "wet_cool_relative" if frac >= 2/3 else "middle_relative")
     out["weather_class"] = "insufficient_data"
     out.loc[valid, "weather_class"] = labels
     return out
@@ -354,13 +364,10 @@ def add_preflight(years: pd.DataFrame, outdir: Path, year_start: int, year_end: 
         return years
     x["selected_date"] = pd.to_datetime(x.selected_date, errors="coerce")
     x["good_catalog_cloud"] = x.good_catalog_cloud.astype(str).str.lower().isin(["true", "1", "yes"])
-    s = (
-        x.groupby("year", as_index=False)
-        .agg(
-            sentinel_dates_found=("selected_date", lambda a: int(a.notna().sum())),
-            sentinel_good_windows=("good_catalog_cloud", "sum"),
-            sentinel_worst_selected_max_cloud_pct=("max_cloud_pct", "max"),
-        )
+    s = x.groupby("year", as_index=False).agg(
+        sentinel_dates_found=("selected_date", lambda a: int(a.notna().sum())),
+        sentinel_good_windows=("good_catalog_cloud", "sum"),
+        sentinel_worst_selected_max_cloud_pct=("max_cloud_pct", "max"),
     )
     return years.merge(s, on="year", how="left")
 
@@ -383,7 +390,7 @@ def recommend_years(years: pd.DataFrame) -> pd.DataFrame:
     remaining = x[~x.year.isin([dry.year, wet.year])].copy()
     if remaining.empty:
         return pd.DataFrame()
-    middle = remaining.iloc[(remaining.hydroclimate_score.abs()).argmin()].copy()
+    middle = remaining.loc[remaining.hydroclimate_score.abs().idxmin()].copy()
 
     rows = []
     for role, r in [("dry_hot", dry), ("middle", middle), ("wet_cool", wet)]:
@@ -426,8 +433,8 @@ def main() -> int:
         raise RuntimeError("Hittade inga Lomma-skiften")
 
     minx, miny, maxx, maxy = lomma_skiften.total_bounds
-    p = gpd.GeoSeries.from_wkt([f"POINT ({(minx + maxx)/2} {(miny + maxy)/2})"], crs=3006).to_crs(4326).iloc[0]
-    lon0, lat0 = float(p.x), float(p.y)
+    pt = gpd.GeoSeries([Point((minx + maxx)/2, (miny + maxy)/2)], crs=3006).to_crs(4326).iloc[0]
+    lon0, lat0 = float(pt.x), float(pt.y)
     dates = target_dates(args.year_start, args.year_end)
 
     print("=" * 118)
@@ -436,9 +443,9 @@ def main() -> int:
     print(f"År: {args.year_start}–{args.year_end}")
     print(f"Lomma referenspunkt: lat {lat0:.5f}, lon {lon0:.5f}")
     print("SMHI CORE · parameter 5 dygnsnederbörd + parameter 2 dygnsmedeltemperatur")
-    print("Corrected archive används först; latest-months fyller bara eventuella senaste luckor.")
-    print(f"Regional proxy: upp till {args.stations} närliggande stationer, inverse-distance weighted.")
-    print("Weather labels är relativa inom 2018–2026, inte klimatnormaler.\n")
+    print("Corrected archive först; latest-months fyller bara senaste luckor.")
+    print(f"Regional proxy: upp till {args.stations} stationer, inverse-distance weighted.")
+    print("Weather labels är relativa inom studieåren, inte klimatnormaler.\n")
 
     regional_parts = []
     station_meta = []
@@ -446,12 +453,7 @@ def main() -> int:
         title = "nederbörd" if value_name == "precip_mm" else "temperatur"
         print(f"[{title}] Hämtar SMHI CORE-stationskatalog …")
         cat = station_catalogue(param, lat0, lon0)
-        chosen = select_stations(
-            value_name, param, cat, dates,
-            n_stations=args.stations,
-            candidates=args.station_candidates,
-            min_station_coverage=args.min_station_coverage,
-        )
+        chosen = select_stations(value_name, param, cat, dates, args.stations, args.station_candidates, args.min_station_coverage)
         print("  valda:")
         for r, _, cov in chosen:
             print(f"    {r.station_name} ({r.station_key}) | {r.distance_km:.1f} km | coverage {cov:.1f}%")
@@ -487,7 +489,7 @@ def main() -> int:
         "SMHI parameter 5 = daily precipitation; parameter 2 = daily mean air temperature.",
         "CORE stations only. Corrected archive preferred; latest-months only fills recent gaps.",
         "Hydroclimate score = z(precip Jun01-Jul15) - z(Tmean Jun01-Jul15).",
-        "Labels are relative within the study years, not climatological normals or field water balance.",
+        "Labels are relative within study years, not climatological normals or field water balance.",
         "",
         "YEAR CLASSIFICATION:",
     ]
@@ -502,16 +504,16 @@ def main() -> int:
     if not rec.empty:
         lines += ["", "RECOMMENDED FIRST HISTORICAL PIXEL YEARS:"]
         for r in rec.itertuples(index=False):
+            goodtxt = "NA" if not np.isfinite(r.sentinel_good_windows) else str(int(r.sentinel_good_windows))
             lines.append(
                 f"  {r.role:8s}: {int(r.year)} | score {r.hydroclimate_score:+.3f} | "
-                f"P {r.precip_jun01_jul15_mm:.1f} mm | T {r.tmean_jun01_jul15_c:.2f} C | "
-                f"Sentinel GOOD {int(r.sentinel_good_windows) if np.isfinite(r.sentinel_good_windows) else 'NA'}/4"
+                f"P {r.precip_jun01_jul15_mm:.1f} mm | T {r.tmean_jun01_jul15_c:.2f} C | Sentinel GOOD {goodtxt}/4"
             )
     lines += [
         "",
         "CAUTION:",
-        "  This is a regional station-based weather stratification, not causal proof and not a soil-water balance.",
-        "  The next test asks whether the within-field TWI response curve changes systematically between contrasting years.",
+        "  Regional station weather stratification only; not causal proof and not a soil-water balance.",
+        "  Next test: compare within-field TWI response curves between contrasting years.",
     ]
     summary_txt.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -529,10 +531,10 @@ def main() -> int:
     if not rec.empty:
         print("\nFörsta kontrollerade historiska pixeltest:")
         for r in rec.itertuples(index=False):
+            goodtxt = "NA" if not np.isfinite(r.sentinel_good_windows) else str(int(r.sentinel_good_windows))
             print(
                 f"  {r.role:8s}: {int(r.year)} | score {r.hydroclimate_score:+.3f} | "
-                f"P {r.precip_jun01_jul15_mm:.1f} mm | T {r.tmean_jun01_jul15_c:.2f} C | "
-                f"Sentinel GOOD {int(r.sentinel_good_windows) if np.isfinite(r.sentinel_good_windows) else 'NA'}/4"
+                f"P {r.precip_jun01_jul15_mm:.1f} mm | T {r.tmean_jun01_jul15_c:.2f} C | Sentinel GOOD {goodtxt}/4"
             )
 
     print("\nOutput:")
