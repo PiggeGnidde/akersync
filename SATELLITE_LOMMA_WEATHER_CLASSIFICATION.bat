@@ -17,7 +17,7 @@ if errorlevel 1 (
 for /f "delims=" %%i in ('py -3 -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
 echo SSL_CERT_FILE=%SSL_CERT_FILE%
 
-py -3 src\25_satellite_lomma_weather_classification.py --year-start 2018 --year-end 2026
+py -3 src\25b_satellite_lomma_weather_classification_robust.py --year-start 2018 --year-end 2026
 if errorlevel 1 goto :fail
 
 echo.
