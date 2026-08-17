@@ -41,6 +41,29 @@ ORG_LABELS = {
 }
 
 
+def crs_is_epsg3006(crs) -> bool:
+    """Robust SWEREF99 TM check across Rasterio/GDAL/PROJ versions.
+
+    On Bengt's current Python 3.14 stack ``to_epsg()`` can return None even
+    though the WKT explicitly carries AUTHORITY["EPSG","3006"].  Accept the
+    explicit authority/name as well; this mirrors the already proven check in
+    src/02_soil.py.
+    """
+    if crs is None:
+        return False
+    try:
+        if crs.to_epsg() == 3006:
+            return True
+    except Exception:
+        pass
+    text = str(crs)
+    return (
+        'AUTHORITY["EPSG","3006"]' in text
+        or 'SWEREF99 TM' in text
+        or 'SWEREF 99 TM' in text
+    )
+
+
 def extract_member(zf: zipfile.ZipFile, basename: str, td: str) -> Path:
     member = next((n for n in zf.namelist() if n == basename or n.endswith("/" + basename)), None)
     if member is None:
@@ -170,8 +193,8 @@ def add_transaction_soil_features(
         for kind, path in extracted.items():
             print(f"  transaction soil layer: {kind}")
             with rasterio.open(path) as ds:
-                if ds.crs is None or ds.crs.to_epsg() != 3006:
-                    raise RuntimeError(f"{path.name}: väntade EPSG:3006, fick {ds.crs}")
+                if not crs_is_epsg3006(ds.crs):
+                    raise RuntimeError(f"{path.name}: väntade SWEREF99 TM / EPSG:3006, fick {ds.crs}")
                 for _, r in mem.iterrows():
                     sid = str(r["sale_id"])
                     bid = str(r["blockid"])
@@ -289,4 +312,6 @@ def add_transaction_soil_features(
         main = f"tx_organic_share_code_{code}_pct"
         out[main] = np.where(ok, pd.to_numeric(out.get(raw), errors="coerce"), np.nan)
 
+    # Per-block diagnostics are useful for later map QA and diversity checks.
+    block_df = pd.DataFrame(block_rows)
     return out, block_df
