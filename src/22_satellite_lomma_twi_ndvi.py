@@ -80,7 +80,7 @@ def discover_ndvi(outdir: Path, start: pd.Timestamp, end: pd.Timestamp) -> list[
         m = DATE_RE.match(p.name)
         if not m:
             continue
-        d = pd.Timestamp.strptime(m.group(1), "%Y%m%d")
+        d = pd.to_datetime(m.group(1), format="%Y%m%d").normalize()
         if start <= d <= end and p.stat().st_size >= 10_000:
             found.append((d, p))
     found.sort(key=lambda x: x[0])
@@ -123,11 +123,12 @@ def read_to_reference(path: Path, ref_crs, ref_transform, width: int, height: in
 
 
 def twi_to_reference(twi_path: Path, ref_crs, ref_transform, width: int, height: int) -> np.ndarray:
+    # Pass rasterio.band() directly to GDAL so the ~Skåne-wide TWI raster is not
+    # loaded wholesale into RAM just to extract/reproject the Lomma window.
     with rasterio.open(twi_path) as ds:
-        src = ds.read(1).astype(np.float32)
         dst = np.full((height, width), np.nan, dtype=np.float32)
         reproject(
-            source=src,
+            source=rasterio.band(ds, 1),
             destination=dst,
             src_transform=ds.transform,
             src_crs=ds.crs,
@@ -163,7 +164,8 @@ def finite_mean(x: np.ndarray) -> float:
 def safe_spearman(x: np.ndarray, y: np.ndarray) -> float:
     if x.size < 5 or np.nanstd(x) <= 1e-12 or np.nanstd(y) <= 1e-12:
         return np.nan
-    r = spearmanr(x, y, nan_policy="omit").statistic
+    res = spearmanr(x, y, nan_policy="omit")
+    r = getattr(res, "statistic", getattr(res, "correlation", np.nan))
     return float(r) if np.isfinite(r) else np.nan
 
 
@@ -206,7 +208,7 @@ def main() -> int:
     if lomma_skiften.empty:
         raise RuntimeError("Hittade inga Lomma-skiften")
 
-    first_date, first_tif = ndvi_files[0]
+    _, first_tif = ndvi_files[0]
     with rasterio.open(first_tif) as ref:
         ref_crs = ref.crs
         ref_transform = ref.transform
@@ -246,7 +248,7 @@ def main() -> int:
     persistence_rows: list[dict] = []
 
     print(f"\nAnalyserar {len(work):,} skiften som återstår efter kantbuffer …")
-    for k, (idx, r) in enumerate(work.iterrows(), 1):
+    for k, (_, r) in enumerate(work.iterrows(), 1):
         geom = r.geometry
         w = raster_window(geom, ref_transform, width, height)
         if w is None:
@@ -400,8 +402,8 @@ def main() -> int:
     persistence = pd.DataFrame(persistence_rows)
     if not persistence.empty:
         field_summary = field_summary.merge(
-            persistence,
-            on=["blockid", "skiftesbeteckning", "area_analysis_ha"],
+            persistence.drop(columns=["area_analysis_ha"], errors="ignore"),
+            on=["blockid", "skiftesbeteckning"],
             how="left",
         )
 
