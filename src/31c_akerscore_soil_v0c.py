@@ -94,8 +94,6 @@ def fit_tail_calibration(scored_training: pd.DataFrame):
             "display": float(target),
         })
 
-    # Sort by raw coordinate and enforce strict monotonicity.  In practice the
-    # class medians are already monotone from v0b; this is a defensive guard.
     rows = sorted(rows, key=lambda r: r["raw"])
     cleaned = []
     last_raw = -np.inf
@@ -299,6 +297,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="config/local_paths.json")
     ap.add_argument("--max-skiften", type=int, default=None, help="QA/debug cap; omit for all skiften")
+    ap.add_argument("--rescore-fields", action="store_true", help="Force full pixel-by-pixel rescoring even if completed v0c field outputs already exist")
     args = ap.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -333,10 +332,26 @@ def main():
     ranks = pd.concat([rank_raw, rank_display], ignore_index=True)
     ranks.to_csv(outdir / "german_rank_check_v0c.csv", index=False, encoding="utf-8-sig")
 
-    print("\nScoring current skiften pixel-by-pixel...")
-    field_gdf, field_summary = score_skiften(v0a, cfg, model, cal_x, cal_y, outdir, args.max_skiften)
+    cached_gpkg = outdir / "akerscore_soil_skiften.gpkg"
+    cached_summary = outdir / "skifte_class_score_summary.csv"
+    can_reuse = (
+        args.max_skiften is None
+        and not args.rescore_fields
+        and cached_gpkg.exists()
+        and cached_summary.exists()
+    )
+    if can_reuse:
+        print("\nCompleted field outputs already exist; reusing them (no 128k-skifte rescan).")
+        field_gdf = gpd.read_file(cached_gpkg, layer="akerscore_soil_v0c")
+        field_summary = pd.read_csv(cached_summary)
+    else:
+        print("\nScoring current skiften pixel-by-pixel...")
+        field_gdf, field_summary = score_skiften(v0a, cfg, model, cal_x, cal_y, outdir, args.max_skiften)
 
-    valid_fields = field_gdf["akerscore_soil_p50"].notna().copy()
+    # IMPORTANT: valid_fields must be a GeoDataFrame/DataFrame, not the Boolean
+    # Series returned by .notna().  The original v0c bug happened here, after
+    # all 128,636 fields had already been scored and saved.
+    valid_fields = field_gdf[field_gdf["akerscore_soil_p50"].notna()].copy()
     lines = [
         "ÅkerScore Soil v0c · tail-aware display scale + skifte spatial variation",
         "=" * 84,
@@ -401,6 +416,7 @@ def main():
         "field_variation": "P10/P90 of calibrated 20m pixel scores; spatial variation, not confidence interval",
         "german_rank_primary": "raw_score",
         "historic_class_used_when_scoring_fields": False,
+        "field_outputs_reused": bool(can_reuse),
     }
     (outdir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
