@@ -12,7 +12,7 @@ echo.
 echo Transaktionsklass raknas areaviktat over v0c-rekonstruerade block.
 echo Main sample krav: +/-20%% areamatch och >=80%% klasskartetackning.
 echo.
-py -3 src\20f_value_regression_class1971_v0f.py
+py -3 src\20f_value_regression_class1971_v0f_runner.py
 if errorlevel 1 (
   echo.
   echo FEL: v0f avbrot. Kopiera hela feltexten till ChatGPT.
