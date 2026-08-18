@@ -1,0 +1,13 @@
+source_data_row,fastighetsbeteckning,municipality_county,datum,objekttyp,total_areal_ha,akermark_ha,betesmark_ha,skogsmark_ha,skogsimpediment_ha,ekonomibyggnad_kvm_total,smahus_kvm_total,lat,lon,frozen_pred_kr_per_ha,frozen_p10_kr_per_ha,frozen_p50cal_kr_per_ha,frozen_p90_kr_per_ha,frozen_pred_total_kr
+466,Vallkärratorn 5:75,"Lund kommun, Skåne län",2019-11-19,"Lantbruksenhet, obebyggd",17,17,0,0,0,,,55.728990146771245,13.180564207308016,350260,289142,375781,521387,5954424
+473,Gluggstorp 3:1,"Helsingborg kommun, Skåne län",2019-09-23,"Lantbruksenhet, obebyggd",25,25,0,0,0,,,55.92821356836064,12.9404711537601,309433,255449,331978,460610,7735824
+474,Löderup 12:30,"Ystad kommun, Skåne län",2019-09-10,"Lantbruksenhet, obebyggd",13,13,0,0,0,,,55.40600734023757,14.095720798625845,362338,299136,388736,539388,4710399
+478,Häggarp 4:1,"Ängelholm kommun, Skåne län",2019-08-30,"Lantbruksenhet, obebyggd",10,10,0,0,0,,,56.16764192836391,12.855136640752642,247856,204621,265911,368953,2478555
+491,Vasagården 5:5,"Helsingborg kommun, Skåne län",2019-06-07,"Lantbruksenhet, obebyggd",19,19,0,0,0,,,55.962213160277834,12.984007695066348,294282,242944,315720,438063,5591353
+501,Vemmentorp 1:4,"Ängelholm kommun, Skåne län",2019-04-29,"Lantbruksenhet, obebyggd",19,19,0,0,0,,,56.171263745230625,12.819703044692595,250677,206940,268939,373125,4762859
+510,Köpinge 11:16,"Ystad kommun, Skåne län",2019-03-14,"Lantbruksenhet, obebyggd",15,15,0,0,0,,,55.47273994534839,13.941213806190582,355990,293887,381924,529959,5339854
+522,Trumparp 3:4,"Klippan kommun, Skåne län",2019-01-15,"Lantbruksenhet, obebyggd",11,11,0,0,0,,,56.015157820889264,13.067773816893736,270589,223388,290299,402791,2976478
+526,Hyllinge 36:1,"Åstorp kommun, Skåne län",2019-01-14,"Lantbruksenhet, obebyggd",16,16,0,0,0,,,56.101440353356985,12.856552999010995,265744,219390,285103,395577,4251900
+534,Högseröd 4:19,"Hörby kommun, Skåne län",2018-12-20,"Lantbruksenhet, obebyggd",19,19,0,0,0,,,55.784379403062154,13.560391347240552,290897,240146,312091,432938,5527052
+541,Elestorp 16:1,"Helsingborg kommun, Skåne län",2018-11-08,"Lantbruksenhet, obebyggd",14,14,0,0,0,,,56.001619744581795,12.956615285893374,282486,233198,303069,420437,3954801
+545,Olastorp 2:4,"Båstad kommun, Skåne län",2018-10-19,"Lantbruksenhet, obebyggd",16,16,0,0,0,,,56.444793858888175,12.688257857814728,196052,161855,210335,291838,3136833
