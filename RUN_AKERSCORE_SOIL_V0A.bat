@@ -9,8 +9,31 @@ echo Modell: sand + silt + lera + mullproxy ^> kontinuerlig ÅkerScore.
 echo Historisk klass 5-10 används ENDAST som tränings-/referenssignal.
 echo Tysk Triesdorf-skörd används ENDAST som extern kontroll efter fit.
 echo.
-echo Förkrav: RUN_AGRI_CLASS5_10_V0B.bat ska ha körts minst en gång.
+
+set "CLASS_GPKG=data\derived\agri_class5_10_v0b\source\jord_skogsklassificering_class5_10.gpkg"
+set "CLASS_SUMMARY=data\derived\agri_class5_10_v0b\class5_10_soil_summary.csv"
+
+if not exist "%CLASS_GPKG%" goto build_prereq
+if not exist "%CLASS_SUMMARY%" goto build_prereq
+goto run_score
+
+:build_prereq
+echo Fördata från klass 5-10 saknas lokalt.
+echo Bygger därför agri_class5_10_v0b automatiskt först...
 echo.
+py -3 src\30b_agri_class5plus_v0b.py
+if errorlevel 1 (
+  echo.
+  echo FEL: automatisk klass 5-10-förkörning avbröts.
+  echo Kopiera hela texten till ChatGPT.
+  pause
+  exit /b 1
+)
+echo.
+echo Klass 5-10-fördata klar.
+echo.
+
+:run_score
 py -3 src\31_akerscore_soil_v0a.py
 if errorlevel 1 (
   echo.
