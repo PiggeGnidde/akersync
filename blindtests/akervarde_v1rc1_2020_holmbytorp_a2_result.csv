@@ -1,0 +1,2 @@
+source_data_row,fastighetsbeteckning,observed_total_kr,observed_kr_per_ha,frozen_pred_total_kr,frozen_pred_kr_per_ha,frozen_p10_kr_per_ha,frozen_p90_kr_per_ha,ratio_obs_pred,ape_pct,inside_p10_p90,fastighetsantal
+449,Holmbytorp 3:21,5500000,323529.4117647059,5390969.821884097,317115.8718755351,261796.37733318278,472044.00092077913,1.0202245944084691,1.9823668748346068,True,1
