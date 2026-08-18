@@ -1,0 +1,2 @@
+fastighetsbeteckning,datum,year,total_areal_ha,akermark_ha,betesmark_ha,skogsmark_ha,skogsimpediment_ha,objekttyp,lat,lon,pred_kr_per_ha,pred_total_kr,p10_kr_per_ha,p50_calibrated_kr_per_ha,p90_kr_per_ha,p10_total_kr,p90_total_kr
+Holmbytorp 3:21,2020-04-01,2020,17.0,17.0,0.0,0.0,0.0,"Lantbruksenhet, obebyggd",55.75790069957856,13.423070380744376,317115.8718755351,5390969.821884097,261796.37733318278,340219.0503149918,472044.00092077913,4450538.414664106,8024748.015653245
