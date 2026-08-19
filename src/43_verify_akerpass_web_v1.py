@@ -105,6 +105,8 @@ def main() -> int:
         "watchPosition", "clearWatch", "Blockgränser", "closeDrawer",
         "Gröda 2025", "Ej tillämpligt", "akervarde_applicability",
         "Historisk jordbruksklass 1971", "Ej klass 5–10 i importerat",
+        "map.panTo(target,{animate:false})", "updateGps(position,true,!followHasFix)",
+        "updateGps(position,true,true)",
     )
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:
