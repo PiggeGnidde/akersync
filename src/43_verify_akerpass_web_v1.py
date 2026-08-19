@@ -107,6 +107,8 @@ def main() -> int:
         "Historisk jordbruksklass 1971", "Ej klass 5–10 i importerat",
         "map.panTo(target,{animate:false})", "updateGps(position,true,!followHasFix)",
         "updateGps(position,true,true)",
+        "legendToggle", "legend-content", "leaflet-control-layers-toggle",
+        'position:"topright",collapsed:true', 'fillColor:"#d7263d"',
     )
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:
