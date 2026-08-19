@@ -19,6 +19,13 @@ from common import CSV_MUN_TO_UI, MUN_CODES, load_config
 SCORE_VERSION = "akerscore-soil-v0c"
 VALUE_VERSION = "akervarde-v1.0-rc1"
 DATASET_VERSION = "akerpass-public-v1"
+CROP_YEAR = 2025
+
+# Jordbruksverket crop codes that explicitly describe land outside the arable
+# target population. Codes 49/50/57 are grass on arable land and therefore do
+# not belong here.
+PASTURE_MEADOW_CODES = {52, 53, 55, 61, 89, 90, 95}
+OTHER_NON_ARABLE_CODES = {314}
 
 GEOMETRY_FIELDS = (
     "area_ha", "rectangularity", "convexity", "compactness_4piA_P2",
@@ -165,6 +172,55 @@ def crop_names(path: Path) -> dict[str, str]:
     }
 
 
+def land_use(crop_code: str) -> dict[str, str | int]:
+    """Conservative 2025 land-use gate for the public arable-value index."""
+    try:
+        code = int(float(crop_code))
+    except (TypeError, ValueError):
+        return {
+            "year": CROP_YEAR,
+            "group": "unknown",
+            "label": "Okänd markanvändning",
+            "akervarde_applicability": "unknown",
+            "akervarde_reason": "Grödkod 2025 saknas; åkermark kan inte verifieras.",
+        }
+    if code in PASTURE_MEADOW_CODES:
+        return {
+            "year": CROP_YEAR,
+            "group": "pasture",
+            "label": "Betesmark/slåtteräng (inte åker)",
+            "akervarde_applicability": "not_applicable",
+            "akervarde_reason": "Betesmark/slåtteräng ligger utanför ÅkerVärdes målpopulation.",
+        }
+    if code in OTHER_NON_ARABLE_CODES:
+        return {
+            "year": CROP_YEAR,
+            "group": "other_non_arable",
+            "label": "Annan markanvändning (inte åker)",
+            "akervarde_applicability": "not_applicable",
+            "akervarde_reason": "Markanvändningen ligger utanför ÅkerVärdes målpopulation.",
+        }
+    return {
+        "year": CROP_YEAR,
+        "group": "arable",
+        "label": "Åkermark",
+        "akervarde_applicability": "applicable",
+        "akervarde_reason": "",
+    }
+
+
+def score_status(score_row: dict[str, Any]) -> tuple[str, str]:
+    if number(score_row.get("akerscore_soil_p50")) is not None:
+        return "ok", ""
+    total = number(score_row.get("soil_pixels_total"), 0)
+    valid = number(score_row.get("soil_pixels_valid"), 0)
+    if total is not None and total <= 0:
+        return "no_mapped_soil_pixels", "Skiftet innehåller ingen jordpixel vars centrum ligger inom skiftesgränsen."
+    if valid is not None and valid < 3:
+        return "insufficient_valid_soil_pixels", "Färre än tre giltiga 20-meters jordpixlar finns för skiftet."
+    return "score_missing", "ÅkerScore kunde inte beräknas från tillgängliga jorddata."
+
+
 def build_field_feature(
     source: dict[str, Any], municipality: str, soil: dict[str, Any],
     geometry: dict[str, dict[str, Any]], score: dict[str, dict[str, Any]],
@@ -186,6 +242,11 @@ def build_field_feature(
     value_row = value.get(field_key, {})
     original_crop = original.get("grdkod_mar")
     crop_code = text_id(original_crop if number(original_crop) is not None else geom.get("crop_code"))
+    use = land_use(crop_code)
+    score_state, score_reason = score_status(score_row)
+    value_is_applicable = use["akervarde_applicability"] == "applicable"
+    historic_class = number(score_row.get("historic_class_qa"), 0)
+    historic_class_status = "class_5_10" if historic_class is not None else "not_in_imported_class_5_10"
     area = first_number(geom.get("area_ha"), score_row.get("area_ha"), original.get("ansokt_areal_ha"), digits=4)
 
     props = {
@@ -197,19 +258,33 @@ def build_field_feature(
         "akerscore": number(score_row.get("akerscore_soil_p50"), 2),
         "akerscore_p10": number(score_row.get("akerscore_soil_p10"), 2),
         "akerscore_p90": number(score_row.get("akerscore_soil_p90"), 2),
-        "akervarde": number(value_row.get("akervarde"), 2),
-        "akervarde_p10": number(value_row.get("akervarde_p10"), 2),
-        "akervarde_p90": number(value_row.get("akervarde_p90"), 2),
+        "akervarde": number(value_row.get("akervarde"), 2) if value_is_applicable else None,
+        "akervarde_p10": number(value_row.get("akervarde_p10"), 2) if value_is_applicable else None,
+        "akervarde_p90": number(value_row.get("akervarde_p90"), 2) if value_is_applicable else None,
+        "akervarde_applicability": use["akervarde_applicability"],
+        "akervarde_applicability_reason": use["akervarde_reason"],
         "akerdrift": None,
-        "historic_class": number(score_row.get("historic_class_qa"), 0),
+        "akerscore_status": score_state,
+        "akerscore_status_reason": score_reason,
+        "historic_class": historic_class,
+        "historic_class_status": historic_class_status,
+        "historic_class_status_label": (
+            "Historisk klass 5–10 identifierad"
+            if historic_class is not None
+            else "Ej klass 5–10 i importerat 1971-underlag"
+        ),
+        "crop_year": CROP_YEAR,
         "crop_code": crop_code or None,
         "crop_name": crops.get(crop_code),
+        "land_use_group": use["group"],
+        "land_use_label": use["label"],
         "soil": soil_details(soil.get(field_key)),
         "topography": selected_numbers(topography.get(blockid), TOPOGRAPHY_FIELDS),
         "hydrology": selected_numbers(hydrology.get(blockid), HYDROLOGY_FIELDS),
         "geometry_metrics": selected_numbers(geom, GEOMETRY_FIELDS),
         "qa": {
             "soil_coverage_pct": number(score_row.get("soil_coverage_pct"), 2),
+            "soil_pixels_total": number(score_row.get("soil_pixels_total"), 0),
             "soil_pixels_valid": number(score_row.get("soil_pixels_valid"), 0),
             "inside_block_pct": number(original.get("inside_pct"), 2),
             "alignment_warning": bool(original.get("alignment_warning", False)),
@@ -269,6 +344,7 @@ def main() -> int:
     total_blocks = 0
     missing_score = 0
     missing_value = 0
+    value_not_applicable = 0
     for municipality, code in MUN_CODES.items():
         if municipality not in geometry_payload:
             raise RuntimeError(f"geometry_payload saknar kommunen {municipality}")
@@ -282,7 +358,9 @@ def main() -> int:
             )
             if public_feature["properties"]["akerscore"] is None:
                 missing_score += 1
-            if public_feature["properties"]["akervarde"] is None:
+            if public_feature["properties"]["akervarde_applicability"] != "applicable":
+                value_not_applicable += 1
+            elif public_feature["properties"]["akervarde"] is None:
                 missing_value += 1
             fields.append(public_feature)
 
@@ -332,7 +410,11 @@ def main() -> int:
         path.write_text(json.dumps(manifest_doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print(f"PUBLIC DATA: OK · 33 kommuner · {total_fields:,} skiften · {total_blocks:,} block")
-    print(f"Saknade ÅkerScore: {missing_score:,} · saknade ÅkerVärde: {missing_value:,}")
+    print(
+        f"Saknade ÅkerScore: {missing_score:,} · "
+        f"saknade ÅkerVärde inom målpopulation: {missing_value:,} · "
+        f"ÅkerVärde ej tillämpligt/okänd markanvändning: {value_not_applicable:,}"
+    )
     print("Monetära publika fält: 0")
     return 0
 

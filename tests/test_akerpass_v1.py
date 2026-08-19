@@ -61,16 +61,45 @@ class PublicFieldTests(unittest.TestCase):
         result = data_builder.build_field_feature(
             source, "Lomma", {"7|B": {"clay": [30, 2, 25, 30, 35, 31, 100, 20]}},
             {"7|B": {"area_ha": 12.3, "rectangularity": .8}},
-            {"7|B": {"akerscore_soil_p10": 88, "akerscore_soil_p50": 93, "akerscore_soil_p90": 97, "soil_coverage_pct": 100, "soil_pixels_valid": 20}},
+            {"7|B": {"akerscore_soil_p10": 88, "akerscore_soil_p50": 93, "akerscore_soil_p90": 97, "soil_coverage_pct": 100, "soil_pixels_total": 20, "soil_pixels_valid": 20}},
             {"7|B": {"akervarde": 70, "akervarde_p10": 57.792, "akervarde_p90": 104.202, "akervarde_model_version": "akervarde-v1.0-rc1"}},
             {"7": {"elev_mean_m": 10}}, {"7": {"twi_mean": 8}}, {"4": "Vete (höst)"},
         )
         props = result["properties"]
         self.assertEqual(props["akerscore"], 93)
         self.assertEqual(props["akervarde"], 70)
+        self.assertEqual(props["akervarde_applicability"], "applicable")
+        self.assertEqual(props["land_use_group"], "arable")
+        self.assertEqual(props["crop_year"], 2025)
         self.assertIsNone(props["akerdrift"])
         self.assertEqual(props["historic_class"], None)
+        self.assertEqual(props["historic_class_status"], "not_in_imported_class_5_10")
         data_builder.assert_public_keys(result)
+
+    def test_pasture_keeps_soil_score_but_suppresses_arable_value(self):
+        source = {
+            "type": "Feature",
+            "properties": {"blockid": "8", "skiftesbeteckning": "A", "grdkod_mar": 52},
+            "geometry": {"type": "Polygon", "coordinates": [[[13, 55], [13.1, 55], [13.1, 55.1], [13, 55]]]},
+        }
+        result = data_builder.build_field_feature(
+            source, "Vellinge", {"8|A": {}}, {"8|A": {"area_ha": 229}},
+            {"8|A": {"akerscore_soil_p10": 20, "akerscore_soil_p50": 26, "akerscore_soil_p90": 34, "soil_pixels_total": 100, "soil_pixels_valid": 100}},
+            {"8|A": {"akervarde": 96, "akervarde_p10": 79, "akervarde_p90": 143}},
+            {}, {}, {"52": "Betesmark"},
+        )
+        props = result["properties"]
+        self.assertEqual(props["akerscore"], 26)
+        self.assertIsNone(props["akervarde"])
+        self.assertIsNone(props["akervarde_p10"])
+        self.assertIsNone(props["akervarde_p90"])
+        self.assertEqual(props["land_use_group"], "pasture")
+        self.assertEqual(props["akervarde_applicability"], "not_applicable")
+
+    def test_missing_score_reports_insufficient_soil_pixels(self):
+        status, reason = data_builder.score_status({"soil_pixels_total": 10, "soil_pixels_valid": 2})
+        self.assertEqual(status, "insufficient_valid_soil_pixels")
+        self.assertIn("Färre än tre", reason)
 
 
 class VerificationTests(unittest.TestCase):
@@ -79,6 +108,8 @@ class VerificationTests(unittest.TestCase):
             "fields": {"features": [{"properties": {
                 "akerscore": 95, "akerscore_p10": 90, "akerscore_p90": 98,
                 "akervarde": 125, "akervarde_p10": 103, "akervarde_p90": 186,
+                "akervarde_applicability": "applicable", "land_use_group": "arable", "crop_year": 2025,
+                "historic_class": 9, "historic_class_status": "class_5_10",
                 "akerdrift": None,
             }}]},
             "blocks": {"features": []},
@@ -127,7 +158,7 @@ class VerificationTests(unittest.TestCase):
                     "organic": [4, 0, 100, 20],
                 }}}
                 geometry_rows.append({"kommun": municipality, "blockid": blockid, "skiftesbeteckning": skifte, "area_ha": 12, "rectangularity": .9, "convexity": .95, "compactness_4piA_P2": .7, "mbr_aspect_ratio": 1.5})
-                score_rows.append({"blockid": blockid, "skiftesbeteckning": skifte, "akerscore_soil_p10": 80, "akerscore_soil_p50": 90, "akerscore_soil_p90": 96, "soil_coverage_pct": 100, "soil_pixels_valid": 20, "historic_class_qa": 9})
+                score_rows.append({"blockid": blockid, "skiftesbeteckning": skifte, "akerscore_soil_p10": 80, "akerscore_soil_p50": 90, "akerscore_soil_p90": 96, "soil_coverage_pct": 100, "soil_pixels_total": 20, "soil_pixels_valid": 20, "historic_class_qa": 9})
                 value_rows.append({"kommun": municipality, "blockid": blockid, "skiftesbeteckning": skifte, "akervarde": 125, "akervarde_p10": 103.2, "akervarde_p90": 186.1, "akervarde_model_version": "akervarde-v1.0-rc1"})
                 topo_rows.append({"municipality": municipality, "blockid": blockid, "elev_mean_m": 20, "slope_mean_deg": 1})
                 hydro_rows.append({"municipality": municipality, "blockid": blockid, "twi_mean": 8, "twi_p90": 12})

@@ -220,3 +220,12 @@ Hela `dist/` deployas som en vanlig statisk webbplats.
   att hela lokala Skåne-outputen byggts.
 - Leaflets JavaScript och bakgrundskartor hämtas externt. Leaflets kritiska
   layout-CSS är inbakad i frontendfilen och själva ÅkerPass-datan är statisk.
+- Gröda och markanvändning avser Jordbruksverkets skiftesdata för 2025.
+  ÅkerVärde visas endast för verifierad åkermark; tydlig betes-/slåttermark,
+  annan icke-åkermark och okänd markanvändning visas som ej tillämpligt.
+- Skyddad natur/naturreservat är ännu inte ett integrerat datalager. En åkerkod
+  innanför skyddad natur kan därför inte spärras enbart på reservatsstatus i V1.
+- Den historiska jordbruksklassningen från 1971 är i V1 importerad endast för
+  klass 5–10. Ett tomt klassvärde betyder därför inte saknade moderna jorddata
+  och bevisar inte klass 1–4; det betyder att skiftets representativa punkt inte
+  ligger i det importerade 5–10-underlaget.

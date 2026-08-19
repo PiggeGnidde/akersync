@@ -52,6 +52,22 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, float | None, f
             if not 0 <= float(score) <= 100:
                 raise RuntimeError(f"{path.name}: ÅkerScore utanför 0–100")
         value = p.get("akervarde")
+        applicability = p.get("akervarde_applicability")
+        land_use_group = p.get("land_use_group")
+        if p.get("crop_year") != 2025:
+            raise RuntimeError(f"{path.name}: grödans årtal är inte 2025")
+        historic_class = p.get("historic_class")
+        historic_status = p.get("historic_class_status")
+        if historic_class is None and historic_status != "not_in_imported_class_5_10":
+            raise RuntimeError(f"{path.name}: historisk klass saknar tydlig 5–10-status")
+        if historic_class is not None and not 5 <= float(historic_class) <= 10:
+            raise RuntimeError(f"{path.name}: historisk klass ligger utanför importerat 5–10-underlag")
+        if land_use_group != "arable" and applicability == "applicable":
+            raise RuntimeError(f"{path.name}: icke-åkermark har tillämpligt ÅkerVärde")
+        if applicability != "applicable" and any(
+            p.get(field) is not None for field in ("akervarde", "akervarde_p10", "akervarde_p90")
+        ):
+            raise RuntimeError(f"{path.name}: ÅkerVärde visas utanför målpopulationen")
         if value is not None:
             value_count += 1
             numeric_value = float(value)
@@ -87,6 +103,8 @@ def main() -> int:
         "ÅkerScore", "ÅkerVärde", "ÅkerDrift", "Kommer senare",
         "Inomfältsvariation P10–P90", "Prediktionsintervall P10–P90",
         "watchPosition", "clearWatch", "Blockgränser", "closeDrawer",
+        "Gröda 2025", "Ej tillämpligt", "akervarde_applicability",
+        "Historisk jordbruksklass 1971", "Ej klass 5–10 i importerat",
     )
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:
