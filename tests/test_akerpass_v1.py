@@ -86,8 +86,9 @@ class VerificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "fixture.json"
             path.write_text(json.dumps(document), encoding="utf-8")
-            fields, blocks, scores, values, over_100 = verifier.check_document(path)
+            fields, blocks, scores, values, over_100, value_min, value_max = verifier.check_document(path)
         self.assertEqual((fields, blocks, scores, values, over_100), (1, 0, 1, 1, 1))
+        self.assertEqual((value_min, value_max), (125, 125))
 
     def test_synthetic_33_municipality_build(self):
         persistent = os.environ.get("AKERPASS_TEST_OUTPUT")

@@ -23,8 +23,12 @@ if not exist "data\derived\geometry_payload.json" (
 
 if not exist "data\derived\geometry_v1a_skiften.csv" (
   echo Geometry V1a saknas. Bygger den nu...
-  py -3 src\09_geometry_v1a.py
-  if errorlevel 1 python src\09_geometry_v1a.py
+  where py >nul 2>nul
+  if errorlevel 1 (
+    python src\09_geometry_v1a.py
+  ) else (
+    py -3 src\09_geometry_v1a.py
+  )
   if errorlevel 1 goto :error
 )
 
@@ -42,8 +46,12 @@ if not exist "data\derived\akervarde_v1_0_rc1_freeze\model_coefficients.csv" (
   exit /b 1
 )
 
-py -3 src\build_akerpass_web_v1.py
-if errorlevel 1 python src\build_akerpass_web_v1.py
+where py >nul 2>nul
+if errorlevel 1 (
+  python src\build_akerpass_web_v1.py
+) else (
+  py -3 src\build_akerpass_web_v1.py
+)
 if errorlevel 1 goto :error
 
 echo.
@@ -58,4 +66,3 @@ echo.
 echo FEL: AkerPass-bygget avbrots. Kopiera hela texten till kodchatten.
 pause
 exit /b 1
-
