@@ -218,5 +218,5 @@ Hela `dist/` deployas som en vanlig statisk webbplats.
 - Satellitdata är ännu inte ett fryst publikt ÅkerPass-lager.
 - Visuell mobiltest på Bengts faktiska iPhone/Android och browser återstår efter
   att hela lokala Skåne-outputen byggts.
-- Leaflet och bakgrundskartor hämtas externt; själva ÅkerPass-datan är statisk.
-
+- Leaflets JavaScript och bakgrundskartor hämtas externt. Leaflets kritiska
+  layout-CSS är inbakad i frontendfilen och själva ÅkerPass-datan är statisk.

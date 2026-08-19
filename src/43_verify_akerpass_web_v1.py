@@ -91,6 +91,15 @@ def main() -> int:
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:
         raise RuntimeError("Frontend saknar: " + ", ".join(missing_ui))
+    if 'rel="stylesheet" href="https://unpkg.com/leaflet' in html:
+        raise RuntimeError("Frontend får inte vara beroende av extern Leaflet-CSS")
+    for marker in (
+        ".leaflet-pane,.leaflet-tile",
+        ".leaflet-tile-container",
+        ".leaflet-control{position:relative",
+    ):
+        if marker not in html:
+            raise RuntimeError("Frontend saknar inbakad Leaflet-layout: " + marker)
     # The public scale must support values above 100 even when this particular
     # frozen model/data snapshot happens not to produce one. Never fabricate a
     # field value merely to exercise the upper legend.
