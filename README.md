@@ -3,6 +3,15 @@
 Målet är att kunna återskapa **ÅkerSync v0.92 från rådata** utan att vara
 beroende av historiska v0.4/v0.7/v0.9-filer.
 
+## ÅkerPass MVP UI V1
+
+Den separata integrationsgrenen `feature/akerpass-ui-v1` bygger ÅkerPass för
+alla 33 skånska kommuner med fryst ÅkerScore, publikt ÅkerVärde-index,
+ÅkerDrift-placeholder, mobil drawer/bottom sheet och GPS-följning.
+
+Kör `BUILD_AKERPASS_WEB_V1.bat` och därefter `START_AKERPASS_LOCAL.bat`.
+Full metod, inputs, output och QA finns i [AKERPASS_UI_V1.md](AKERPASS_UI_V1.md).
+
 ## Första gången
 
 1. Packa upp repot i en enkel arbetsmapp, exempelvis `C:\AkerSyncRepo`.
