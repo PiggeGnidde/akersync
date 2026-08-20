@@ -1,0 +1,27 @@
+{
+  "model_version": "akerdrift-fast-v1-rc0",
+  "geometry": {
+    "beta0": 0.179,
+    "beta1": -0.145,
+    "pa_units": "m_per_m2"
+  },
+  "terrain": {
+    "flat_deg": 5.0,
+    "max_deg": 16.7,
+    "slope_penalty_max": 0.20
+  },
+  "coverage": {
+    "slope_ok_min": 0.95,
+    "slope_calculable_min": 0.80,
+    "twi_ok_min": 0.95
+  },
+  "hydrology": {
+    "include_in_score": false,
+    "twi_p90": 12.143241,
+    "twi_p95": 15.312701
+  },
+  "runtime": {
+    "checkpoint_unit": "municipality",
+    "resume": true
+  }
+}
