@@ -1,5 +1,12 @@
 # ÅkerSync – reproducible build v1
 
+## ÅkerDrift route pilot
+
+En begränsad 50-skiftesjämförelse mellan ÅkerDrift Fast och simulerade
+parallella kördrag finns i [AKERDRIFT_ROUTE_PILOT_V1A.md](AKERDRIFT_ROUTE_PILOT_V1A.md).
+Den körs separat med `RUN_AKERDRIFT_ROUTE_PILOT.bat` och ändrar inte den publika
+kartan.
+
 Målet är att kunna återskapa **ÅkerSync v0.92 från rådata** utan att vara
 beroende av historiska v0.4/v0.7/v0.9-filer.
 

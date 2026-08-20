@@ -1,0 +1,106 @@
+# ÅkerDrift ruttpilot V1a
+
+Modellversion: `akerdrift-route-pilot-v1a-rc0`  
+Branch: `feature/akerdrift-route-pilot-v1a`
+
+Detta är ett avgränsat valideringsexperiment, inte en ersättare för den
+publicerade ÅkerDrift Fast V1-modellen. Piloten svarar på frågan om den enkla
+P/A-modellen rankar hål, kilar, L-former och vändningstäta skiften annorlunda än
+en faktisk geometrisk ruttapproximation.
+
+## Vad piloten gör
+
+För varje vald polygon provas parallella kördrag i riktningar 0–175° med 5°
+steg. De tre bästa riktningarna förfinas i 1° steg. Motorn räknar:
+
+- produktiv körsträcka med 9 m arbetsbredd,
+- separata drag som uppstår av konkavitet, multipolygoner och interna hål,
+- icke-produktiv övergång mellan dragen,
+- minst en halvcirkel med 8 m radie per övergång,
+- arbetstid vid 1,0 m/s och övergångs-/vändtid vid 0,5 m/s,
+- ideal tid `T0 = area / (arbetsbredd × arbetshastighet)`,
+- `route_geometry_score = 100 × T0 / T_route`, begränsad till 0–100.
+
+Slutvärdet i pilotjämförelsen är:
+
+```text
+route_score = route_geometry_score × drift_terrain_factor från Fast V1
+```
+
+Fast och ruttpiloten använder därmed samma redan beräknade terrängfaktor. En
+skillnad i score beror i denna pilot på geometrimodellen, inte på att lutning
+har modellerats på två olika sätt.
+
+## Avsiktliga begränsningar
+
+- Motorn är den deterministiska Shapely-reserven, inte Fields2Cover.
+- Vändningsvägarna är konservativa approximationer, inte fordonsdynamiska
+  Dubins/Reeds–Shepp-banor.
+- Vändtegens 24 m används för att dela upp inre körning och vändteg i
+  diagnostiken. All produktiv körning har samma hastighet i RC0.
+- TWI och körvägsriktad tvär-/längslutning ingår inte. Fast V1:s terrängfaktor
+  återanvänds och TWI förblir utanför score.
+- Okända infarter, sten, träd, diken, gröda och aktuell markfukt ingår inte.
+- Resultaten ändrar inte webbdata eller UI automatiskt.
+
+Detta gör piloten till ett tydligt test av just den fråga som Fast V1 inte kan
+besvara: om total perimeter är en tillräcklig proxy för verkliga drag och
+vändningar.
+
+## Körning i Windows
+
+Förutsättning: ÅkerDrift Fast V1 för Lomma ska redan finnas här:
+
+```text
+data\derived\akerdrift_fast_v1\by_municipality\lomma.parquet
+```
+
+Kör sedan:
+
+```bat
+RUN_AKERDRIFT_ROUTE_PILOT.bat
+```
+
+Det motsvarar:
+
+```bat
+py -3 src\45_akerdrift_route_pilot.py run --kommun Lomma --limit 50
+```
+
+Urvalet är deterministiskt och blandar hål/fragment, hög/låg Fast-score,
+stor/liten areal samt en spridning över area- och scorekvantiler. Hård spärr
+finns vid 200 skiften. Hela Lomma startas alltså inte av misstag.
+
+Varje färdigt skifte skrivs atomärt under `results/` och får därefter en egen
+`checkpoints/*.done.json`. Om körningen avbryts kör man samma BAT-fil igen;
+färdiga skiften skrivs då som `SKIP`.
+
+## Resultat
+
+Standardmapp:
+
+```text
+data\derived\akerdrift_route_pilot_v1a\lomma_50\
+  sample_manifest.csv
+  results\*.json
+  checkpoints\*.done.json
+  route_pilot_results.parquet
+  failures.csv
+  qa\comparison_summary.json
+  qa\largest_disagreements.csv
+  qa\holes_comparison.csv
+```
+
+`comparison_summary.json` innehåller Spearman-korrelation, median absolut
+scoredifferens och P95 absolut scoredifferens. `largest_disagreements.csv`
+visar de skiften som byter mest rank mellan Fast och ruttpiloten. Där ska vi
+först granska hål, kilar och konkava former visuellt innan någon modell ändras.
+
+## Test
+
+```bat
+py -3 -m unittest tests.test_akerdrift_route_core
+```
+
+Testerna täcker stor rektangel, lång rektangel mot kvadrat, L-form, internt hål,
+rotationsstabilitet, determinism och 0–100-bounds.
