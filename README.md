@@ -7,10 +7,15 @@ beroende av historiska v0.4/v0.7/v0.9-filer.
 
 Den separata integrationsgrenen `feature/akerpass-ui-v1` bygger ÅkerPass för
 alla 33 skånska kommuner med fryst ÅkerScore, publikt ÅkerVärde-index,
-ÅkerDrift-placeholder, mobil drawer/bottom sheet och GPS-följning.
+ÅkerDrift Fast V1, mobil drawer/bottom sheet och GPS-följning.
 
 Kör `BUILD_AKERPASS_WEB_V1.bat` och därefter `START_AKERPASS_LOCAL.bat`.
 Full metod, inputs, output och QA finns i [AKERPASS_UI_V1.md](AKERPASS_UI_V1.md).
+
+ÅkerDrift körs separat och restart-säkert kommun för kommun med
+`RUN_AKERDRIFT_FAST_V1.bat`. Kör sedan billig QA/sensitivitet med
+`CHECK_AKERDRIFT_FAST_V1.bat`. Formel, checkpoints och körordning finns i
+[AKERDRIFT_FAST_V1.md](AKERDRIFT_FAST_V1.md).
 
 ## Första gången
 

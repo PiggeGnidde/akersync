@@ -46,6 +46,13 @@ if not exist "data\derived\akervarde_v1_0_rc1_freeze\model_coefficients.csv" (
   exit /b 1
 )
 
+if not exist "data\derived\akerdrift_fast_v1\akerdrift_fast_v1_skane.parquet" (
+  echo FEL: AkerDrift Fast V1-output saknas.
+  echo Kor RUN_AKERDRIFT_FAST_V1.bat forst. Avbruten korning kan startas om med resume.
+  pause
+  exit /b 1
+)
+
 where py >nul 2>nul
 if errorlevel 1 (
   python src\build_akerpass_web_v1.py

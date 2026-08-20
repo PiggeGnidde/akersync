@@ -18,6 +18,7 @@ from common import CSV_MUN_TO_UI, MUN_CODES, load_config
 
 SCORE_VERSION = "akerscore-soil-v0c"
 VALUE_VERSION = "akervarde-v1.0-rc1"
+DRIFT_VERSION = "akerdrift-fast-v1-rc0"
 DATASET_VERSION = "akerpass-public-v1"
 CROP_YEAR = 2025
 
@@ -42,6 +43,14 @@ HYDROLOGY_FIELDS = (
     "twi_coverage_pct", "twi_mean", "twi_sd", "twi_p50", "twi_p90", "twi_p95",
     "twi_ge_farmland_p90_pct", "twi_ge_farmland_p95_pct", "ln_sca_p90",
     "hydro_slope_mean_deg", "hydro_slope_p90_deg", "distance_to_mosaic_bbox_edge_m",
+)
+DRIFT_FIELDS = (
+    "geometry_score", "drift_terrain_factor", "drift_slope_difficulty",
+    "drift_slope_mean_deg", "drift_slope_p90_deg", "drift_slope_p95_deg",
+    "drift_slope_gt5_share", "drift_slope_gt10_share", "drift_slope_gt16_7_share",
+    "drift_slope_coverage", "drift_twi_mean", "drift_twi_p90_share",
+    "drift_twi_p95_share", "drift_twi_coverage", "pa_ratio", "fe_geom", "erl",
+    "rectangularity", "convexity", "compactness", "mbr_aspect",
 )
 
 # Public output is allow-listed below. This deny-list is a second line of defence.
@@ -99,6 +108,16 @@ def read_csv(path: Path, required: tuple[str, ...] = ()) -> pd.DataFrame:
         "blockid": str, "skiftesbeteckning": str, "kommun": str,
         "municipality": str, "region_kod": str,
     })
+    missing = [column for column in required if column not in frame.columns]
+    if missing:
+        raise RuntimeError(f"{path} saknar kolumner: {', '.join(missing)}")
+    return frame
+
+
+def read_parquet(path: Path, required: tuple[str, ...] = ()) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(path)
+    frame = pd.read_parquet(path)
     missing = [column for column in required if column not in frame.columns]
     if missing:
         raise RuntimeError(f"{path} saknar kolumner: {', '.join(missing)}")
@@ -224,7 +243,8 @@ def score_status(score_row: dict[str, Any]) -> tuple[str, str]:
 def build_field_feature(
     source: dict[str, Any], municipality: str, soil: dict[str, Any],
     geometry: dict[str, dict[str, Any]], score: dict[str, dict[str, Any]],
-    value: dict[str, dict[str, Any]], topography: dict[str, dict[str, Any]],
+    value: dict[str, dict[str, Any]], drift: dict[str, dict[str, Any]],
+    topography: dict[str, dict[str, Any]],
     hydrology: dict[str, dict[str, Any]], crops: dict[str, str],
 ) -> dict[str, Any]:
     original = source.get("properties") or {}
@@ -232,7 +252,10 @@ def build_field_feature(
     skifte = text_id(original.get("skiftesbeteckning"))
     field_key = key(blockid, skifte)
     missing_sources = [
-        label for label, lookup in (("Geometry V1a", geometry), ("ÅkerScore v0c", score), ("ÅkerVärde", value))
+        label for label, lookup in (
+            ("Geometry V1a", geometry), ("ÅkerScore v0c", score),
+            ("ÅkerVärde", value), ("ÅkerDrift Fast V1", drift),
+        )
         if field_key not in lookup
     ]
     if missing_sources:
@@ -240,6 +263,7 @@ def build_field_feature(
     geom = geometry.get(field_key, {})
     score_row = score.get(field_key, {})
     value_row = value.get(field_key, {})
+    drift_row = drift.get(field_key, {})
     original_crop = original.get("grdkod_mar")
     crop_code = text_id(original_crop if number(original_crop) is not None else geom.get("crop_code"))
     use = land_use(crop_code)
@@ -263,7 +287,12 @@ def build_field_feature(
         "akervarde_p90": number(value_row.get("akervarde_p90"), 2) if value_is_applicable else None,
         "akervarde_applicability": use["akervarde_applicability"],
         "akervarde_applicability_reason": use["akervarde_reason"],
-        "akerdrift": None,
+        "akerdrift": number(drift_row.get("akerdrift_score"), 2),
+        "akerdrift_status": str(drift_row.get("drift_status") or "MISSING"),
+        "akerdrift_details": {
+            **selected_numbers(drift_row, DRIFT_FIELDS),
+            "drift_twi_status": str(drift_row.get("drift_twi_status") or "MISSING"),
+        },
         "akerscore_status": score_state,
         "akerscore_status_reason": score_reason,
         "historic_class": historic_class,
@@ -292,9 +321,13 @@ def build_field_feature(
         "model_versions": {
             "akerscore": SCORE_VERSION,
             "akervarde": str(value_row.get("akervarde_model_version") or VALUE_VERSION),
+            "akerdrift": str(drift_row.get("drift_model_version") or DRIFT_VERSION),
             "dataset": DATASET_VERSION,
         },
-        "data_scope": {"soil": "skifte", "geometry": "skifte", "topography": "block", "hydrology": "block"},
+        "data_scope": {
+            "soil": "skifte", "geometry": "skifte", "akerdrift": "skifte",
+            "topography": "block", "hydrology": "block",
+        },
     }
     return {"type": "Feature", "id": field_key, "properties": props, "geometry": source.get("geometry")}
 
@@ -329,12 +362,17 @@ def main() -> int:
         public_dir / "akervarde_public_skiften.csv",
         ("blockid", "skiftesbeteckning", "akervarde", "akervarde_p10", "akervarde_p90"),
     )
+    drift_frame = read_parquet(
+        build_dir / "akerdrift_fast_v1" / "akerdrift_fast_v1_skane.parquet",
+        ("block_id", "skifte_id", "akerdrift_score", "drift_status", "drift_model_version"),
+    ).rename(columns={"block_id": "blockid", "skifte_id": "skiftesbeteckning"})
     topo_frame = read_csv(build_dir / "topography_features_blocks.csv", ("blockid",))
     hydro_frame = read_csv(build_dir / "hydrology_features_final.csv", ("blockid",))
 
     geometry_lookup = rows_by_field(geometry_frame)
     score_lookup = rows_by_field(score_frame)
     value_lookup = rows_by_field(value_frame)
+    drift_lookup = rows_by_field(drift_frame)
     topography_lookup = rows_by_block(topo_frame)
     hydrology_lookup = rows_by_block(hydro_frame)
     crops = crop_names(root / "data" / "reference" / "grodkoder_2026_reference.csv")
@@ -344,6 +382,7 @@ def main() -> int:
     total_blocks = 0
     missing_score = 0
     missing_value = 0
+    missing_drift = 0
     value_not_applicable = 0
     for municipality, code in MUN_CODES.items():
         if municipality not in geometry_payload:
@@ -354,7 +393,7 @@ def main() -> int:
         for feature in source["skiften"]["features"]:
             public_feature = build_field_feature(
                 feature, municipality, municipality_soil, geometry_lookup, score_lookup,
-                value_lookup, topography_lookup, hydrology_lookup, crops,
+                value_lookup, drift_lookup, topography_lookup, hydrology_lookup, crops,
             )
             if public_feature["properties"]["akerscore"] is None:
                 missing_score += 1
@@ -362,6 +401,8 @@ def main() -> int:
                 value_not_applicable += 1
             elif public_feature["properties"]["akervarde"] is None:
                 missing_value += 1
+            if public_feature["properties"]["akerdrift"] is None:
+                missing_drift += 1
             fields.append(public_feature)
 
         blocks = []
@@ -400,6 +441,7 @@ def main() -> int:
     manifest_doc = {
         "schema_version": 1,
         "dataset_version": DATASET_VERSION,
+        "akerdrift_model_version": DRIFT_VERSION,
         "municipality_count": len(manifest),
         "field_count": total_fields,
         "block_count": total_blocks,
@@ -413,7 +455,8 @@ def main() -> int:
     print(
         f"Saknade ÅkerScore: {missing_score:,} · "
         f"saknade ÅkerVärde inom målpopulation: {missing_value:,} · "
-        f"ÅkerVärde ej tillämpligt/okänd markanvändning: {value_not_applicable:,}"
+        f"ÅkerVärde ej tillämpligt/okänd markanvändning: {value_not_applicable:,} · "
+        f"saknade ÅkerDrift: {missing_drift:,}"
     )
     print("Monetära publika fält: 0")
     return 0

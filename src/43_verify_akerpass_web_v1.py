@@ -33,19 +33,33 @@ def walk(value: Any):
             yield from walk(child)
 
 
-def check_document(path: Path) -> tuple[int, int, int, int, int, float | None, float | None]:
+def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | None, float | None]:
     document = json.loads(path.read_text(encoding="utf-8"))
     fields = document.get("fields", {}).get("features", [])
     blocks = document.get("blocks", {}).get("features", [])
-    score_count = value_count = over_100 = 0
+    score_count = value_count = drift_count = over_100 = 0
     values: list[float] = []
     for field, _ in walk(document):
         if FORBIDDEN_KEY.search(str(field)):
             raise RuntimeError(f"{path.name}: förbjudet publikt fält {field}")
     for feature in fields:
         p = feature.get("properties") or {}
-        if p.get("akerdrift") is not None:
-            raise RuntimeError(f"{path.name}: ÅkerDrift får inte ha fabricerat värde")
+        drift = p.get("akerdrift")
+        drift_status = p.get("akerdrift_status")
+        if drift is not None:
+            drift_count += 1
+            if not 0 <= float(drift) <= 100:
+                raise RuntimeError(f"{path.name}: ÅkerDrift utanför 0–100")
+            if drift_status not in {"OK", "LIMITED_SLOPE_COVERAGE"}:
+                raise RuntimeError(f"{path.name}: score trots ogiltig ÅkerDrift-status")
+        elif drift_status not in {"INSUFFICIENT_SLOPE_COVERAGE", "INVALID_GEOMETRY", "FIELD_ERROR"}:
+            raise RuntimeError(f"{path.name}: ÅkerDrift null utan tydlig status")
+        details = p.get("akerdrift_details") or {}
+        terrain_factor = details.get("drift_terrain_factor")
+        if terrain_factor is not None and not 0.8 <= float(terrain_factor) <= 1.0:
+            raise RuntimeError(f"{path.name}: terrängfaktor utanför 0,8–1,0")
+        if (p.get("model_versions") or {}).get("akerdrift") != "akerdrift-fast-v1-rc0":
+            raise RuntimeError(f"{path.name}: fel ÅkerDrift-version")
         score = p.get("akerscore")
         if score is not None:
             score_count += 1
@@ -80,7 +94,7 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, float | None, f
             if float(p["akervarde_p10"]) > float(p["akervarde_p90"]):
                 raise RuntimeError(f"{path.name}: omvänt ÅkerVärde-intervall")
     return (
-        len(fields), len(blocks), score_count, value_count, over_100,
+        len(fields), len(blocks), score_count, value_count, drift_count, over_100,
         min(values) if values else None,
         max(values) if values else None,
     )
@@ -100,7 +114,9 @@ def main() -> int:
 
     html = index.read_text(encoding="utf-8")
     required_ui = (
-        "ÅkerScore", "ÅkerVärde", "ÅkerDrift", "Kommer senare",
+        "ÅkerScore", "ÅkerVärde", "ÅkerDrift", "Maskinell brukbarhet",
+        "Geometrisk effektivitetsproxy", "TWI P95-yta · diagnostik",
+        "akerdrift-fast-v1-rc0", 'data-layer="drift"', "DRIFT_LEGEND",
         "Inomfältsvariation P10–P90", "Prediktionsintervall P10–P90",
         "watchPosition", "clearWatch", "Blockgränser", "closeDrawer",
         "Gröda 2025", "Ej tillämpligt", "akervarde_applicability",
@@ -125,7 +141,7 @@ def main() -> int:
     # The public scale must support values above 100 even when this particular
     # frozen model/data snapshot happens not to produce one. Never fabricate a
     # field value merely to exercise the upper legend.
-    for marker in ('label:">150"', "max:Infinity", 'activeLayer===\"score\"?properties.akerscore:properties.akervarde'):
+    for marker in ('label:">150"', "max:Infinity", 'activeLayer===\"value\"?properties.akervarde:properties.akerdrift'):
         if marker not in html:
             raise RuntimeError("Frontend saknar stöd för obegränsat ÅkerVärde: " + marker)
     for pattern in FORBIDDEN_UI:
@@ -136,8 +152,10 @@ def main() -> int:
     municipalities = manifest.get("municipalities", {})
     if set(municipalities) != set(MUN_CODES) or manifest.get("municipality_count") != 33:
         raise RuntimeError("Kommunmanifestet innehåller inte exakt Skånes 33 kommuner")
+    if manifest.get("akerdrift_model_version") != "akerdrift-fast-v1-rc0":
+        raise RuntimeError("Kommunmanifestet saknar fryst ÅkerDrift-version")
 
-    totals = [0, 0, 0, 0, 0]
+    totals = [0, 0, 0, 0, 0, 0]
     value_min = value_max = None
     for municipality, meta in municipalities.items():
         path = dist_dir / meta["file"]
@@ -146,23 +164,23 @@ def main() -> int:
         result = check_document(path)
         if result[0] != int(meta["fields"]) or result[1] != int(meta["blocks"]):
             raise RuntimeError(f"{municipality}: manifestantal stämmer inte")
-        totals = [a + b for a, b in zip(totals, result[:5])]
-        if result[5] is not None:
-            value_min = result[5] if value_min is None else min(value_min, result[5])
-            value_max = result[6] if value_max is None else max(value_max, result[6])
+        totals = [a + b for a, b in zip(totals, result[:6])]
+        if result[6] is not None:
+            value_min = result[6] if value_min is None else min(value_min, result[6])
+            value_max = result[7] if value_max is None else max(value_max, result[7])
 
-    if totals[0] <= 0 or totals[2] <= 0 or totals[3] <= 0:
-        raise RuntimeError("Publik build saknar skiften, ÅkerScore eller ÅkerVärde")
+    if totals[0] <= 0 or totals[2] <= 0 or totals[3] <= 0 or totals[4] <= 0:
+        raise RuntimeError("Publik build saknar skiften, ÅkerScore, ÅkerVärde eller ÅkerDrift")
     if totals[0] != int(manifest.get("field_count", -1)) or totals[1] != int(manifest.get("block_count", -1)):
         raise RuntimeError("Totala manifestantal stämmer inte")
 
     print("AKERPASS QA: OK")
     print(f"  Kommuner: 33")
     print(f"  Skiften/block: {totals[0]:,}/{totals[1]:,}")
-    print(f"  ÅkerScore/ÅkerVärde: {totals[2]:,}/{totals[3]:,}")
+    print(f"  ÅkerScore/ÅkerVärde/ÅkerDrift: {totals[2]:,}/{totals[3]:,}/{totals[4]:,}")
     print(f"  ÅkerVärde min/max: {value_min:.1f}/{value_max:.1f}")
-    print(f"  ÅkerVärde över 100: {totals[4]:,}")
-    if totals[4] == 0:
+    print(f"  ÅkerVärde över 100: {totals[5]:,}")
+    if totals[5] == 0:
         print("  OBS: aktuell data når inte över 100; skalan/legenden har ändå verifierat stöd utan cap.")
     print("  Monetära UI-/exportfält: 0")
     print("  Mobilpanel + GPS watch/clear: statiskt verifierade")

@@ -229,3 +229,8 @@ Hela `dist/` deployas som en vanlig statisk webbplats.
   klass 5–10. Ett tomt klassvärde betyder därför inte saknade moderna jorddata
   och bevisar inte klass 1–4; det betyder att skiftets representativa punkt inte
   ligger i det importerade 5–10-underlaget.
+- ÅkerDrift använder `akerdrift-fast-v1-rc0`: en empiriskt förankrad
+  perimeter/area-proxy i SI-enheter med en konservativ lutningsjustering.
+  Skiftesvis TWI visas diagnostiskt men påverkar inte ÅkerDrift-poängen.
+- ÅkerDrift-resultaten byggs restart-säkert kommunvis innan denna publika build.
+  Se `AKERDRIFT_FAST_V1.md` och `RUN_AKERDRIFT_FAST_V1.bat`.
