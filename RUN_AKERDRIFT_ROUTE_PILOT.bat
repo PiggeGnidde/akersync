@@ -2,13 +2,13 @@
 setlocal
 cd /d "%~dp0"
 
-echo AkerDrift ruttpilot: 50 deterministiskt valda Lomma-skiften.
+echo AkerDrift ruttpilot RC1: 150 normalfalt + 50 stressfalt i Lomma.
 echo Resultat checkpointas efter varje skifte. Hela kommunen kors inte.
-py -3 src\45_akerdrift_route_pilot.py run --kommun Lomma --limit 50
+py -3 src\45_akerdrift_route_pilot.py run --kommun Lomma --limit 200
 if errorlevel 1 goto :error
 
 echo.
-echo KLART. Se data\derived\akerdrift_route_pilot_v1a\lomma_50\qa
+echo KLART. Se data\derived\akerdrift_route_pilot_v1a_rc1\lomma_200\qa
 pause
 exit /b 0
 

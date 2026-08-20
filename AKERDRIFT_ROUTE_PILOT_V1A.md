@@ -1,6 +1,7 @@
 # ÅkerDrift ruttpilot V1a
 
-Modellversion: `akerdrift-route-pilot-v1a-rc0`  
+Modellversion: `akerdrift-route-pilot-v1a-rc1`
+
 Branch: `feature/akerdrift-route-pilot-v1a`
 
 Detta är ett avgränsat valideringsexperiment, inte en ersättare för den
@@ -37,7 +38,7 @@ har modellerats på två olika sätt.
 - Vändningsvägarna är konservativa approximationer, inte fordonsdynamiska
   Dubins/Reeds–Shepp-banor.
 - Vändtegens 24 m används för att dela upp inre körning och vändteg i
-  diagnostiken. All produktiv körning har samma hastighet i RC0.
+  diagnostiken. All produktiv körning har samma hastighet i RC1.
 - TWI och körvägsriktad tvär-/längslutning ingår inte. Fast V1:s terrängfaktor
   återanvänds och TWI förblir utanför score.
 - Okända infarter, sten, träd, diken, gröda och aktuell markfukt ingår inte.
@@ -64,12 +65,22 @@ RUN_AKERDRIFT_ROUTE_PILOT.bat
 Det motsvarar:
 
 ```bat
-py -3 src\45_akerdrift_route_pilot.py run --kommun Lomma --limit 50
+py -3 src\45_akerdrift_route_pilot.py run --kommun Lomma --limit 200
 ```
 
-Urvalet är deterministiskt och blandar hål/fragment, hög/låg Fast-score,
-stor/liten areal samt en spridning över area- och scorekvantiler. Hård spärr
-finns vid 200 skiften. Hela Lomma startas alltså inte av misstag.
+Urvalet är deterministiskt och har två kohorter:
+
+- 150 normalfält med en fungerande inåtbuffrad 24-meterskärna, fördelade över
+  en 5×5-matris av area- och Fast-score-ranker,
+- 50 stressfält som prioriterar tom 24-meterskärna, hål/fragment och komplexa
+  gränser.
+
+Hård spärr finns vid 200 skiften. Hela Lomma startas alltså inte av misstag.
+
+Om inåtbuffringen 24 m blir tom klassas fältet som
+`SMALL_OR_NARROW_FIELD`. Motorn kör fortfarande en diagnostisk fullfältssvepning
+och sparar `route_score_diagnostic`, men det officiella `route_score` lämnas
+null. Dessa fall redovisas separat och ingår aldrig i huvudkorrelationen.
 
 Varje färdigt skifte skrivs atomärt under `results/` och får därefter en egen
 `checkpoints/*.done.json`. Om körningen avbryts kör man samma BAT-fil igen;
@@ -80,7 +91,7 @@ färdiga skiften skrivs då som `SKIP`.
 Standardmapp:
 
 ```text
-data\derived\akerdrift_route_pilot_v1a\lomma_50\
+data\derived\akerdrift_route_pilot_v1a_rc1\lomma_200\
   sample_manifest.csv
   results\*.json
   checkpoints\*.done.json
@@ -89,12 +100,19 @@ data\derived\akerdrift_route_pilot_v1a\lomma_50\
   qa\comparison_summary.json
   qa\largest_disagreements.csv
   qa\holes_comparison.csv
+  qa\stress_fields.csv
+  qa\stress_summary.csv
+  qa\small_or_narrow_fields.csv
 ```
 
-`comparison_summary.json` innehåller Spearman-korrelation, median absolut
-scoredifferens och P95 absolut scoredifferens. `largest_disagreements.csv`
-visar de skiften som byter mest rank mellan Fast och ruttpiloten. Där ska vi
-först granska hål, kilar och konkava former visuellt innan någon modell ändras.
+`comparison_summary.json` innehåller huvudkohortens Spearman-korrelation,
+median absolut scoredifferens och P95 absolut scoredifferens.
+`largest_disagreements.csv` och `holes_comparison.csv` innehåller bara normala,
+jämförbara fält. Stressfallen och små/smala fält ligger i separata filer så att
+de kan granskas utan att förvränga huvudmåtten.
+
+RC0-körningens mapp och konfiguration lämnas kvar oförändrade för
+reproducerbarhet.
 
 ## Test
 
@@ -103,4 +121,5 @@ py -3 -m unittest tests.test_akerdrift_route_core
 ```
 
 Testerna täcker stor rektangel, lång rektangel mot kvadrat, L-form, internt hål,
-rotationsstabilitet, determinism och 0–100-bounds.
+rotationsstabilitet, determinism, 0–100-bounds, exakt 150/50-urval samt att
+`SMALL_OR_NARROW_FIELD` utesluts ur huvudrapporten.

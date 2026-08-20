@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-MODEL_VERSION = "akerdrift-route-pilot-v1a-rc0"
+MODEL_VERSION = "akerdrift-route-pilot-v1a-rc1"
 ENGINE_VERSION = "shapely-parallel-swath-v1"
 
 
@@ -213,6 +213,8 @@ def simulate_route(geometry: Any, config: RouteConfig) -> dict[str, Any]:
     """Return the best deterministic parallel-swath route for one polygon."""
     if geometry is None or geometry.is_empty or float(geometry.area) <= 0:
         raise ValueError("Tom eller ogiltig skiftesgeometri")
+    interior = geometry.buffer(-config.headland_width_m)
+    small_or_narrow = interior.is_empty or float(getattr(interior, "area", 0.0)) <= 0.0
     coarse = [_candidate(geometry, heading, config) for heading in _heading_range(config.coarse_heading_step_deg)]
     coarse.sort(key=lambda item: (item.equivalent_time_s, item.heading_deg))
     headings = {int(item.heading_deg) for item in coarse}
@@ -230,5 +232,7 @@ def simulate_route(geometry: Any, config: RouteConfig) -> dict[str, Any]:
         "candidate_heading_count": len(candidates),
         "area_m2": float(geometry.area),
         "area_ha": float(geometry.area) / 10_000.0,
+        "small_or_narrow_field": bool(small_or_narrow),
+        "route_geometry_status": "SMALL_OR_NARROW_FIELD" if small_or_narrow else "OK",
     })
     return result

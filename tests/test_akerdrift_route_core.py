@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import math
 import importlib.util
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -49,6 +51,12 @@ class AkerdriftRouteCoreTests(unittest.TestCase):
             result["interior_distance_m"] + result["headland_distance_m"],
             result["productive_distance_m"], places=6,
         )
+        self.assertEqual(result["route_geometry_status"], "OK")
+
+    def test_empty_headland_core_is_explicitly_small_or_narrow(self):
+        result = self.score(box(0, 0, 30, 30))
+        self.assertTrue(result["small_or_narrow_field"])
+        self.assertEqual(result["route_geometry_status"], "SMALL_OR_NARROW_FIELD")
 
     def test_same_area_long_rectangle_beats_square(self):
         square = self.score(box(0, 0, math.sqrt(100_000), math.sqrt(100_000)))
@@ -88,28 +96,62 @@ class AkerdriftRouteSelectionTests(unittest.TestCase):
     @staticmethod
     def candidates():
         rows = []
-        for index in range(100):
+        for index in range(400):
             key = f"block-{index}|A"
             rows.append({
                 "field_key": key,
                 "akerdrift_score": float(index),
                 "area_ha_route": 0.1 + index / 3.0,
-                "hole_count": 2 if index < 20 else 0,
+                "hole_count": 2 if 80 <= index < 160 else 0,
+                "pa_ratio_route": 1.0 / (index + 1),
+                "small_or_narrow_field": index < 80,
                 "stable_hash": RUNNER.stable_hash(key),
             })
         return pd.DataFrame(rows)
 
     def test_sample_is_bounded_diverse_and_deterministic(self):
-        first = RUNNER.select_pilot(self.candidates(), 50)
-        second = RUNNER.select_pilot(self.candidates(), 50)
+        first = RUNNER.select_pilot(self.candidates(), 200)
+        second = RUNNER.select_pilot(self.candidates(), 200)
         self.assertEqual(list(first["field_key"]), list(second["field_key"]))
-        self.assertEqual(len(first), 50)
-        self.assertGreaterEqual(int((first["hole_count"] > 0).sum()), 10)
-        self.assertEqual(list(first["selection_order"]), list(range(1, 51)))
+        self.assertEqual(len(first), 200)
+        self.assertEqual(int(first["validation_cohort"].eq("normal").sum()), 150)
+        self.assertEqual(int(first["validation_cohort"].eq("stress").sum()), 50)
+        self.assertFalse(first.loc[first["validation_cohort"].eq("normal"), "small_or_narrow_field"].any())
+        self.assertGreaterEqual(
+            int(first.loc[first["validation_cohort"].eq("stress"), "small_or_narrow_field"].sum()), 25
+        )
+        self.assertEqual(list(first["selection_order"]), list(range(1, 201)))
 
     def test_sample_limit_is_hard(self):
         with self.assertRaises(ValueError):
             RUNNER.select_pilot(self.candidates(), 201)
+
+    def test_main_report_excludes_stress_and_small_or_narrow(self):
+        frame = pd.DataFrame([
+            {"field_key": "1|A", "validation_cohort": "normal", "route_status": "OK", "fast_score": 50.0,
+             "route_score": 52.0, "route_score_diagnostic": 52.0, "hole_count": 0, "turn_count": 5,
+             "area_ha": 2.0, "score_difference_route_minus_fast": 2.0},
+            {"field_key": "2|A", "validation_cohort": "normal", "route_status": "OK", "fast_score": 60.0,
+             "route_score": 61.0, "route_score_diagnostic": 61.0, "hole_count": 1, "turn_count": 8,
+             "area_ha": 2.0, "score_difference_route_minus_fast": 1.0},
+            {"field_key": "3|A", "validation_cohort": "normal", "route_status": "OK", "fast_score": 70.0,
+             "route_score": 69.0, "route_score_diagnostic": 69.0, "hole_count": 0, "turn_count": 6,
+             "area_ha": 3.0, "score_difference_route_minus_fast": -1.0},
+            {"field_key": "4|A", "validation_cohort": "stress", "route_status": "SMALL_OR_NARROW_FIELD",
+             "fast_score": 10.0, "route_score": None, "route_score_diagnostic": 100.0, "hole_count": 0,
+             "turn_count": 0, "area_ha": 0.01, "score_difference_route_minus_fast": None},
+            {"field_key": "5|A", "validation_cohort": "stress", "route_status": "OK", "fast_score": 40.0,
+             "route_score": 5.0, "route_score_diagnostic": 5.0, "hole_count": 2, "turn_count": 100,
+             "area_ha": 2.0, "score_difference_route_minus_fast": -35.0},
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            summary = RUNNER.build_report(frame, Path(directory))
+            stored = json.loads((Path(directory) / "qa" / "comparison_summary.json").read_text(encoding="utf-8"))
+        self.assertEqual(summary["n_main_compared"], 3)
+        self.assertEqual(summary["n_stress_selected"], 2)
+        self.assertEqual(summary["n_stress_scored"], 1)
+        self.assertEqual(summary["n_small_or_narrow"], 1)
+        self.assertEqual(stored["n_main_compared"], 3)
 
 
 if __name__ == "__main__":

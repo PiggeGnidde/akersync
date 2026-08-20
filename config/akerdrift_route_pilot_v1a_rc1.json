@@ -1,0 +1,31 @@
+{
+  "model_version": "akerdrift-route-pilot-v1a-rc1",
+  "route_engine": "shapely-parallel-swath-v1",
+  "scope": {
+    "purpose": "validation_only",
+    "default_municipality": "Lomma",
+    "default_sample_size": 200,
+    "maximum_sample_size": 200,
+    "normal_cohort_size": 150,
+    "stress_cohort_size": 50,
+    "changes_public_score": false
+  },
+  "route": {
+    "work_width_m": 9.0,
+    "headland_width_m": 24.0,
+    "min_turn_radius_m": 8.0,
+    "work_speed_m_s": 1.0,
+    "turn_speed_m_s": 0.5,
+    "coarse_heading_step_deg": 5,
+    "refine_best_count": 3,
+    "refine_half_window_deg": 5,
+    "refine_step_deg": 1,
+    "long_run_threshold_m": 100.0
+  },
+  "comparison": {
+    "terrain_source": "akerdrift-fast-v1-rc0.drift_terrain_factor",
+    "twi_in_score": false,
+    "main_cohort": "normal",
+    "exclude_statuses": ["SMALL_OR_NARROW_FIELD"]
+  }
+}
