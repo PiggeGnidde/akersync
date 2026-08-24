@@ -18,7 +18,7 @@ from common import CSV_MUN_TO_UI, MUN_CODES, load_config
 
 SCORE_VERSION = "akerscore-soil-v0c"
 VALUE_VERSION = "akervarde-v1.0-rc1"
-DRIFT_VERSION = "akerdrift-fast-v1-rc0"
+DRIFT_VERSION = "akerdrift-fast-v2-hybrid-rc1"
 DATASET_VERSION = "akerpass-public-v1"
 CROP_YEAR = 2025
 
@@ -254,7 +254,7 @@ def build_field_feature(
     missing_sources = [
         label for label, lookup in (
             ("Geometry V1a", geometry), ("ÅkerScore v0c", score),
-            ("ÅkerVärde", value), ("ÅkerDrift Fast V1", drift),
+            ("ÅkerVärde", value), ("ÅkerDrift Hybrid RC1", drift),
         )
         if field_key not in lookup
     ]
@@ -292,6 +292,9 @@ def build_field_feature(
         "akerdrift_details": {
             **selected_numbers(drift_row, DRIFT_FIELDS),
             "drift_twi_status": str(drift_row.get("drift_twi_status") or "MISSING"),
+            "score_source": str(drift_row.get("drift_score_source") or "NOT_SCORED"),
+            "fast_v1_score": number(drift_row.get("fast_v1_akerdrift_score"), 2),
+            "hybrid_delta_vs_v1": number(drift_row.get("score_delta_hybrid_minus_v1"), 2),
         },
         "akerscore_status": score_state,
         "akerscore_status_reason": score_reason,
@@ -363,8 +366,11 @@ def main() -> int:
         ("blockid", "skiftesbeteckning", "akervarde", "akervarde_p10", "akervarde_p90"),
     )
     drift_frame = read_parquet(
-        build_dir / "akerdrift_fast_v1" / "akerdrift_fast_v1_skane.parquet",
-        ("block_id", "skifte_id", "akerdrift_score", "drift_status", "drift_model_version"),
+        build_dir / "akerdrift_fast_v2_hybrid_rc1" / "akerdrift_fast_v2_hybrid_rc1_skane.parquet",
+        (
+            "block_id", "skifte_id", "akerdrift_score", "drift_status",
+            "drift_model_version", "drift_score_source",
+        ),
     ).rename(columns={"block_id": "blockid", "skifte_id": "skiftesbeteckning"})
     topo_frame = read_csv(build_dir / "topography_features_blocks.csv", ("blockid",))
     hydro_frame = read_csv(build_dir / "hydrology_features_final.csv", ("blockid",))

@@ -58,8 +58,16 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
         terrain_factor = details.get("drift_terrain_factor")
         if terrain_factor is not None and not 0.8 <= float(terrain_factor) <= 1.0:
             raise RuntimeError(f"{path.name}: terrängfaktor utanför 0,8–1,0")
-        if (p.get("model_versions") or {}).get("akerdrift") != "akerdrift-fast-v1-rc0":
+        if (p.get("model_versions") or {}).get("akerdrift") != "akerdrift-fast-v2-hybrid-rc1":
             raise RuntimeError(f"{path.name}: fel ÅkerDrift-version")
+        score_source = details.get("score_source")
+        if drift is not None and score_source not in {
+            "FAST_V2_ROUTECAL", "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION",
+            "FAST_V1_FALLBACK_MISSING_FEATURES",
+        }:
+            raise RuntimeError(f"{path.name}: poängsatt ÅkerDrift saknar giltig beräkningskälla")
+        if drift is None and score_source != "NOT_SCORED":
+            raise RuntimeError(f"{path.name}: null ÅkerDrift har oväntad beräkningskälla")
         score = p.get("akerscore")
         if score is not None:
             score_count += 1
@@ -116,7 +124,7 @@ def main() -> int:
     required_ui = (
         "ÅkerScore", "ÅkerVärde", "ÅkerDrift", "Maskinell brukbarhet",
         "Geometrisk effektivitetsproxy", "TWI P95-yta · diagnostik",
-        "akerdrift-fast-v1-rc0", 'data-layer="drift"', "DRIFT_LEGEND",
+        "akerdrift-fast-v2-hybrid-rc1", 'data-layer="drift"', "DRIFT_LEGEND",
         "Inomfältsvariation P10–P90", "Prediktionsintervall P10–P90",
         "watchPosition", "clearWatch", "Blockgränser", "closeDrawer",
         "Gröda 2025", "Ej tillämpligt", "akervarde_applicability",
@@ -125,6 +133,7 @@ def main() -> int:
         "updateGps(position,true,true)",
         "legendToggle", "legend-content", "leaflet-control-layers-toggle",
         'position:"topright",collapsed:true', 'fillColor:"#d7263d"',
+        "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION", "focusRequestedField",
     )
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:
@@ -152,7 +161,7 @@ def main() -> int:
     municipalities = manifest.get("municipalities", {})
     if set(municipalities) != set(MUN_CODES) or manifest.get("municipality_count") != 33:
         raise RuntimeError("Kommunmanifestet innehåller inte exakt Skånes 33 kommuner")
-    if manifest.get("akerdrift_model_version") != "akerdrift-fast-v1-rc0":
+    if manifest.get("akerdrift_model_version") != "akerdrift-fast-v2-hybrid-rc1":
         raise RuntimeError("Kommunmanifestet saknar fryst ÅkerDrift-version")
 
     totals = [0, 0, 0, 0, 0, 0]

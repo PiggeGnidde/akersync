@@ -1,4 +1,4 @@
-# ÅkerDrift Fast V2 – ruttkalibrerad RC0-kandidat
+# ÅkerDrift Fast V2 – Hybrid RC1
 
 Modellversion: `akerdrift-fast-v2-routecal-rc0`
 
@@ -109,5 +109,9 @@ behåller Fast V1 som explicit fallback. Den klippta V2-prediktionen sparas bara
 som diagnostik. Kör `APPLY_AKERDRIFT_FAST_V2_SKANE.bat` igen; resultatet skrivs
 till `data\derived\akerdrift_fast_v2_hybrid_rc1`.
 
-Webbens ÅkerDrift ska inte bytas till Hybrid RC1 förrän denna kontroll och ett
-visuellt stickprov är godkända.
+Kör `PREPARE_AKERDRIFT_HYBRID_VISUAL_QA.bat` för ett deterministiskt visuellt
+stickprov på högst 50 skiften. Urvalet täcker största höjningar och sänkningar,
+hålskiften samt fall precis innanför och utanför kalibreringsstödet. HTML-listan
+öppnar varje skifte direkt i den lokala ÅkerPass-kartan. När kontrollen är
+godkänd bygger `BUILD_AKERPASS_WEB_V1.bat` den publika kartan med Hybrid RC1;
+beräkningskällan visas i detaljpanelen och Fast V1 ligger kvar i hybridfilen.

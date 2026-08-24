@@ -14,7 +14,9 @@ Kör `CALIBRATE_AKERDRIFT_FAST_V2.bat` för att återskapa kalibreringen från d
 tre 200-skiftespiloterna. Kör därefter `APPLY_AKERDRIFT_FAST_V2_SKANE.bat`
 för Hybrid RC1 över hela Skåne: route-kalibrerad V2 används inom
 kalibreringsstödet och Fast V1 används som explicit fallback utanför stödet.
-Kandidatens QA-körning är separat och reversibel och bygger inte om webben.
+Kör därefter `PREPARE_AKERDRIFT_HYBRID_VISUAL_QA.bat` för en deterministisk
+klicklista med högst 50 extrem-, hål- och gränsfall. När stickprovet är
+godkänt bygger `BUILD_AKERPASS_WEB_V1.bat` webben med Hybrid RC1.
 
 Målet är att kunna återskapa **ÅkerSync v0.92 från rådata** utan att vara
 beroende av historiska v0.4/v0.7/v0.9-filer.
@@ -23,7 +25,8 @@ beroende av historiska v0.4/v0.7/v0.9-filer.
 
 Den separata integrationsgrenen `feature/akerpass-ui-v1` bygger ÅkerPass för
 alla 33 skånska kommuner med fryst ÅkerScore, publikt ÅkerVärde-index,
-ÅkerDrift Fast V1, mobil drawer/bottom sheet och GPS-följning.
+ÅkerDrift Hybrid RC1 med synlig V1-fallback, mobil drawer/bottom sheet och
+GPS-följning. Direktlänkar kan ange `kommun`, `block`, `skifte` och `lager`.
 
 Kör `BUILD_AKERPASS_WEB_V1.bat` och därefter `START_AKERPASS_LOCAL.bat`.
 Full metod, inputs, output och QA finns i [AKERPASS_UI_V1.md](AKERPASS_UI_V1.md).

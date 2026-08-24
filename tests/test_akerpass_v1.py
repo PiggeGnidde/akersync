@@ -63,7 +63,7 @@ class PublicFieldTests(unittest.TestCase):
             {"7|B": {"area_ha": 12.3, "rectangularity": .8}},
             {"7|B": {"akerscore_soil_p10": 88, "akerscore_soil_p50": 93, "akerscore_soil_p90": 97, "soil_coverage_pct": 100, "soil_pixels_total": 20, "soil_pixels_valid": 20}},
             {"7|B": {"akervarde": 70, "akervarde_p10": 57.792, "akervarde_p90": 104.202, "akervarde_model_version": "akervarde-v1.0-rc1"}},
-            {"7|B": {"akerdrift_score": 84, "drift_status": "OK", "drift_model_version": "akerdrift-fast-v1-rc0", "geometry_score": 88, "drift_terrain_factor": .95}},
+            {"7|B": {"akerdrift_score": 84, "drift_status": "OK", "drift_model_version": "akerdrift-fast-v2-hybrid-rc1", "drift_score_source": "FAST_V2_ROUTECAL", "fast_v1_akerdrift_score": 79, "score_delta_hybrid_minus_v1": 5, "geometry_score": 88, "drift_terrain_factor": .95}},
             {"7": {"elev_mean_m": 10}}, {"7": {"twi_mean": 8}}, {"4": "Vete (höst)"},
         )
         props = result["properties"]
@@ -75,6 +75,9 @@ class PublicFieldTests(unittest.TestCase):
         self.assertEqual(props["akerdrift"], 84)
         self.assertEqual(props["akerdrift_status"], "OK")
         self.assertEqual(props["akerdrift_details"]["geometry_score"], 88)
+        self.assertEqual(props["akerdrift_details"]["score_source"], "FAST_V2_ROUTECAL")
+        self.assertEqual(props["akerdrift_details"]["fast_v1_score"], 79)
+        self.assertEqual(props["akerdrift_details"]["hybrid_delta_vs_v1"], 5)
         self.assertEqual(props["historic_class"], None)
         self.assertEqual(props["historic_class_status"], "not_in_imported_class_5_10")
         data_builder.assert_public_keys(result)
@@ -89,7 +92,7 @@ class PublicFieldTests(unittest.TestCase):
             source, "Vellinge", {"8|A": {}}, {"8|A": {"area_ha": 229}},
             {"8|A": {"akerscore_soil_p10": 20, "akerscore_soil_p50": 26, "akerscore_soil_p90": 34, "soil_pixels_total": 100, "soil_pixels_valid": 100}},
             {"8|A": {"akervarde": 96, "akervarde_p10": 79, "akervarde_p90": 143}},
-            {"8|A": {"akerdrift_score": 75, "drift_status": "OK"}},
+            {"8|A": {"akerdrift_score": 75, "drift_status": "OK", "drift_model_version": "akerdrift-fast-v2-hybrid-rc1", "drift_score_source": "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION"}},
             {}, {}, {"52": "Betesmark"},
         )
         props = result["properties"]
@@ -115,8 +118,8 @@ class VerificationTests(unittest.TestCase):
                 "akervarde_applicability": "applicable", "land_use_group": "arable", "crop_year": 2025,
                 "historic_class": 9, "historic_class_status": "class_5_10",
                 "akerdrift": 84, "akerdrift_status": "OK",
-                "akerdrift_details": {"geometry_score": 88, "drift_terrain_factor": .95},
-                "model_versions": {"akerdrift": "akerdrift-fast-v1-rc0"},
+                "akerdrift_details": {"geometry_score": 88, "drift_terrain_factor": .95, "score_source": "FAST_V2_ROUTECAL"},
+                "model_versions": {"akerdrift": "akerdrift-fast-v2-hybrid-rc1"},
             }}]},
             "blocks": {"features": []},
         }
@@ -171,7 +174,9 @@ class VerificationTests(unittest.TestCase):
                 hydro_rows.append({"municipality": municipality, "blockid": blockid, "twi_mean": 8, "twi_p90": 12})
                 drift_rows.append({
                     "kommun": municipality, "block_id": blockid, "skifte_id": skifte,
-                    "akerdrift_score": 84, "drift_model_version": "akerdrift-fast-v1-rc0",
+                    "akerdrift_score": 84, "drift_model_version": "akerdrift-fast-v2-hybrid-rc1",
+                    "drift_score_source": "FAST_V2_ROUTECAL",
+                    "fast_v1_akerdrift_score": 79, "score_delta_hybrid_minus_v1": 5,
                     "drift_status": "OK", "geometry_score": 88,
                     "drift_terrain_factor": .95, "drift_slope_coverage": 1.0,
                     "drift_twi_status": "OK",
@@ -184,9 +189,9 @@ class VerificationTests(unittest.TestCase):
             pd.DataFrame(value_rows).to_csv(public / "akervarde_public_skiften.csv", index=False)
             pd.DataFrame(topo_rows).to_csv(derived / "topography_features_blocks.csv", index=False)
             pd.DataFrame(hydro_rows).to_csv(derived / "hydrology_features_final.csv", index=False)
-            drift_dir = derived / "akerdrift_fast_v1"
+            drift_dir = derived / "akerdrift_fast_v2_hybrid_rc1"
             drift_dir.mkdir()
-            pd.DataFrame(drift_rows).to_parquet(drift_dir / "akerdrift_fast_v1_skane.parquet", index=False)
+            pd.DataFrame(drift_rows).to_parquet(drift_dir / "akerdrift_fast_v2_hybrid_rc1_skane.parquet", index=False)
             config = work / "config.json"
             config.write_text(json.dumps({"build_dir": str(derived), "dist_dir": str(dist)}), encoding="utf-8")
 
@@ -199,6 +204,7 @@ class VerificationTests(unittest.TestCase):
             manifest = json.loads((dist / "municipalities.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["municipality_count"], 33)
             self.assertEqual(manifest["field_count"], 33)
+            self.assertEqual(manifest["akerdrift_model_version"], "akerdrift-fast-v2-hybrid-rc1")
 
 
 if __name__ == "__main__":

@@ -211,7 +211,7 @@ Hela `dist/` deployas som en vanlig statisk webbplats.
 
 ## Kända begränsningar i V1
 
-- ÅkerDrift är medvetet tom tills modellen fryses.
+- ÅkerDrift använder den frysta Hybrid RC1-modellen.
 - ÅkerVärde är ett marknadsindex, inte en individuell värdering eller
   regulatorisk bankvärdering.
 - Topografi och hydrologi är i nuvarande pipeline blockmått och märks så i UI.
@@ -229,8 +229,10 @@ Hela `dist/` deployas som en vanlig statisk webbplats.
   klass 5–10. Ett tomt klassvärde betyder därför inte saknade moderna jorddata
   och bevisar inte klass 1–4; det betyder att skiftets representativa punkt inte
   ligger i det importerade 5–10-underlaget.
-- ÅkerDrift använder `akerdrift-fast-v1-rc0`: en empiriskt förankrad
-  perimeter/area-proxy i SI-enheter med en konservativ lutningsjustering.
-  Skiftesvis TWI visas diagnostiskt men påverkar inte ÅkerDrift-poängen.
-- ÅkerDrift-resultaten byggs restart-säkert kommunvis innan denna publika build.
-  Se `AKERDRIFT_FAST_V1.md` och `RUN_AKERDRIFT_FAST_V1.bat`.
+- ÅkerDrift använder `akerdrift-fast-v2-hybrid-rc1`: route-kalibrerad V2 inom
+  kalibreringsstödet och explicit Fast V1-fallback utanför. Beräkningskällan
+  visas i detaljpanelen. Skiftesvis TWI är diagnostik och påverkar inte poängen.
+- Fast V1 byggs restart-säkert kommunvis och Hybrid RC1 appliceras därefter.
+  Se `AKERDRIFT_FAST_V2_ROUTE_CALIBRATION.md`,
+  `APPLY_AKERDRIFT_FAST_V2_SKANE.bat` och
+  `PREPARE_AKERDRIFT_HYBRID_VISUAL_QA.bat`.
