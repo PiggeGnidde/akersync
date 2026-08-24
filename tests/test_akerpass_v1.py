@@ -78,7 +78,7 @@ class PublicFieldTests(unittest.TestCase):
         self.assertEqual(props["akerdrift"], 84)
         self.assertEqual(props["akerdrift_status"], "OK")
         self.assertEqual(props["akerdrift_details"]["geometry_score"], 88)
-        self.assertEqual(props["akerdrift_details"]["score_source"], "FAST_V2_ROUTECAL")
+        self.assertNotIn("score_source", props["akerdrift_details"])
         self.assertNotIn("fast_v1_score", props["akerdrift_details"])
         self.assertNotIn("hybrid_delta_vs_v1", props["akerdrift_details"])
         self.assertEqual(props["historic_class"], None)
@@ -110,8 +110,7 @@ class PublicFieldTests(unittest.TestCase):
         self.assertEqual(props["akervarde_applicability"], "not_applicable")
         self.assertIsNone(props["akerdrift"])
         self.assertEqual(props["akerdrift_status"], "NOT_APPLICABLE_LAND_USE")
-        self.assertEqual(props["akerdrift_details"]["score_source"], "NOT_APPLICABLE_LAND_USE")
-        self.assertEqual(set(props["akerdrift_details"]), {"score_source"})
+        self.assertEqual(props["akerdrift_details"], {})
 
     def test_flowering_arable_code_remains_applicable(self):
         use = data_builder.land_use("318")
@@ -135,7 +134,7 @@ class VerificationTests(unittest.TestCase):
                 "arable_applicability": "applicable",
                 "historic_class": 9, "historic_class_status": "class_5_10",
                 "akerdrift": 84, "akerdrift_status": "OK",
-                "akerdrift_details": {"geometry_score": 88, "drift_terrain_factor": .95, "score_source": "FAST_V2_ROUTECAL"},
+                "akerdrift_details": {"geometry_score": 88, "drift_terrain_factor": .95},
                 "model_versions": {"akerdrift": "akerdrift-fast-v2-hybrid-rc1"},
             }}]},
             "blocks": {"features": []},

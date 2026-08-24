@@ -25,7 +25,7 @@ beroende av historiska v0.4/v0.7/v0.9-filer.
 
 Den separata integrationsgrenen `feature/akerpass-ui-v1` bygger ÅkerPass för
 alla 33 skånska kommuner med fryst ÅkerScore, publikt ÅkerVärde-index,
-ÅkerDrift Hybrid RC1 med synlig V1-fallback, mobil drawer/bottom sheet och
+ÅkerDrift Hybrid RC1 med intern, QA-spårbar V1-fallback, mobil drawer/bottom sheet och
 GPS-följning. Direktlänkar kan ange `kommun`, `block`, `skifte` och `lager`.
 Alla tre publika dimensioner har en gemensam målpopulationsspärr: betesmark,
 slåtteräng och annan uttrycklig icke-åkermark visas som `Ej tillämpligt`.

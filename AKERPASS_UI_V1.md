@@ -72,7 +72,7 @@ Hela kedjan körs av `BUILD_AKERPASS_WEB_V1.bat` via
 - Modell: ÅkerScore Soil v0c från `feature/akerscore-v1a`.
 - Skiftesdefinition: P50 av pixelwise ÅkerScore.
 - P10–P90: spatial variation inom skiftet, inte konfidensintervall.
-- UI-text: **Inomfältsvariation P10–P90**.
+- UI-text: **Variation inom skiftet (P10–P90)**.
 - Input: `data/derived/akerscore_soil_v0c/akerscore_soil_skiften.csv`.
 
 ### ÅkerVärde
@@ -86,7 +86,7 @@ Hela kedjan körs av `BUILD_AKERPASS_WEB_V1.bat` via
 - P10: `0.8256 × punktindex`.
 - P90: `1.4886 × punktindex`.
 - Ingen cap vid 100.
-- UI-text: **Prediktionsintervall P10–P90**.
+- UI-text: **Bedömt intervall (P10–P90)**.
 
 Punktvärdet använder BASE och inte den efterkalibrerade P50-multiplikatorn.
 
@@ -233,7 +233,8 @@ Hela `dist/` deployas som en vanlig statisk webbplats.
   ligger i det importerade 5–10-underlaget.
 - ÅkerDrift använder `akerdrift-fast-v2-hybrid-rc1`: route-kalibrerad V2 inom
   kalibreringsstödet och explicit Fast V1-fallback utanför. Beräkningskällan
-  visas i detaljpanelen. Skiftesvis TWI är diagnostik och påverkar inte poängen.
+  och V1-jämförelsen finns endast i Hybrid-/QA-filerna. Skiftesvis TWI är
+  diagnostik och påverkar inte poängen.
 - Fast V1 byggs restart-säkert kommunvis och Hybrid RC1 appliceras därefter.
   Se `AKERDRIFT_FAST_V2_ROUTE_CALIBRATION.md`,
   `APPLY_AKERDRIFT_FAST_V2_SKANE.bat` och

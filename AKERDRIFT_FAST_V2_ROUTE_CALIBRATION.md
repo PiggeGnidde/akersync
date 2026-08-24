@@ -114,4 +114,5 @@ stickprov på högst 50 skiften. Urvalet täcker största höjningar och sänkni
 hålskiften samt fall precis innanför och utanför kalibreringsstödet. HTML-listan
 öppnar varje skifte direkt i den lokala ÅkerPass-kartan. När kontrollen är
 godkänd bygger `BUILD_AKERPASS_WEB_V1.bat` den publika kartan med Hybrid RC1;
-beräkningskällan visas i detaljpanelen och Fast V1 ligger kvar i hybridfilen.
+beräkningskällan och Fast V1-jämförelsen ligger kvar i hybrid-/QA-filerna men
+exporteras inte till den publika detaljpanelen.

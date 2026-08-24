@@ -318,12 +318,7 @@ def build_field_feature(
         "akerdrift_details": ({
             **selected_numbers(drift_row, DRIFT_FIELDS),
             "drift_twi_status": str(drift_row.get("drift_twi_status") or "MISSING"),
-            "score_source": str(drift_row.get("drift_score_source") or "NOT_SCORED"),
-        } if arable_is_applicable else {
-            "score_source": "NOT_APPLICABLE_LAND_USE"
-            if use["arable_applicability"] == "not_applicable"
-            else "UNKNOWN_LAND_USE"
-        }),
+        } if arable_is_applicable else {}),
         "akerscore_status": score_state,
         "akerscore_status_reason": score_reason,
         "historic_class": historic_class,

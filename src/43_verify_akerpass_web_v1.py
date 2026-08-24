@@ -58,25 +58,13 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
         }:
             raise RuntimeError(f"{path.name}: ÅkerDrift null utan tydlig status")
         details = p.get("akerdrift_details") or {}
-        if "fast_v1_score" in details or "hybrid_delta_vs_v1" in details:
-            raise RuntimeError(f"{path.name}: intern V1-jämförelse läckte till publik export")
+        if any(field in details for field in ("fast_v1_score", "hybrid_delta_vs_v1", "score_source")):
+            raise RuntimeError(f"{path.name}: intern modelljämförelse läckte till publik export")
         terrain_factor = details.get("drift_terrain_factor")
         if terrain_factor is not None and not 0.8 <= float(terrain_factor) <= 1.0:
             raise RuntimeError(f"{path.name}: terrängfaktor utanför 0,8–1,0")
         if (p.get("model_versions") or {}).get("akerdrift") != "akerdrift-fast-v2-hybrid-rc1":
             raise RuntimeError(f"{path.name}: fel ÅkerDrift-version")
-        score_source = details.get("score_source")
-        if drift is not None and score_source not in {
-            "FAST_V2_ROUTECAL", "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION",
-            "FAST_V1_FALLBACK_MISSING_FEATURES",
-        }:
-            raise RuntimeError(f"{path.name}: poängsatt ÅkerDrift saknar giltig beräkningskälla")
-        expected_null_source = {
-            "NOT_APPLICABLE_LAND_USE": "NOT_APPLICABLE_LAND_USE",
-            "UNKNOWN_LAND_USE": "UNKNOWN_LAND_USE",
-        }.get(drift_status, "NOT_SCORED")
-        if drift is None and score_source != expected_null_source:
-            raise RuntimeError(f"{path.name}: null ÅkerDrift har oväntad beräkningskälla")
         score = p.get("akerscore")
         if score is not None:
             score_count += 1
@@ -106,7 +94,7 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
             )
         ):
             raise RuntimeError(f"{path.name}: ÅkerScore/ÅkerDrift visas utanför målpopulationen")
-        if arable_applicability != "applicable" and set(details) - {"score_source"}:
+        if arable_applicability != "applicable" and details:
             raise RuntimeError(f"{path.name}: ÅkerDrift-diagnostik läckte utanför målpopulationen")
         if applicability != "applicable" and any(
             p.get(field) is not None for field in ("akervarde", "akervarde_p10", "akervarde_p90")
@@ -145,9 +133,9 @@ def main() -> int:
     html = index.read_text(encoding="utf-8")
     required_ui = (
         "ÅkerScore", "ÅkerVärde", "ÅkerDrift", "Maskinell brukbarhet",
-        "Geometrisk effektivitetsproxy", "TWI P95-yta · diagnostik",
+        "Form- och körbarhet", "Rektangellikhet",
         "akerdrift-fast-v2-hybrid-rc1", 'data-layer="drift"', "DRIFT_LEGEND",
-        "Inomfältsvariation P10–P90", "Prediktionsintervall P10–P90",
+        "Variation inom skiftet (P10–P90)", "Bedömt intervall (P10–P90)",
         "watchPosition", "clearWatch", "Blockgränser", "closeDrawer",
         "Gröda 2025", "Ej tillämpligt", "akervarde_applicability",
         "Historisk jordbruksklass 1971", "Ej klass 5–10 i importerat",
@@ -155,13 +143,18 @@ def main() -> int:
         "updateGps(position,true,true)",
         "legendToggle", "legend-content", "leaflet-control-layers-toggle",
         'position:"topright",collapsed:true', 'fillColor:"#d7263d"',
-        "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION", "focusRequestedField",
-        "NOT_APPLICABLE_LAND_USE", "arable_applicability",
+        "focusRequestedField", "arable_applicability",
     )
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:
         raise RuntimeError("Frontend saknar: " + ", ".join(missing_ui))
-    for internal_text in ("Fast V1 · jämförelse", "Förändring mot Fast V1"):
+    for internal_text in (
+        "Fast V1 · jämförelse", "Förändring mot Fast V1",
+        "Hybrid RC1 använder route-kalibrerad V2", "Beräkningskälla",
+        "Geometrisk effektivitetsproxy", "TWI P95-yta · diagnostik",
+        "Inomfältsvariation P10–P90", "Prediktionsintervall P10–P90",
+        "konservativ lutningsjustering",
+    ):
         if internal_text in html:
             raise RuntimeError("Frontend visar intern modelljämförelse: " + internal_text)
     if 'rel="stylesheet" href="https://unpkg.com/leaflet' in html:
