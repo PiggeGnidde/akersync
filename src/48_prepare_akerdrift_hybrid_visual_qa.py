@@ -20,10 +20,12 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = ROOT / "data" / "derived" / "akerdrift_fast_v2_hybrid_rc1" / "akerdrift_fast_v2_hybrid_rc1_skane.parquet"
+DEFAULT_GEOMETRY = ROOT / "data" / "derived" / "geometry_v1a_skiften.csv"
 DEFAULT_MODEL = ROOT / "config" / "akerdrift_fast_v2_routecal_rc0.json"
 DEFAULT_OUTPUT = ROOT / "data" / "derived" / "akerdrift_fast_v2_hybrid_rc1" / "qa"
 MAX_REVIEW_ROWS = 50
 MIN_REVIEW_ROWS = 40
+NON_ARABLE_CODES = {52, 53, 55, 61, 89, 90, 95, 314}
 
 
 def _number(frame: pd.DataFrame, column: str) -> pd.Series:
@@ -40,17 +42,46 @@ def feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return features
 
 
+def text_id(value) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    text = str(value)
+    return text[:-2] if text.endswith(".0") else text
+
+
+def attach_crop_code(frame: pd.DataFrame, geometry: pd.DataFrame) -> pd.DataFrame:
+    required = {"blockid", "skiftesbeteckning", "crop_code"}
+    missing = sorted(required - set(geometry.columns))
+    if missing:
+        raise ValueError("Geometry V1a saknar kolumner för målpopulationsspärr: " + ", ".join(missing))
+    lookup = geometry[list(required)].copy()
+    lookup["field_key"] = [
+        f"{text_id(block)}|{text_id(field)}"
+        for block, field in zip(lookup["blockid"], lookup["skiftesbeteckning"])
+    ]
+    if lookup["field_key"].duplicated().any():
+        raise ValueError("Geometry V1a innehåller dubbla skiftesnycklar")
+    output = frame.copy()
+    output["field_key"] = [
+        f"{text_id(block)}|{text_id(field)}"
+        for block, field in zip(output["block_id"], output["skifte_id"])
+    ]
+    return output.merge(lookup[["field_key", "crop_code"]], on="field_key", how="left", validate="one_to_one")
+
+
 def select_review_rows(frame: pd.DataFrame, config: dict, limit: int = MAX_REVIEW_ROWS) -> pd.DataFrame:
     required = {
         "kommun", "block_id", "skifte_id", "area_ha", "hole_count",
         "fast_v1_akerdrift_score", "akerdrift_score", "score_delta_hybrid_minus_v1",
         "fast_v1_geometry_score", "rectangularity", "compactness", "erl",
-        "drift_score_source",
+        "drift_score_source", "crop_code",
     }
     missing = sorted(required - set(frame.columns))
     if missing:
         raise ValueError("Hybridfilen saknar kolumner: " + ", ".join(missing))
     scored = frame.dropna(subset=["akerdrift_score", "fast_v1_akerdrift_score"]).copy()
+    crop_code = pd.to_numeric(scored["crop_code"], errors="coerce")
+    scored = scored[crop_code.notna() & ~crop_code.isin(NON_ARABLE_CODES)].copy()
     scored["field_key"] = scored["block_id"].astype(str) + "|" + scored["skifte_id"].astype(str)
     if scored["field_key"].duplicated().any():
         raise ValueError("Hybridfilen innehåller dubbla skiftesnycklar")
@@ -129,6 +160,7 @@ def select_review_rows(frame: pd.DataFrame, config: dict, limit: int = MAX_REVIE
     columns = [
         "review_order", "qa_category", "qa_reason", "review_status", "review_note",
         "kommun", "block_id", "skifte_id", "local_url", "area_ha", "hole_count",
+        "crop_code",
         "fast_v1_akerdrift_score", "akerdrift_score", "score_delta_hybrid_minus_v1",
         "rectangularity", "compactness", "erl", "drift_score_source",
     ]
@@ -163,15 +195,24 @@ def write_html(review: pd.DataFrame, destination: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", default=str(DEFAULT_INPUT))
+    parser.add_argument("--geometry", default=str(DEFAULT_GEOMETRY))
     parser.add_argument("--model-config", default=str(DEFAULT_MODEL))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT))
     args = parser.parse_args()
-    input_path, model_path, output_dir = Path(args.input), Path(args.model_config), Path(args.output_dir)
+    input_path, geometry_path = Path(args.input), Path(args.geometry)
+    model_path, output_dir = Path(args.model_config), Path(args.output_dir)
     if not input_path.exists():
         raise FileNotFoundError(input_path)
     if not model_path.exists():
         raise FileNotFoundError(model_path)
+    if not geometry_path.exists():
+        raise FileNotFoundError(geometry_path)
     frame = pd.read_parquet(input_path)
+    geometry = pd.read_csv(
+        geometry_path, encoding="utf-8-sig",
+        dtype={"blockid": str, "skiftesbeteckning": str},
+    )
+    frame = attach_crop_code(frame, geometry)
     config = json.loads(model_path.read_text(encoding="utf-8"))
     review = select_review_rows(frame, config)
     output_dir.mkdir(parents=True, exist_ok=True)

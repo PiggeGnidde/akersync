@@ -85,7 +85,7 @@ class PublicFieldTests(unittest.TestCase):
         self.assertEqual(props["historic_class_status"], "not_in_imported_class_5_10")
         data_builder.assert_public_keys(result)
 
-    def test_pasture_keeps_soil_score_but_suppresses_arable_value(self):
+    def test_pasture_suppresses_all_three_arable_dimensions(self):
         source = {
             "type": "Feature",
             "properties": {"blockid": "8", "skiftesbeteckning": "A", "grdkod_mar": 52},
@@ -99,12 +99,25 @@ class PublicFieldTests(unittest.TestCase):
             {}, {}, {"52": "Betesmark"},
         )
         props = result["properties"]
-        self.assertEqual(props["akerscore"], 26)
+        self.assertIsNone(props["akerscore"])
+        self.assertIsNone(props["akerscore_p10"])
+        self.assertIsNone(props["akerscore_p90"])
         self.assertIsNone(props["akervarde"])
         self.assertIsNone(props["akervarde_p10"])
         self.assertIsNone(props["akervarde_p90"])
         self.assertEqual(props["land_use_group"], "pasture")
+        self.assertEqual(props["arable_applicability"], "not_applicable")
         self.assertEqual(props["akervarde_applicability"], "not_applicable")
+        self.assertIsNone(props["akerdrift"])
+        self.assertEqual(props["akerdrift_status"], "NOT_APPLICABLE_LAND_USE")
+        self.assertEqual(props["akerdrift_details"]["score_source"], "NOT_APPLICABLE_LAND_USE")
+        self.assertEqual(set(props["akerdrift_details"]), {"score_source"})
+
+    def test_flowering_arable_code_remains_applicable(self):
+        use = data_builder.land_use("318")
+        self.assertEqual(use["group"], "arable")
+        self.assertEqual(use["arable_applicability"], "applicable")
+        self.assertEqual(use["akervarde_applicability"], "applicable")
 
     def test_missing_score_reports_insufficient_soil_pixels(self):
         status, reason = data_builder.score_status({"soil_pixels_total": 10, "soil_pixels_valid": 2})
@@ -119,6 +132,7 @@ class VerificationTests(unittest.TestCase):
                 "akerscore": 95, "akerscore_p10": 90, "akerscore_p90": 98,
                 "akervarde": 125, "akervarde_p10": 103, "akervarde_p90": 186,
                 "akervarde_applicability": "applicable", "land_use_group": "arable", "crop_year": 2025,
+                "arable_applicability": "applicable",
                 "historic_class": 9, "historic_class_status": "class_5_10",
                 "akerdrift": 84, "akerdrift_status": "OK",
                 "akerdrift_details": {"geometry_score": 88, "drift_terrain_factor": .95, "score_source": "FAST_V2_ROUTECAL"},

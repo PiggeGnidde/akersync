@@ -30,6 +30,7 @@ class HybridVisualQaTests(unittest.TestCase):
                 "rectangularity": .1 + index / 100,
                 "compactness": .05 + index / 150,
                 "erl": 70 + index * 4,
+                "crop_code": 4,
                 "drift_score_source": "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION" if fallback else "FAST_V2_ROUTECAL",
             })
         config = {"geometry_model": {"clip_ranges": {
@@ -47,6 +48,27 @@ class HybridVisualQaTests(unittest.TestCase):
         self.assertIn("largest_negative", set(first["qa_category"]))
         self.assertIn("largest_positive", set(first["qa_category"]))
         self.assertTrue(first["local_url"].str.contains("lager=drift").all())
+
+    def test_non_arable_is_excluded_but_flowering_arable_remains(self):
+        base = {
+            "kommun": "Ystad", "area_ha": 4.0, "hole_count": 7,
+            "fast_v1_akerdrift_score": 47.0, "akerdrift_score": 28.0,
+            "score_delta_hybrid_minus_v1": -19.0, "fast_v1_geometry_score": 49.5,
+            "rectangularity": .35, "compactness": .05, "erl": 131.0,
+            "drift_score_source": "FAST_V2_ROUTECAL",
+        }
+        frame = pd.DataFrame([
+            {**base, "block_id": "1", "skifte_id": "A", "crop_code": 52},
+            {**base, "block_id": "2", "skifte_id": "B", "crop_code": 318},
+        ])
+        config = {"geometry_model": {"clip_ranges": {
+            "fast_geometry_score": [49, 92], "log_area_ha": [-1.01, 4.52],
+            "rectangularity": [.04, .99], "compactness": [.02, .88],
+            "log_erl_m": [4.03, 7.20],
+        }}}
+        selected = visual_qa.select_review_rows(frame, config, limit=10)
+        self.assertNotIn("1", set(selected["block_id"]))
+        self.assertIn("2", set(selected["block_id"]))
 
 
 if __name__ == "__main__":

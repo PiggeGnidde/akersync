@@ -200,6 +200,8 @@ def land_use(crop_code: str) -> dict[str, str | int]:
             "year": CROP_YEAR,
             "group": "unknown",
             "label": "Okänd markanvändning",
+            "arable_applicability": "unknown",
+            "arable_reason": "Grödkod 2025 saknas; åkermark kan inte verifieras.",
             "akervarde_applicability": "unknown",
             "akervarde_reason": "Grödkod 2025 saknas; åkermark kan inte verifieras.",
         }
@@ -208,6 +210,8 @@ def land_use(crop_code: str) -> dict[str, str | int]:
             "year": CROP_YEAR,
             "group": "pasture",
             "label": "Betesmark/slåtteräng (inte åker)",
+            "arable_applicability": "not_applicable",
+            "arable_reason": "Skiftet är registrerat som betesmark/slåtteräng 2025 och ligger utanför ÅkerPass målpopulation för åkermark.",
             "akervarde_applicability": "not_applicable",
             "akervarde_reason": "Betesmark/slåtteräng ligger utanför ÅkerVärdes målpopulation.",
         }
@@ -216,6 +220,8 @@ def land_use(crop_code: str) -> dict[str, str | int]:
             "year": CROP_YEAR,
             "group": "other_non_arable",
             "label": "Annan markanvändning (inte åker)",
+            "arable_applicability": "not_applicable",
+            "arable_reason": "Markanvändningen 2025 ligger utanför ÅkerPass målpopulation för åkermark.",
             "akervarde_applicability": "not_applicable",
             "akervarde_reason": "Markanvändningen ligger utanför ÅkerVärdes målpopulation.",
         }
@@ -223,6 +229,8 @@ def land_use(crop_code: str) -> dict[str, str | int]:
         "year": CROP_YEAR,
         "group": "arable",
         "label": "Åkermark",
+        "arable_applicability": "applicable",
+        "arable_reason": "",
         "akervarde_applicability": "applicable",
         "akervarde_reason": "",
     }
@@ -268,6 +276,14 @@ def build_field_feature(
     crop_code = text_id(original_crop if number(original_crop) is not None else geom.get("crop_code"))
     use = land_use(crop_code)
     score_state, score_reason = score_status(score_row)
+    arable_is_applicable = use["arable_applicability"] == "applicable"
+    if not arable_is_applicable:
+        score_state = (
+            "not_applicable_land_use"
+            if use["arable_applicability"] == "not_applicable"
+            else "unknown_land_use"
+        )
+        score_reason = use["arable_reason"]
     value_is_applicable = use["akervarde_applicability"] == "applicable"
     historic_class = number(score_row.get("historic_class_qa"), 0)
     historic_class_status = "class_5_10" if historic_class is not None else "not_in_imported_class_5_10"
@@ -279,23 +295,37 @@ def build_field_feature(
         "skifte_id": skifte,
         "kommun": municipality,
         "area_ha": area,
-        "akerscore": number(score_row.get("akerscore_soil_p50"), 2),
-        "akerscore_p10": number(score_row.get("akerscore_soil_p10"), 2),
-        "akerscore_p90": number(score_row.get("akerscore_soil_p90"), 2),
+        "akerscore": number(score_row.get("akerscore_soil_p50"), 2) if arable_is_applicable else None,
+        "akerscore_p10": number(score_row.get("akerscore_soil_p10"), 2) if arable_is_applicable else None,
+        "akerscore_p90": number(score_row.get("akerscore_soil_p90"), 2) if arable_is_applicable else None,
         "akervarde": number(value_row.get("akervarde"), 2) if value_is_applicable else None,
         "akervarde_p10": number(value_row.get("akervarde_p10"), 2) if value_is_applicable else None,
         "akervarde_p90": number(value_row.get("akervarde_p90"), 2) if value_is_applicable else None,
         "akervarde_applicability": use["akervarde_applicability"],
         "akervarde_applicability_reason": use["akervarde_reason"],
-        "akerdrift": number(drift_row.get("akerdrift_score"), 2),
-        "akerdrift_status": str(drift_row.get("drift_status") or "MISSING"),
-        "akerdrift_details": {
+        "akerdrift": number(drift_row.get("akerdrift_score"), 2) if arable_is_applicable else None,
+        "akerdrift_status": (
+            str(drift_row.get("drift_status") or "MISSING")
+            if arable_is_applicable
+            else (
+                "NOT_APPLICABLE_LAND_USE"
+                if use["arable_applicability"] == "not_applicable"
+                else "UNKNOWN_LAND_USE"
+            )
+        ),
+        "akerdrift_applicability": use["arable_applicability"],
+        "akerdrift_applicability_reason": use["arable_reason"],
+        "akerdrift_details": ({
             **selected_numbers(drift_row, DRIFT_FIELDS),
             "drift_twi_status": str(drift_row.get("drift_twi_status") or "MISSING"),
             "score_source": str(drift_row.get("drift_score_source") or "NOT_SCORED"),
             "fast_v1_score": number(drift_row.get("fast_v1_akerdrift_score"), 2),
             "hybrid_delta_vs_v1": number(drift_row.get("score_delta_hybrid_minus_v1"), 2),
-        },
+        } if arable_is_applicable else {
+            "score_source": "NOT_APPLICABLE_LAND_USE"
+            if use["arable_applicability"] == "not_applicable"
+            else "UNKNOWN_LAND_USE"
+        }),
         "akerscore_status": score_state,
         "akerscore_status_reason": score_reason,
         "historic_class": historic_class,
@@ -310,6 +340,8 @@ def build_field_feature(
         "crop_name": crops.get(crop_code),
         "land_use_group": use["group"],
         "land_use_label": use["label"],
+        "arable_applicability": use["arable_applicability"],
+        "arable_applicability_reason": use["arable_reason"],
         "soil": soil_details(soil.get(field_key)),
         "topography": selected_numbers(topography.get(blockid), TOPOGRAPHY_FIELDS),
         "hydrology": selected_numbers(hydrology.get(blockid), HYDROLOGY_FIELDS),
@@ -390,6 +422,7 @@ def main() -> int:
     missing_value = 0
     missing_drift = 0
     value_not_applicable = 0
+    arable_not_applicable = 0
     for municipality, code in MUN_CODES.items():
         if municipality not in geometry_payload:
             raise RuntimeError(f"geometry_payload saknar kommunen {municipality}")
@@ -401,13 +434,16 @@ def main() -> int:
                 feature, municipality, municipality_soil, geometry_lookup, score_lookup,
                 value_lookup, drift_lookup, topography_lookup, hydrology_lookup, crops,
             )
-            if public_feature["properties"]["akerscore"] is None:
+            applicability = public_feature["properties"]["arable_applicability"]
+            if applicability != "applicable":
+                arable_not_applicable += 1
+            elif public_feature["properties"]["akerscore"] is None:
                 missing_score += 1
             if public_feature["properties"]["akervarde_applicability"] != "applicable":
                 value_not_applicable += 1
             elif public_feature["properties"]["akervarde"] is None:
                 missing_value += 1
-            if public_feature["properties"]["akerdrift"] is None:
+            if applicability == "applicable" and public_feature["properties"]["akerdrift"] is None:
                 missing_drift += 1
             fields.append(public_feature)
 
@@ -460,6 +496,7 @@ def main() -> int:
     print(f"PUBLIC DATA: OK · 33 kommuner · {total_fields:,} skiften · {total_blocks:,} block")
     print(
         f"Saknade ÅkerScore: {missing_score:,} · "
+        f"ÅkerScore/ÅkerDrift ej tillämpligt eller okänd markanvändning: {arable_not_applicable:,} · "
         f"saknade ÅkerVärde inom målpopulation: {missing_value:,} · "
         f"ÅkerVärde ej tillämpligt/okänd markanvändning: {value_not_applicable:,} · "
         f"saknade ÅkerDrift: {missing_drift:,}"

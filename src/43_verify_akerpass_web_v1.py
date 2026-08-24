@@ -52,7 +52,10 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
                 raise RuntimeError(f"{path.name}: ÅkerDrift utanför 0–100")
             if drift_status not in {"OK", "LIMITED_SLOPE_COVERAGE"}:
                 raise RuntimeError(f"{path.name}: score trots ogiltig ÅkerDrift-status")
-        elif drift_status not in {"INSUFFICIENT_SLOPE_COVERAGE", "INVALID_GEOMETRY", "FIELD_ERROR"}:
+        elif drift_status not in {
+            "INSUFFICIENT_SLOPE_COVERAGE", "INVALID_GEOMETRY", "FIELD_ERROR",
+            "NOT_APPLICABLE_LAND_USE", "UNKNOWN_LAND_USE",
+        }:
             raise RuntimeError(f"{path.name}: ÅkerDrift null utan tydlig status")
         details = p.get("akerdrift_details") or {}
         terrain_factor = details.get("drift_terrain_factor")
@@ -66,7 +69,11 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
             "FAST_V1_FALLBACK_MISSING_FEATURES",
         }:
             raise RuntimeError(f"{path.name}: poängsatt ÅkerDrift saknar giltig beräkningskälla")
-        if drift is None and score_source != "NOT_SCORED":
+        expected_null_source = {
+            "NOT_APPLICABLE_LAND_USE": "NOT_APPLICABLE_LAND_USE",
+            "UNKNOWN_LAND_USE": "UNKNOWN_LAND_USE",
+        }.get(drift_status, "NOT_SCORED")
+        if drift is None and score_source != expected_null_source:
             raise RuntimeError(f"{path.name}: null ÅkerDrift har oväntad beräkningskälla")
         score = p.get("akerscore")
         if score is not None:
@@ -75,6 +82,7 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
                 raise RuntimeError(f"{path.name}: ÅkerScore utanför 0–100")
         value = p.get("akervarde")
         applicability = p.get("akervarde_applicability")
+        arable_applicability = p.get("arable_applicability")
         land_use_group = p.get("land_use_group")
         if p.get("crop_year") != 2025:
             raise RuntimeError(f"{path.name}: grödans årtal är inte 2025")
@@ -86,6 +94,18 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
             raise RuntimeError(f"{path.name}: historisk klass ligger utanför importerat 5–10-underlag")
         if land_use_group != "arable" and applicability == "applicable":
             raise RuntimeError(f"{path.name}: icke-åkermark har tillämpligt ÅkerVärde")
+        if arable_applicability not in {"applicable", "not_applicable", "unknown"}:
+            raise RuntimeError(f"{path.name}: ogiltig målpopulationsstatus")
+        if land_use_group != "arable" and arable_applicability == "applicable":
+            raise RuntimeError(f"{path.name}: icke-åkermark ligger i ÅkerPass målpopulation")
+        if arable_applicability != "applicable" and any(
+            p.get(field) is not None for field in (
+                "akerscore", "akerscore_p10", "akerscore_p90", "akerdrift",
+            )
+        ):
+            raise RuntimeError(f"{path.name}: ÅkerScore/ÅkerDrift visas utanför målpopulationen")
+        if arable_applicability != "applicable" and set(details) - {"score_source"}:
+            raise RuntimeError(f"{path.name}: ÅkerDrift-diagnostik läckte utanför målpopulationen")
         if applicability != "applicable" and any(
             p.get(field) is not None for field in ("akervarde", "akervarde_p10", "akervarde_p90")
         ):
@@ -134,6 +154,7 @@ def main() -> int:
         "legendToggle", "legend-content", "leaflet-control-layers-toggle",
         'position:"topright",collapsed:true', 'fillColor:"#d7263d"',
         "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION", "focusRequestedField",
+        "NOT_APPLICABLE_LAND_USE", "arable_applicability",
     )
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:

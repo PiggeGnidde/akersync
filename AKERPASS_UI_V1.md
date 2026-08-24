@@ -221,8 +221,10 @@ Hela `dist/` deployas som en vanlig statisk webbplats.
 - Leaflets JavaScript och bakgrundskartor hämtas externt. Leaflets kritiska
   layout-CSS är inbakad i frontendfilen och själva ÅkerPass-datan är statisk.
 - Gröda och markanvändning avser Jordbruksverkets skiftesdata för 2025.
-  ÅkerVärde visas endast för verifierad åkermark; tydlig betes-/slåttermark,
-  annan icke-åkermark och okänd markanvändning visas som ej tillämpligt.
+  ÅkerScore, ÅkerVärde och ÅkerDrift visas endast för verifierad åkermark.
+  Tydlig betes-/slåttermark och annan icke-åkermark visas som ej tillämpligt;
+  okänd markanvändning visas som okänd. Gräs/vall samt blommande åker och
+  fältkant på åkermark ligger kvar i målpopulationen.
 - Skyddad natur/naturreservat är ännu inte ett integrerat datalager. En åkerkod
   innanför skyddad natur kan därför inte spärras enbart på reservatsstatus i V1.
 - Den historiska jordbruksklassningen från 1971 är i V1 importerad endast för
