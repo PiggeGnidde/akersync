@@ -12,6 +12,8 @@ Den frysta Fast V2 RC0-kandidaten och leave-one-municipality-out-resultaten
 finns i [AKERDRIFT_FAST_V2_ROUTE_CALIBRATION.md](AKERDRIFT_FAST_V2_ROUTE_CALIBRATION.md).
 Kör `CALIBRATE_AKERDRIFT_FAST_V2.bat` för att återskapa kalibreringen från de
 tre 200-skiftespiloterna. Kandidaten ändrar inte Fast V1 eller webbdata.
+Kör därefter `APPLY_AKERDRIFT_FAST_V2_SKANE.bat` för en separat, reversibel
+hel-Skåne-jämförelse med QA; inte heller den körningen bygger om webben.
 
 Målet är att kunna återskapa **ÅkerSync v0.92 från rådata** utan att vara
 beroende av historiska v0.4/v0.7/v0.9-filer.

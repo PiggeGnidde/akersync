@@ -87,7 +87,17 @@ modellen från de tre verifierade pilotkörningarna.
 
 ## Beslut före publicering
 
-Nästa avgränsade steg är att köra den frysta modellen över alla skånska
-skiften, redovisa extrapolationsandel och fördelningsskifte mot Fast V1, samt
-stickprovsgranska största förändringarna. Webbens ÅkerDrift ska inte bytas till
-V2 förrän den kontrollen är godkänd.
+Kör den frysta modellen över alla skånska skiften med:
+
+```bat
+APPLY_AKERDRIFT_FAST_V2_SKANE.bat
+```
+
+Körningen läser den befintliga sammanslagna Fast V1-filen och Geometry V1a,
+men skriver endast till `data\derived\akerdrift_fast_v2_routecal_rc0`. Fast V1
+sparas sida vid sida i resultatet. QA redovisar extrapolationsandel,
+fördelningsskifte, kommunjämförelser, hålskiften och de 250 största
+scoreförändringarna.
+
+Webbens ÅkerDrift ska inte bytas till V2 förrän denna kontroll och ett visuellt
+stickprov är godkända.

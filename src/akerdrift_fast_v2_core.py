@@ -81,22 +81,44 @@ def feature_values(
 
 def geometry_score(features: Mapping[str, float], config: Mapping[str, Any]) -> float:
     """Evaluate the frozen hinge basis and return a bounded geometry score."""
+    values = geometry_scores(
+        {name: np.asarray([value], dtype=np.float64) for name, value in features.items()},
+        config,
+    )
+    return float(values[0])
+
+
+def geometry_scores(
+    features: Mapping[str, np.ndarray],
+    config: Mapping[str, Any],
+) -> np.ndarray:
+    """Vectorized evaluator used by the all-Skåne candidate run."""
     validate_model_config(config)
     model = config["geometry_model"]
-    basis: list[float] = []
+    required = list(model["continuous_features"]) + list(model["binary_features"])
+    missing = [name for name in required if name not in features]
+    if missing:
+        raise ValueError("Fast V2-features saknas: " + ", ".join(missing))
+    arrays = {name: np.asarray(features[name], dtype=np.float64).reshape(-1) for name in required}
+    lengths = {len(values) for values in arrays.values()}
+    if len(lengths) != 1:
+        raise ValueError("Fast V2-featurevektorer måste ha samma längd")
+    if any(not np.isfinite(values).all() for values in arrays.values()):
+        raise ValueError("Fast V2-featurevektorer måste vara ändliga")
+    basis: list[np.ndarray] = []
     for name in model["continuous_features"]:
-        value = float(features[name])
+        value = arrays[name]
         low, high = (float(item) for item in model["clip_ranges"][name])
-        value = min(high, max(low, value))
+        value = np.clip(value, low, high)
         basis.append(value)
-        basis.extend(max(0.0, value - float(knot)) for knot in model["knots"][name])
-    basis.extend(float(features[name]) for name in model["binary_features"])
-    vector = np.asarray(basis, dtype=np.float64)
+        basis.extend(np.maximum(0.0, value - float(knot)) for knot in model["knots"][name])
+    basis.extend(arrays[name] for name in model["binary_features"])
+    matrix = np.column_stack(basis)
     mean = np.asarray(model["basis_mean"], dtype=np.float64)
     scale = np.asarray(model["basis_scale"], dtype=np.float64)
     coefficients = np.asarray(model["coefficients"], dtype=np.float64)
-    prediction = float(model["intercept"]) + float(np.dot((vector - mean) / scale, coefficients))
-    return min(100.0, max(0.0, prediction))
+    prediction = float(model["intercept"]) + ((matrix - mean) / scale) @ coefficients
+    return np.clip(prediction, 0.0, 100.0)
 
 
 def score_from_metrics(

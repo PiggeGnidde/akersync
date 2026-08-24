@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from akerdrift_fast_v2_core import (  # noqa: E402
     geometry_score,
+    geometry_scores,
     load_model_config,
     score_from_metrics,
     validate_model_config,
@@ -51,6 +52,19 @@ class AkerdriftFastV2CoreTests(unittest.TestCase):
         clean = geometry_score({"fast_geometry_score": 80, "log_area_ha": 0, "has_holes": 0}, config)
         hole = geometry_score({"fast_geometry_score": 80, "log_area_ha": 0, "has_holes": 1}, config)
         self.assertEqual(clean - hole, 2.0)
+
+    def test_vectorized_matches_scalar(self):
+        config = test_config()
+        vector = geometry_scores({
+            "fast_geometry_score": [40, 80],
+            "log_area_ha": [0, 0],
+            "has_holes": [0, 1],
+        }, config)
+        scalar = [
+            geometry_score({"fast_geometry_score": 40, "log_area_ha": 0, "has_holes": 0}, config),
+            geometry_score({"fast_geometry_score": 80, "log_area_ha": 0, "has_holes": 1}, config),
+        ]
+        self.assertEqual(vector.tolist(), scalar)
 
     def test_terrain_is_applied_after_geometry(self):
         # Use a full seven-feature config for score_from_metrics.
