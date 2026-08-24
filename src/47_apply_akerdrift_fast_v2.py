@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Apply frozen ÅkerDrift Fast V2 to the existing all-Skåne Fast V1 output.
+"""Apply frozen ÅkerDrift Fast V2 Hybrid RC1 to all-Skåne Fast V1 output.
 
-This is a candidate/QA run only.  It writes to a new directory, retains V1
-scores side by side and never updates ÅkerPass web data.
+V2 is used only inside the route-calibration support.  Fields outside support
+keep their Fast V1 score; the clipped V2 value is retained as diagnostics.
+The run writes to a new directory and never updates ÅkerPass web data.
 """
 from __future__ import annotations
 
@@ -26,8 +27,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FAST_V1 = ROOT / "data" / "derived" / "akerdrift_fast_v1" / "akerdrift_fast_v1_skane.parquet"
 DEFAULT_GEOMETRY = ROOT / "data" / "derived" / "geometry_v1a_skiften.csv"
 DEFAULT_MODEL = ROOT / "config" / "akerdrift_fast_v2_routecal_rc0.json"
-DEFAULT_OUTPUT = ROOT / "data" / "derived" / "akerdrift_fast_v2_routecal_rc0"
-OUTPUT_NAME = "akerdrift_fast_v2_routecal_rc0_skane.parquet"
+DEFAULT_OUTPUT = ROOT / "data" / "derived" / "akerdrift_fast_v2_hybrid_rc1"
+OUTPUT_NAME = "akerdrift_fast_v2_hybrid_rc1_skane.parquet"
+APPLICATION_VERSION = "akerdrift-fast-v2-hybrid-rc1"
 SCORED_STATUSES = {"OK", "LIMITED_SLOPE_COVERAGE"}
 PERCENTILES = (1, 5, 10, 25, 50, 75, 90, 95, 99)
 
@@ -153,16 +155,35 @@ def rescore_frame(
     support.loc[valid & clipped_count.eq(0)] = "IN_CALIBRATION_RANGE"
     support.loc[valid & clipped_count.gt(0)] = "CLIPPED_TO_CALIBRATION_RANGE"
 
-    joined["fast_v1_akerdrift_score"] = _numeric(joined, "akerdrift_score")
-    joined["fast_v1_geometry_score"] = _numeric(joined, "geometry_score")
+    v1_score = _numeric(joined, "akerdrift_score")
+    v1_geometry = _numeric(joined, "geometry_score")
+    use_v2 = valid & clipped_count.eq(0)
+    fallback_outside = valid & clipped_count.gt(0)
+    fallback_missing = base_scored & ~valid
+    official_score = v1_score.copy()
+    official_geometry = v1_geometry.copy()
+    official_score.loc[use_v2] = score_prediction[use_v2]
+    official_geometry.loc[use_v2] = geometry_prediction[use_v2]
+    score_source = pd.Series("NOT_SCORED", index=joined.index, dtype="string")
+    score_source.loc[use_v2] = "FAST_V2_ROUTECAL"
+    score_source.loc[fallback_outside] = "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION"
+    score_source.loc[fallback_missing] = "FAST_V1_FALLBACK_MISSING_FEATURES"
+
+    joined["fast_v1_akerdrift_score"] = v1_score
+    joined["fast_v1_geometry_score"] = v1_geometry
     joined["fast_v1_drift_model_version"] = joined["drift_model_version"].astype("string")
-    joined["geometry_score"] = geometry_prediction
-    joined["akerdrift_score"] = score_prediction
-    joined["drift_model_version"] = str(config["model_version"])
+    joined["routecal_geometry_score_diagnostic"] = geometry_prediction
+    joined["routecal_akerdrift_score_diagnostic"] = score_prediction
+    joined["geometry_score"] = official_geometry
+    joined["akerdrift_score"] = official_score
+    joined["drift_model_version"] = APPLICATION_VERSION
+    joined["drift_score_source"] = score_source
     joined["drift_routecal_support"] = support
     joined["drift_routecal_clipped_feature_count"] = clipped_count.astype(int)
-    joined["score_delta_v2_minus_v1"] = joined["akerdrift_score"] - joined["fast_v1_akerdrift_score"]
-    joined.loc[base_scored & ~valid, "drift_status"] = "MISSING_GEOMETRY_FEATURES"
+    joined["score_delta_hybrid_minus_v1"] = joined["akerdrift_score"] - joined["fast_v1_akerdrift_score"]
+    joined["routecal_score_delta_diagnostic"] = (
+        joined["routecal_akerdrift_score_diagnostic"] - joined["fast_v1_akerdrift_score"]
+    )
 
     drop = [
         "geometry_area_ha", "geometry_rectangularity", "geometry_compactness",
@@ -184,27 +205,28 @@ def qa_outputs(frame: pd.DataFrame, clip: pd.DataFrame, output_dir: Path, model_
     qa = output_dir / "qa"
     qa.mkdir(parents=True, exist_ok=True)
     paired = frame.dropna(subset=["akerdrift_score", "fast_v1_akerdrift_score"]).copy()
-    delta = paired["score_delta_v2_minus_v1"]
+    delta = paired["score_delta_hybrid_minus_v1"]
     summary = {
         "model_version": str(frame["drift_model_version"].iloc[0]) if len(frame) else None,
         "model_config_sha256": model_hash,
         "n_total": int(len(frame)),
-        "n_v2_scored": int(frame["akerdrift_score"].notna().sum()),
-        "n_paired_v1_v2": int(len(paired)),
+        "n_hybrid_scored": int(frame["akerdrift_score"].notna().sum()),
+        "n_paired_v1_hybrid": int(len(paired)),
         "support_counts": {str(key): int(value) for key, value in frame["drift_routecal_support"].value_counts(dropna=False).items()},
+        "score_source_counts": {str(key): int(value) for key, value in frame["drift_score_source"].value_counts(dropna=False).items()},
         "status_counts": {str(key): int(value) for key, value in frame["drift_status"].value_counts(dropna=False).items()},
         "v1_percentiles": percentile_dict(paired["fast_v1_akerdrift_score"]),
-        "v2_percentiles": percentile_dict(paired["akerdrift_score"]),
-        "delta_percentiles": percentile_dict(delta),
+        "hybrid_percentiles": percentile_dict(paired["akerdrift_score"]),
+        "hybrid_delta_percentiles": percentile_dict(delta),
         "median_absolute_delta": float(delta.abs().median()) if len(delta) else None,
         "p95_absolute_delta": float(delta.abs().quantile(0.95)) if len(delta) else None,
-        "spearman_v1_v2": float(spearmanr(paired["fast_v1_akerdrift_score"], paired["akerdrift_score"]).statistic) if len(paired) > 1 else None,
+        "spearman_v1_hybrid": float(spearmanr(paired["fast_v1_akerdrift_score"], paired["akerdrift_score"]).statistic) if len(paired) > 1 else None,
     }
     (qa / "qa_summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     clip.to_csv(qa / "calibration_range_extrapolation.csv", index=False, encoding="utf-8-sig")
 
     distribution = []
-    for name, column in (("Fast V1", "fast_v1_akerdrift_score"), ("Fast V2", "akerdrift_score"), ("V2 minus V1", "score_delta_v2_minus_v1")):
+    for name, column in (("Fast V1", "fast_v1_akerdrift_score"), ("Fast V2 Hybrid RC1", "akerdrift_score"), ("Hybrid minus V1", "score_delta_hybrid_minus_v1")):
         values = pd.to_numeric(paired[column], errors="coerce").dropna()
         row = {"measure": name, "n": len(values), "mean": float(values.mean()), "min": float(values.min()), "max": float(values.max())}
         row.update(percentile_dict(values))
@@ -213,7 +235,7 @@ def qa_outputs(frame: pd.DataFrame, clip: pd.DataFrame, output_dir: Path, model_
 
     municipality_rows = []
     for municipality, part in paired.groupby("kommun", sort=True):
-        municipal_delta = part["score_delta_v2_minus_v1"]
+        municipal_delta = part["score_delta_hybrid_minus_v1"]
         municipality_rows.append({
             "kommun": municipality,
             "n": len(part),
@@ -222,33 +244,79 @@ def qa_outputs(frame: pd.DataFrame, clip: pd.DataFrame, output_dir: Path, model_
             "median_delta": float(municipal_delta.median()),
             "median_absolute_delta": float(municipal_delta.abs().median()),
             "p95_absolute_delta": float(municipal_delta.abs().quantile(0.95)),
-            "spearman_v1_v2": float(spearmanr(part["fast_v1_akerdrift_score"], part["akerdrift_score"]).statistic) if len(part) > 1 else math.nan,
-            "share_clipped": float(part["drift_routecal_support"].eq("CLIPPED_TO_CALIBRATION_RANGE").mean()),
+            "spearman_v1_hybrid": float(spearmanr(part["fast_v1_akerdrift_score"], part["akerdrift_score"]).statistic) if len(part) > 1 else math.nan,
+            "share_v1_fallback": float(part["drift_score_source"].str.startswith("FAST_V1_FALLBACK").mean()),
         })
     pd.DataFrame(municipality_rows).to_csv(qa / "municipality_comparison.csv", index=False, encoding="utf-8-sig")
 
     hole_rows = []
     for has_holes, part in paired.assign(has_holes=paired["hole_count"].gt(0)).groupby("has_holes"):
-        hole_delta = part["score_delta_v2_minus_v1"]
+        hole_delta = part["score_delta_hybrid_minus_v1"]
+        hole_diagnostic_delta = part["routecal_score_delta_diagnostic"]
         hole_rows.append({
             "has_holes": bool(has_holes), "n": len(part),
             "median_delta": float(hole_delta.median()),
             "median_absolute_delta": float(hole_delta.abs().median()),
             "p95_absolute_delta": float(hole_delta.abs().quantile(0.95)),
+            "diagnostic_median_delta": float(hole_diagnostic_delta.median()),
         })
     pd.DataFrame(hole_rows).to_csv(qa / "holes_comparison.csv", index=False, encoding="utf-8-sig")
 
     largest_columns = [
         "kommun", "block_id", "skifte_id", "area_ha", "hole_count",
-        "fast_v1_akerdrift_score", "akerdrift_score", "score_delta_v2_minus_v1",
+        "fast_v1_akerdrift_score", "akerdrift_score", "score_delta_hybrid_minus_v1",
         "fast_v1_geometry_score", "geometry_score", "drift_terrain_factor",
         "rectangularity", "compactness", "erl", "drift_routecal_support",
-        "drift_routecal_clipped_feature_count",
+        "drift_routecal_clipped_feature_count", "drift_score_source",
     ]
     largest_columns = [column for column in largest_columns if column in paired]
     paired.assign(absolute_delta=delta.abs()).sort_values("absolute_delta", ascending=False).head(250)[
         largest_columns
     ].to_csv(qa / "largest_score_changes.csv", index=False, encoding="utf-8-sig")
+
+    support_rows = []
+    for source, part in paired.groupby("drift_score_source", sort=True):
+        source_delta = part["score_delta_hybrid_minus_v1"]
+        source_diagnostic = part["routecal_score_delta_diagnostic"]
+        support_rows.append({
+            "drift_score_source": source,
+            "n": len(part),
+            "v1_median": float(part["fast_v1_akerdrift_score"].median()),
+            "hybrid_median": float(part["akerdrift_score"].median()),
+            "median_delta": float(source_delta.median()),
+            "p95_absolute_delta": float(source_delta.abs().quantile(.95)),
+            "diagnostic_routecal_median": float(part["routecal_akerdrift_score_diagnostic"].median()),
+            "diagnostic_median_delta": float(source_diagnostic.median()),
+            "diagnostic_p95_absolute_delta": float(source_diagnostic.abs().quantile(.95)),
+        })
+    pd.DataFrame(support_rows).to_csv(qa / "support_comparison.csv", index=False, encoding="utf-8-sig")
+
+    area_bins = [0, .05, .10, .25, .36393953, .5, 1, 2, 5, 10, 25, 100, math.inf]
+    area_labels = ["0-.05", ".05-.10", ".10-.25", ".25-.364", ".364-.5", ".5-1", "1-2", "2-5", "5-10", "10-25", "25-100", "100+"]
+    area_rows = []
+    area_group = pd.cut(pd.to_numeric(paired["area_ha"], errors="coerce"), bins=area_bins, labels=area_labels, include_lowest=True)
+    for band, part in paired.assign(area_band=area_group).groupby("area_band", observed=True, sort=False):
+        band_delta = part["score_delta_hybrid_minus_v1"]
+        area_rows.append({
+            "area_band_ha": str(band), "n": len(part),
+            "share_v1_fallback": float(part["drift_score_source"].str.startswith("FAST_V1_FALLBACK").mean()),
+            "v1_median": float(part["fast_v1_akerdrift_score"].median()),
+            "hybrid_median": float(part["akerdrift_score"].median()),
+            "median_delta": float(band_delta.median()),
+            "p95_absolute_delta": float(band_delta.abs().quantile(.95)),
+        })
+    pd.DataFrame(area_rows).to_csv(qa / "area_band_comparison.csv", index=False, encoding="utf-8-sig")
+
+    fallback = paired[paired["drift_score_source"].str.startswith("FAST_V1_FALLBACK")].copy()
+    fallback_columns = [
+        "kommun", "block_id", "skifte_id", "area_ha", "hole_count",
+        "fast_v1_akerdrift_score", "akerdrift_score",
+        "routecal_akerdrift_score_diagnostic", "routecal_score_delta_diagnostic",
+        "drift_routecal_support", "drift_routecal_clipped_feature_count", "drift_score_source",
+    ]
+    fallback.assign(absolute_diagnostic_delta=fallback["routecal_score_delta_diagnostic"].abs()).sort_values(
+        "absolute_diagnostic_delta", ascending=False
+    ).head(250)[fallback_columns].to_csv(qa / "fallback_fields_largest_diagnostic_changes.csv", index=False, encoding="utf-8-sig")
 
 
 def atomic_parquet(frame: pd.DataFrame, destination: Path) -> None:
@@ -286,14 +354,14 @@ def run(args: argparse.Namespace) -> int:
     atomic_parquet(result, destination)
     qa_outputs(result, clip, output_dir, canonical_hash(config))
     print(
-        f"V2: {result['akerdrift_score'].notna().sum():,}/{len(result):,} score · "
-        f"in-range {result['drift_routecal_support'].eq('IN_CALIBRATION_RANGE').sum():,} · "
-        f"klippta {result['drift_routecal_support'].eq('CLIPPED_TO_CALIBRATION_RANGE').sum():,}"
+        f"HYBRID RC1: {result['akerdrift_score'].notna().sum():,}/{len(result):,} score · "
+        f"V2 {result['drift_score_source'].eq('FAST_V2_ROUTECAL').sum():,} · "
+        f"V1 fallback {result['drift_score_source'].str.startswith('FAST_V1_FALLBACK').sum():,}"
     )
     paired = result.dropna(subset=["akerdrift_score", "fast_v1_akerdrift_score"])
-    delta = paired["score_delta_v2_minus_v1"].abs()
+    delta = paired["score_delta_hybrid_minus_v1"].abs()
     print(
-        f"V1↔V2: Spearman {spearmanr(paired['fast_v1_akerdrift_score'], paired['akerdrift_score']).statistic:.3f} · "
+        f"V1↔Hybrid: Spearman {spearmanr(paired['fast_v1_akerdrift_score'], paired['akerdrift_score']).statistic:.3f} · "
         f"median |Δ| {delta.median():.2f} · P95 |Δ| {delta.quantile(.95):.2f}"
     )
     print(f"KLART: {destination}")

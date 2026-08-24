@@ -8,12 +8,13 @@ RC1.1 delar urvalet i 150 normalfält och 50 stressfält; fält utan en hel
 inre körlinje efter vändteg hålls utanför huvudkorrelationen. Den körs separat
 med `RUN_AKERDRIFT_ROUTE_PILOT.bat` och ändrar inte den publika kartan.
 
-Den frysta Fast V2 RC0-kandidaten och leave-one-municipality-out-resultaten
+Den frysta Fast V2 RC0-kalibreringen och leave-one-municipality-out-resultaten
 finns i [AKERDRIFT_FAST_V2_ROUTE_CALIBRATION.md](AKERDRIFT_FAST_V2_ROUTE_CALIBRATION.md).
 Kör `CALIBRATE_AKERDRIFT_FAST_V2.bat` för att återskapa kalibreringen från de
-tre 200-skiftespiloterna. Kandidaten ändrar inte Fast V1 eller webbdata.
-Kör därefter `APPLY_AKERDRIFT_FAST_V2_SKANE.bat` för en separat, reversibel
-hel-Skåne-jämförelse med QA; inte heller den körningen bygger om webben.
+tre 200-skiftespiloterna. Kör därefter `APPLY_AKERDRIFT_FAST_V2_SKANE.bat`
+för Hybrid RC1 över hela Skåne: route-kalibrerad V2 används inom
+kalibreringsstödet och Fast V1 används som explicit fallback utanför stödet.
+Kandidatens QA-körning är separat och reversibel och bygger inte om webben.
 
 Målet är att kunna återskapa **ÅkerSync v0.92 från rådata** utan att vara
 beroende av historiska v0.4/v0.7/v0.9-filer.

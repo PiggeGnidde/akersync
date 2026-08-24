@@ -99,5 +99,15 @@ sparas sida vid sida i resultatet. QA redovisar extrapolationsandel,
 fördelningsskifte, kommunjämförelser, hålskiften och de 250 största
 scoreförändringarna.
 
-Webbens ÅkerDrift ska inte bytas till V2 förrän denna kontroll och ett visuellt
-stickprov är godkända.
+Hel-Skåne-körningen RC0 visade att 24 473 av 128 597 poängsatta skiften låg
+utanför kalibreringsstödet. De 250 största förändringarna var samtliga små,
+klippta fält (medianareal 0,15 ha), som fick orimligt stora höjningar.
+
+Hybrid RC1 använder därför route-kalibrerad V2 endast för skiften där samtliga
+kontinuerliga features ligger inom kalibreringsintervallen. Övriga skiften
+behåller Fast V1 som explicit fallback. Den klippta V2-prediktionen sparas bara
+som diagnostik. Kör `APPLY_AKERDRIFT_FAST_V2_SKANE.bat` igen; resultatet skrivs
+till `data\derived\akerdrift_fast_v2_hybrid_rc1`.
+
+Webbens ÅkerDrift ska inte bytas till Hybrid RC1 förrän denna kontroll och ett
+visuellt stickprov är godkända.

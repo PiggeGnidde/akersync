@@ -57,6 +57,8 @@ class ApplyAkerdriftFastV2Tests(unittest.TestCase):
         result, _, _ = APPLY.rescore_frame(fast, geometry, self.config)
         self.assertEqual(result.loc[0, "fast_v1_akerdrift_score"], 70.0)
         self.assertTrue(pd.notna(result.loc[0, "akerdrift_score"]))
+        self.assertEqual(result.loc[0, "drift_score_source"], "FAST_V2_ROUTECAL")
+        self.assertEqual(result.loc[0, "drift_model_version"], "akerdrift-fast-v2-hybrid-rc1")
         self.assertEqual(result.loc[0, "hole_count"], 1)
         self.assertTrue(pd.isna(result.loc[1, "akerdrift_score"]))
         self.assertEqual(result.loc[1, "drift_routecal_support"], "NOT_SCORED_FAST_V1")
@@ -66,6 +68,12 @@ class ApplyAkerdriftFastV2Tests(unittest.TestCase):
         fast.loc[0, "geometry_score"] = 20.0
         result, clip, _ = APPLY.rescore_frame(fast, geometry, self.config)
         self.assertEqual(result.loc[0, "drift_routecal_support"], "CLIPPED_TO_CALIBRATION_RANGE")
+        self.assertEqual(result.loc[0, "drift_score_source"], "FAST_V1_FALLBACK_OUTSIDE_CALIBRATION")
+        self.assertEqual(result.loc[0, "akerdrift_score"], result.loc[0, "fast_v1_akerdrift_score"])
+        self.assertNotEqual(
+            result.loc[0, "routecal_akerdrift_score_diagnostic"],
+            result.loc[0, "akerdrift_score"],
+        )
         row = clip[clip["feature"].eq("fast_geometry_score")].iloc[0]
         self.assertEqual(row["n_below"], 1)
 
