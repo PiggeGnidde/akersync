@@ -136,7 +136,7 @@ Block publiceras som en tunn, icke-klickbar gränsoverlay. Inga blockaggregat av
 - En karta med kommunväljare för alla 33 skånska kommuner.
 - Endast ett huvudfärglager i taget: ÅkerScore eller ÅkerVärde.
 - ÅkerDrift finns som disabled placeholder.
-- ÅkerVärde-legenden fortsätter över 100 och markerar referensnivån.
+- ÅkerVärde-legenden använder en distributionsanpassad skala där 95 och uppåt har mörkaste grönt. 100 är fortfarande modellens referensnivå och högre värden behåller samma toppfärg.
 - Skiftesklick öppnar höger drawer på desktop och bottom sheet på mobil.
 - Sammanfattningen visar de tre dimensionerna först; nörddata ligger i
   expanderbara sektioner.

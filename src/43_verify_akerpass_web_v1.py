@@ -166,12 +166,14 @@ def main() -> int:
     ):
         if marker not in html:
             raise RuntimeError("Frontend saknar inbakad Leaflet-layout: " + marker)
-    # The public scale must support values above 100 even when this particular
-    # frozen model/data snapshot happens not to produce one. Never fabricate a
-    # field value merely to exercise the upper legend.
-    for marker in ('label:">150"', "max:Infinity", 'activeLayer===\"value\"?properties.akervarde:properties.akerdrift'):
+    # The top color starts at 95 and remains valid for every higher index value.
+    # Never fabricate a field value merely to exercise the open upper interval.
+    for marker in ('label:"≥95"', 'label:"90–95"', "max:Infinity", 'activeLayer===\"value\"?properties.akervarde:properties.akerdrift'):
         if marker not in html:
             raise RuntimeError("Frontend saknar stöd för obegränsat ÅkerVärde: " + marker)
+    for obsolete_marker in ('label:"100–120"', 'label:"120–150"', 'label:">150"'):
+        if obsolete_marker in html:
+            raise RuntimeError("Frontend innehåller gammal ÅkerVärde-skala: " + obsolete_marker)
     for pattern in FORBIDDEN_UI:
         if pattern.search(html):
             raise RuntimeError(f"Publik UI innehåller förbjuden monetär text: {pattern.pattern}")

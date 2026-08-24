@@ -64,7 +64,7 @@ details{border-top:1px solid var(--line);margin-top:7px;padding-top:2px}summary{
 const MANIFEST=__MUNICIPALITIES_JSON__;
 const ORG_LABELS={"2":"<2,5 %","3":"2,5–3,5 %","4":"3,5–4,5 %","5":"4,5–5,5 %","6":"5,5–6,5 %","9":"6,5–12 %","16":"12–20 %","30":"≥20 %"};
 const SCORE_LEGEND=[{max:40,label:"<40",color:"#8c6d31"},{max:55,label:"40–55",color:"#c7a95a"},{max:70,label:"55–70",color:"#e5d68b"},{max:82,label:"70–82",color:"#b7d58b"},{max:92,label:"82–92",color:"#67ad67"},{max:98,label:"92–98",color:"#27814b"},{max:Infinity,label:"98–100",color:"#075b35"}];
-const VALUE_LEGEND=[{max:40,label:"<40",color:"#7f3b3b"},{max:60,label:"40–60",color:"#b65b4a"},{max:80,label:"60–80",color:"#d99863"},{max:100,label:"80–100",color:"#ead78c"},{max:120,label:"100–120",color:"#a8c979",ref:true},{max:150,label:"120–150",color:"#4a9b61"},{max:Infinity,label:">150",color:"#12613e"}];
+const VALUE_LEGEND=[{max:40,label:"<40",color:"#7f3b3b"},{max:55,label:"40–55",color:"#b65b4a"},{max:70,label:"55–70",color:"#d99863"},{max:82,label:"70–82",color:"#ead78c"},{max:90,label:"82–90",color:"#a8c979"},{max:95,label:"90–95",color:"#4a9b61"},{max:Infinity,label:"≥95",color:"#12613e"}];
 const DRIFT_LEGEND=[{max:40,label:"<40",color:"#8b3f2f"},{max:55,label:"40–55",color:"#bd6844"},{max:70,label:"55–70",color:"#dda65c"},{max:82,label:"70–82",color:"#d8d083"},{max:92,label:"82–92",color:"#85b66f"},{max:98,label:"92–98",color:"#3b8959"},{max:Infinity,label:"98–100",color:"#175c3b"}];
 const map=L.map("map",{preferCanvas:true,zoomControl:false}).setView([55.82,13.45],9);
 L.control.zoom({position:"topright"}).addTo(map);
