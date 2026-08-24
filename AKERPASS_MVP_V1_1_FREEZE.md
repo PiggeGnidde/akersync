@@ -71,6 +71,50 @@ kommun:
 4. kontrollera ÅkerVärdes legend och ett värde nära 95–100;
 5. kontrollera `Min position`, `Följ mig`, zoom och avslagen följning på mobil.
 
+## HTTPS-kandidat och säker rollback på one.com
+
+Mobilens GPS kräver normalt HTTPS. Paketera därför den redan QA-godkända
+builden med:
+
+```bat
+PACKAGE_AKERPASS_MVP_V1_1.bat
+```
+
+Det skapar följande lokala filer:
+
+```text
+release/akerpass_mvp_v1_1_candidate.zip
+release/akerpass_mvp_v1_1_candidate.zip.sha256.txt
+```
+
+På one.com används följande ordning:
+
+1. Skapa undermappen `_candidate_v1_1` i samma webbrot som nuvarande
+   `index.html`.
+2. Ladda upp ZIP-filen till `_candidate_v1_1` och extrahera den där. Kontrollera
+   att `_candidate_v1_1/index.html` finns direkt i mappen och inte i ytterligare
+   en `dist`-mapp.
+3. Öppna `https://akerpass.se/_candidate_v1_1/` på mobilen. Kandidaten får då
+   HTTPS och kan använda GPS, medan den befintliga livesajten är orörd.
+4. Genomför den manuella kontrollen, särskilt `Följ mig`, `+`, `−` och
+   fingerzoom.
+
+Först efter godkänt kandidattest:
+
+5. Skapa `_rollback_before_v1_1` i webbroten.
+6. Kopiera den nuvarande livesajtens filer och mappar till rollbackmappen.
+   Kandidat- och rollbackmapparna ska inte kopieras in i sig själva.
+7. Kontrollera att rollbackmappen innehåller den gamla `index.html` och dess
+   data-/kommunmappar.
+8. Kopiera innehållet i `_candidate_v1_1` till webbroten och ersätt motsvarande
+   livefiler.
+9. Öppna `https://akerpass.se/` i ett privat fönster eller gör en hård
+   omladdning och upprepa ett kort smoke-test.
+
+Om produktionskopieringen ger fel återställs livefilerna från
+`_rollback_before_v1_1`. Git-taggen skapas inte förrän även testet på den
+ordinarie rotadressen är godkänt.
+
 ## Taggning efter godkänd QA
 
 Tagga endast en ren, pushad commit:
