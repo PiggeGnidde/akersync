@@ -29,6 +29,7 @@ from akerdrift_route_core import (
     ENGINE_VERSION,
     MODEL_VERSION,
     config_hash,
+    is_small_or_narrow_field,
     load_route_config,
     simulate_route,
 )
@@ -36,7 +37,7 @@ from common import MUN_CODES, load_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ROUTE_CONFIG = ROOT / "config" / "akerdrift_route_pilot_v1a_rc1.json"
+DEFAULT_ROUTE_CONFIG = ROOT / "config" / "akerdrift_route_pilot_v1a_rc1_1.json"
 MAX_PILOT_FIELDS = 200
 
 
@@ -118,7 +119,7 @@ def resolve_paths(args: argparse.Namespace, local: dict[str, Any], municipality:
     if not fast.is_absolute():
         fast = ROOT / fast
     output = Path(args.output_dir) if args.output_dir else (
-        build_dir / "akerdrift_route_pilot_v1a_rc1" / f"{slug(municipality)}_{args.limit}"
+        build_dir / "akerdrift_route_pilot_v1a_rc1_1" / f"{slug(municipality)}_{args.limit}"
     )
     if not output.is_absolute():
         output = ROOT / output
@@ -159,7 +160,7 @@ def hole_count(geometry: Any) -> int:
     return 0
 
 
-def load_candidates(paths: dict[str, Path], municipality: str, headland_width_m: float) -> Any:
+def load_candidates(paths: dict[str, Path], municipality: str, route_config: Any) -> Any:
     try:
         import geopandas as gpd
     except ImportError as exc:
@@ -202,7 +203,7 @@ def load_candidates(paths: dict[str, Path], municipality: str, headland_width_m:
     joined["hole_count"] = joined["geometry"].map(hole_count)
     joined["pa_ratio_route"] = joined["geometry"].map(lambda item: float(item.length / item.area))
     joined["small_or_narrow_field"] = joined["geometry"].map(
-        lambda item: bool(item.buffer(-headland_width_m).is_empty)
+        lambda item: is_small_or_narrow_field(item, route_config)
     )
     joined["stable_hash"] = joined["field_key"].map(stable_hash)
     joined["akerdrift_score"] = pd.to_numeric(joined["akerdrift_score"], errors="coerce")
@@ -503,7 +504,7 @@ def run_command(args: argparse.Namespace) -> int:
     route_config_hash = config_hash(raw_route_config)
     paths = resolve_paths(args, local, municipality)
     paths["output"].mkdir(parents=True, exist_ok=True)
-    candidates = load_candidates(paths, municipality, route_config.headland_width_m)
+    candidates = load_candidates(paths, municipality, route_config)
     pilot = select_pilot(candidates, args.limit)
     write_csv_atomic(manifest_frame(pilot), paths["output"] / "sample_manifest.csv")
     write_json_atomic({

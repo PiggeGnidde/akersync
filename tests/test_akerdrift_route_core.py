@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from akerdrift_route_core import RouteConfig, simulate_route  # noqa: E402
+from akerdrift_route_core import RouteConfig, is_small_or_narrow_field, simulate_route  # noqa: E402
 
 import pandas as pd  # noqa: E402
 
@@ -57,6 +57,21 @@ class AkerdriftRouteCoreTests(unittest.TestCase):
         result = self.score(box(0, 0, 30, 30))
         self.assertTrue(result["small_or_narrow_field"])
         self.assertEqual(result["route_geometry_status"], "SMALL_OR_NARROW_FIELD")
+
+    def test_nonempty_but_sub_work_width_core_is_small_or_narrow(self):
+        shape = box(0, 0, 392, 54)
+        self.assertFalse(shape.buffer(-self.config.headland_width_m).is_empty)
+        self.assertTrue(is_small_or_narrow_field(shape, self.config))
+        result = self.score(shape)
+        self.assertEqual(result["interior_distance_m"], 0.0)
+        self.assertEqual(result["route_geometry_status"], "SMALL_OR_NARROW_FIELD")
+
+    def test_full_width_interior_pass_remains_normal(self):
+        shape = box(0, 0, 392, 70)
+        self.assertFalse(is_small_or_narrow_field(shape, self.config))
+        result = self.score(shape)
+        self.assertGreater(result["interior_distance_m"], 0.0)
+        self.assertEqual(result["route_geometry_status"], "OK")
 
     def test_same_area_long_rectangle_beats_square(self):
         square = self.score(box(0, 0, math.sqrt(100_000), math.sqrt(100_000)))

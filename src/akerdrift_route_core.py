@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-MODEL_VERSION = "akerdrift-route-pilot-v1a-rc1"
+MODEL_VERSION = "akerdrift-route-pilot-v1a-rc1.1"
 ENGINE_VERSION = "shapely-parallel-swath-v1"
 
 
@@ -85,6 +85,17 @@ def validate_route_config(config: RouteConfig) -> None:
 def config_hash(raw_config: dict[str, Any]) -> str:
     payload = json.dumps(raw_config, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def is_small_or_narrow_field(geometry: Any, config: RouteConfig) -> bool:
+    """Return true when no full-width interior work pass can fit.
+
+    A merely non-empty headland buffer is insufficient.  The remaining core
+    must also accommodate half a work width on either side of a pass centre.
+    """
+    inset = config.headland_width_m + config.work_width_m / 2.0
+    usable_core = geometry.buffer(-inset)
+    return usable_core.is_empty or float(getattr(usable_core, "area", 0.0)) <= 0.0
 
 
 def _line_parts(geometry: Any) -> list[Any]:
@@ -213,8 +224,7 @@ def simulate_route(geometry: Any, config: RouteConfig) -> dict[str, Any]:
     """Return the best deterministic parallel-swath route for one polygon."""
     if geometry is None or geometry.is_empty or float(geometry.area) <= 0:
         raise ValueError("Tom eller ogiltig skiftesgeometri")
-    interior = geometry.buffer(-config.headland_width_m)
-    small_or_narrow = interior.is_empty or float(getattr(interior, "area", 0.0)) <= 0.0
+    small_or_narrow = is_small_or_narrow_field(geometry, config)
     coarse = [_candidate(geometry, heading, config) for heading in _heading_range(config.coarse_heading_step_deg)]
     coarse.sort(key=lambda item: (item.equivalent_time_s, item.heading_deg))
     headings = {int(item.heading_deg) for item in coarse}
@@ -225,6 +235,9 @@ def simulate_route(geometry: Any, config: RouteConfig) -> dict[str, Any]:
             headings.add(int(round(seed.heading_deg + delta)) % 180)
     candidates = [_candidate(geometry, heading, config) for heading in sorted(headings)]
     best = min(candidates, key=lambda item: (item.equivalent_time_s, item.heading_deg))
+    # A usable geometric core can still be missed by every generated pass due
+    # to swath phasing.  Such a result is not comparable with normal fields.
+    small_or_narrow = small_or_narrow or best.interior_distance_m <= 1e-9
     result = asdict(best)
     result.update({
         "route_model_version": MODEL_VERSION,

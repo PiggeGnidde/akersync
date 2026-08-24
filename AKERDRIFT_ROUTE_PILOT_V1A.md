@@ -1,6 +1,6 @@
 # ÅkerDrift ruttpilot V1a
 
-Modellversion: `akerdrift-route-pilot-v1a-rc1`
+Modellversion: `akerdrift-route-pilot-v1a-rc1.1`
 
 Branch: `feature/akerdrift-route-pilot-v1a`
 
@@ -77,10 +77,12 @@ Urvalet är deterministiskt och har två kohorter:
 
 Hård spärr finns vid 200 skiften. Hela Lomma startas alltså inte av misstag.
 
-Om inåtbuffringen 24 m blir tom klassas fältet som
-`SMALL_OR_NARROW_FIELD`. Motorn kör fortfarande en diagnostisk fullfältssvepning
-och sparar `route_score_diagnostic`, men det officiella `route_score` lämnas
-null. Dessa fall redovisas separat och ingår aldrig i huvudkorrelationen.
+Om det efter 24 m vändteg inte ryms en hel 9 m bred inre körlinje klassas
+fältet som `SMALL_OR_NARROW_FIELD`. Samma status sätts om den simulerade
+inre körsträckan blir noll trots en formellt icke-tom geometrisk kärna. Motorn
+kör fortfarande en diagnostisk fullfältssvepning och sparar
+`route_score_diagnostic`, men det officiella `route_score` lämnas null. Dessa
+fall redovisas separat och ingår aldrig i huvudkorrelationen.
 
 Varje färdigt skifte skrivs atomärt under `results/` och får därefter en egen
 `checkpoints/*.done.json`. Om körningen avbryts kör man samma BAT-fil igen;
@@ -91,7 +93,7 @@ färdiga skiften skrivs då som `SKIP`.
 Standardmapp:
 
 ```text
-data\derived\akerdrift_route_pilot_v1a_rc1\lomma_200\
+data\derived\akerdrift_route_pilot_v1a_rc1_1\lomma_200\
   sample_manifest.csv
   results\*.json
   checkpoints\*.done.json
@@ -111,8 +113,8 @@ median absolut scoredifferens och P95 absolut scoredifferens.
 jämförbara fält. Stressfallen och små/smala fält ligger i separata filer så att
 de kan granskas utan att förvränga huvudmåtten.
 
-RC0-körningens mapp och konfiguration lämnas kvar oförändrade för
-reproducerbarhet.
+RC0- och RC1-körningarnas mappar och konfigurationer lämnas kvar oförändrade
+för reproducerbarhet.
 
 ## Test
 
@@ -121,5 +123,6 @@ py -3 -m unittest tests.test_akerdrift_route_core
 ```
 
 Testerna täcker stor rektangel, lång rektangel mot kvadrat, L-form, internt hål,
-rotationsstabilitet, determinism, 0–100-bounds, exakt 150/50-urval samt att
+rotationsstabilitet, determinism, 0–100-bounds, exakt 150/50-urval, en
+formellt icke-tom men smalare-än-arbetsbredd-kärna samt att
 `SMALL_OR_NARROW_FIELD` utesluts ur huvudrapporten.
