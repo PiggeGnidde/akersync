@@ -58,6 +58,8 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
         }:
             raise RuntimeError(f"{path.name}: ÅkerDrift null utan tydlig status")
         details = p.get("akerdrift_details") or {}
+        if "fast_v1_score" in details or "hybrid_delta_vs_v1" in details:
+            raise RuntimeError(f"{path.name}: intern V1-jämförelse läckte till publik export")
         terrain_factor = details.get("drift_terrain_factor")
         if terrain_factor is not None and not 0.8 <= float(terrain_factor) <= 1.0:
             raise RuntimeError(f"{path.name}: terrängfaktor utanför 0,8–1,0")
@@ -159,6 +161,9 @@ def main() -> int:
     missing_ui = [text for text in required_ui if text not in html]
     if missing_ui:
         raise RuntimeError("Frontend saknar: " + ", ".join(missing_ui))
+    for internal_text in ("Fast V1 · jämförelse", "Förändring mot Fast V1"):
+        if internal_text in html:
+            raise RuntimeError("Frontend visar intern modelljämförelse: " + internal_text)
     if 'rel="stylesheet" href="https://unpkg.com/leaflet' in html:
         raise RuntimeError("Frontend får inte vara beroende av extern Leaflet-CSS")
     for marker in (

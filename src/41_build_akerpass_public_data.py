@@ -319,8 +319,6 @@ def build_field_feature(
             **selected_numbers(drift_row, DRIFT_FIELDS),
             "drift_twi_status": str(drift_row.get("drift_twi_status") or "MISSING"),
             "score_source": str(drift_row.get("drift_score_source") or "NOT_SCORED"),
-            "fast_v1_score": number(drift_row.get("fast_v1_akerdrift_score"), 2),
-            "hybrid_delta_vs_v1": number(drift_row.get("score_delta_hybrid_minus_v1"), 2),
         } if arable_is_applicable else {
             "score_source": "NOT_APPLICABLE_LAND_USE"
             if use["arable_applicability"] == "not_applicable"
