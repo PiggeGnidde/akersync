@@ -1,9 +1,10 @@
-# ÅkerPass MVP UI V1
+# ÅkerPass MVP UI v1.1
 
 ## Status och Git-gren
 
-UI-integrationen finns endast på `feature/akerpass-ui-v1`. Den är inte mergad
-till `main`. De två frysta modellgrenarna har inte ändrats.
+Den releaseförberedda integrationen finns på
+`feature/akerdrift-route-pilot-v1a`. Den är inte mergad till `main`. Fryst
+releasebeslut och taggningsordning finns i `AKERPASS_MVP_V1_1_FREEZE.md`.
 
 Integrationsgrenen utgår från `feature/value-regression-v0a` vid `6ff6550` och
 har kontrollerat tagit in `feature/akerscore-v1a` vid `6cc4810`. Båda grenarna
@@ -38,7 +39,7 @@ Geometry V1a + förbättrad skiftesklick/mobil/GPS
 `dist/` är genererad och versionshanteras inte. Den aktuella filen på Bengts
 dator är därför ett lokalt buildresultat, inte en källfil i Git.
 
-## ÅkerPass V1 source → build → dist
+## ÅkerPass v1.1 source → build → dist
 
 V1 behåller Leaflet och de befintliga validerade derived-filerna men byter till
 en explicit publik, kommunvis dataladdning:
@@ -77,7 +78,8 @@ Hela kedjan körs av `BUILD_AKERPASS_WEB_V1.bat` via
 
 ### ÅkerVärde
 
-- Modell: `akervarde-v1.0-rc1`, fryst `S70_NOFOREST / BASE`.
+- Modellartifact: `akervarde-v1.0-rc1`, fryst `S70_NOFOREST / BASE` och
+  produktionsgodkänd oförändrad i ÅkerPass MVP v1.1.
 - BASE-koefficienter läses från den lokala, immutabla freeze-artifacten.
 - Modellår: 2026.
 - Area: skiftets geometri i SWEREF 99 TM.
@@ -120,7 +122,7 @@ Varje GeoJSON-skifte innehåller:
 - `area_ha`;
 - `akerscore`, `akerscore_p10`, `akerscore_p90`;
 - `akervarde`, `akervarde_p10`, `akervarde_p90`;
-- `akerdrift: null`;
+- `akerdrift` från fryst Hybrid RC1 när skiftet är tillämpligt och giltigt;
 - jorddetaljer på skiftesnivå;
 - Geometry V1a på skiftesnivå;
 - topografi och hydrologi på blocknivå, uttryckligen märkta med `data_scope`;
@@ -135,7 +137,7 @@ Block publiceras som en tunn, icke-klickbar gränsoverlay. Inga blockaggregat av
 
 - En karta med kommunväljare för alla 33 skånska kommuner.
 - Endast ett huvudfärglager i taget: ÅkerScore eller ÅkerVärde.
-- ÅkerDrift finns som disabled placeholder.
+- ÅkerDrift är ett aktivt tredje färglager med fryst Hybrid RC1.
 - ÅkerVärde-legenden använder en distributionsanpassad skala där 95 och uppåt har mörkaste grönt. 100 är fortfarande modellens referensnivå och högre värden behåller samma toppfärg.
 - Skiftesklick öppnar höger drawer på desktop och bottom sheet på mobil.
 - Sammanfattningen visar de tre dimensionerna först; nörddata ligger i
@@ -209,7 +211,7 @@ dist/data/municipalities/1293-hassleholm.json
 
 Hela `dist/` deployas som en vanlig statisk webbplats.
 
-## Kända begränsningar i V1
+## Kända begränsningar i v1.1
 
 - ÅkerDrift använder den frysta Hybrid RC1-modellen.
 - ÅkerVärde är ett marknadsindex, inte en individuell värdering eller

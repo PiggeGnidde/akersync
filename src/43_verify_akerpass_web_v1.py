@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Static acceptance checks for the generated ÅkerPass V1 distribution."""
+"""Static acceptance checks for the generated ÅkerPass MVP v1.1 distribution."""
 from __future__ import annotations
 
 import argparse
@@ -22,6 +22,12 @@ FORBIDDEN_UI = (
     re.compile(r"600[\s\u00a0.]?000"),
 )
 
+PRODUCT_VERSION = "akerpass-mvp-v1.1"
+DATASET_VERSION = "akerpass-public-v1.1"
+SCORE_VERSION = "akerscore-soil-v0c"
+VALUE_VERSION = "akervarde-v1.0-rc1"
+DRIFT_VERSION = "akerdrift-fast-v2-hybrid-rc1"
+
 
 def walk(value: Any):
     if isinstance(value, dict):
@@ -35,6 +41,10 @@ def walk(value: Any):
 
 def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | None, float | None]:
     document = json.loads(path.read_text(encoding="utf-8"))
+    if document.get("product_version") != PRODUCT_VERSION:
+        raise RuntimeError(f"{path.name}: fel ÅkerPass-produktversion")
+    if document.get("dataset_version") != DATASET_VERSION:
+        raise RuntimeError(f"{path.name}: fel publik datasetversion")
     fields = document.get("fields", {}).get("features", [])
     blocks = document.get("blocks", {}).get("features", [])
     score_count = value_count = drift_count = over_100 = 0
@@ -63,8 +73,17 @@ def check_document(path: Path) -> tuple[int, int, int, int, int, int, float | No
         terrain_factor = details.get("drift_terrain_factor")
         if terrain_factor is not None and not 0.8 <= float(terrain_factor) <= 1.0:
             raise RuntimeError(f"{path.name}: terrängfaktor utanför 0,8–1,0")
-        if (p.get("model_versions") or {}).get("akerdrift") != "akerdrift-fast-v2-hybrid-rc1":
-            raise RuntimeError(f"{path.name}: fel ÅkerDrift-version")
+        model_versions = p.get("model_versions") or {}
+        expected_versions = {
+            "product": PRODUCT_VERSION,
+            "akerscore": SCORE_VERSION,
+            "akervarde": VALUE_VERSION,
+            "akerdrift": DRIFT_VERSION,
+            "dataset": DATASET_VERSION,
+        }
+        for component, expected in expected_versions.items():
+            if model_versions.get(component) != expected:
+                raise RuntimeError(f"{path.name}: fel version för {component}")
         score = p.get("akerscore")
         if score is not None:
             score_count += 1
@@ -179,12 +198,21 @@ def main() -> int:
             raise RuntimeError(f"Publik UI innehåller förbjuden monetär text: {pattern.pattern}")
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    expected_manifest = {
+        "product_version": PRODUCT_VERSION,
+        "dataset_version": DATASET_VERSION,
+        "akerscore_model_version": SCORE_VERSION,
+        "akervarde_model_version": VALUE_VERSION,
+        "akerdrift_model_version": DRIFT_VERSION,
+        "crop_year": 2025,
+        "akervarde_reference_year": 2026,
+    }
+    for field, expected in expected_manifest.items():
+        if manifest.get(field) != expected:
+            raise RuntimeError(f"Kommunmanifestet har fel {field}: {manifest.get(field)!r}")
     municipalities = manifest.get("municipalities", {})
     if set(municipalities) != set(MUN_CODES) or manifest.get("municipality_count") != 33:
         raise RuntimeError("Kommunmanifestet innehåller inte exakt Skånes 33 kommuner")
-    if manifest.get("akerdrift_model_version") != "akerdrift-fast-v2-hybrid-rc1":
-        raise RuntimeError("Kommunmanifestet saknar fryst ÅkerDrift-version")
-
     totals = [0, 0, 0, 0, 0, 0]
     value_min = value_max = None
     for municipality, meta in municipalities.items():

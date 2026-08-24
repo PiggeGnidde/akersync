@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Render the ÅkerPass V1 frontend from its source template."""
+"""Render the ÅkerPass MVP v1.1 frontend from its source template."""
 from __future__ import annotations
 
 import argparse
@@ -26,7 +26,7 @@ def main() -> int:
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("municipality_count") != 33:
-        raise RuntimeError("ÅkerPass V1 kräver exakt 33 skånska kommuner")
+        raise RuntimeError("ÅkerPass MVP v1.1 kräver exakt 33 skånska kommuner")
     html = template_path.read_text(encoding="utf-8")
     placeholder = "__MUNICIPALITIES_JSON__"
     if html.count(placeholder) != 1:

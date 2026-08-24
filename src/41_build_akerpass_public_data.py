@@ -19,7 +19,8 @@ from common import CSV_MUN_TO_UI, MUN_CODES, load_config
 SCORE_VERSION = "akerscore-soil-v0c"
 VALUE_VERSION = "akervarde-v1.0-rc1"
 DRIFT_VERSION = "akerdrift-fast-v2-hybrid-rc1"
-DATASET_VERSION = "akerpass-public-v1"
+PRODUCT_VERSION = "akerpass-mvp-v1.1"
+DATASET_VERSION = "akerpass-public-v1.1"
 CROP_YEAR = 2025
 
 # Jordbruksverket crop codes that explicitly describe land outside the arable
@@ -347,6 +348,7 @@ def build_field_feature(
             "alignment_warning": bool(original.get("alignment_warning", False)),
         },
         "model_versions": {
+            "product": PRODUCT_VERSION,
             "akerscore": SCORE_VERSION,
             "akervarde": str(value_row.get("akervarde_model_version") or VALUE_VERSION),
             "akerdrift": str(drift_row.get("drift_model_version") or DRIFT_VERSION),
@@ -451,6 +453,7 @@ def main() -> int:
 
         document = {
             "schema_version": 1,
+            "product_version": PRODUCT_VERSION,
             "dataset_version": DATASET_VERSION,
             "municipality": municipality,
             "fields": {"type": "FeatureCollection", "features": fields},
@@ -475,8 +478,13 @@ def main() -> int:
         raise RuntimeError(f"Förväntade 33 kommuner, fick {len(manifest)}")
     manifest_doc = {
         "schema_version": 1,
+        "product_version": PRODUCT_VERSION,
         "dataset_version": DATASET_VERSION,
+        "akerscore_model_version": SCORE_VERSION,
+        "akervarde_model_version": VALUE_VERSION,
         "akerdrift_model_version": DRIFT_VERSION,
+        "crop_year": CROP_YEAR,
+        "akervarde_reference_year": 2026,
         "municipality_count": len(manifest),
         "field_count": total_fields,
         "block_count": total_blocks,

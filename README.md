@@ -21,17 +21,20 @@ godkänt bygger `BUILD_AKERPASS_WEB_V1.bat` webben med Hybrid RC1.
 Målet är att kunna återskapa **ÅkerSync v0.92 från rådata** utan att vara
 beroende av historiska v0.4/v0.7/v0.9-filer.
 
-## ÅkerPass MVP UI V1
+## ÅkerPass MVP v1.1
 
-Den separata integrationsgrenen `feature/akerpass-ui-v1` bygger ÅkerPass för
+Den aktuella integrationsgrenen bygger ÅkerPass för
 alla 33 skånska kommuner med fryst ÅkerScore, publikt ÅkerVärde-index,
 ÅkerDrift Hybrid RC1 med intern, QA-spårbar V1-fallback, mobil drawer/bottom sheet och
 GPS-följning. Direktlänkar kan ange `kommun`, `block`, `skifte` och `lager`.
 Alla tre publika dimensioner har en gemensam målpopulationsspärr: betesmark,
 slåtteräng och annan uttrycklig icke-åkermark visas som `Ej tillämpligt`.
 
-Kör `BUILD_AKERPASS_WEB_V1.bat` och därefter `START_AKERPASS_LOCAL.bat`.
-Full metod, inputs, output och QA finns i [AKERPASS_UI_V1.md](AKERPASS_UI_V1.md).
+Kör `CHECK_AKERPASS_MVP_V1_1.bat` inför release och därefter
+`START_AKERPASS_LOCAL.bat` för den manuella kartkontrollen. Full metod, inputs
+och output finns i [AKERPASS_UI_V1.md](AKERPASS_UI_V1.md); det frysta
+releasebeslutet och taggningsordningen finns i
+[AKERPASS_MVP_V1_1_FREEZE.md](AKERPASS_MVP_V1_1_FREEZE.md).
 
 ÅkerDrift körs separat och restart-säkert kommun för kommun med
 `RUN_AKERDRIFT_FAST_V1.bat`. Kör sedan billig QA/sensitivitet med

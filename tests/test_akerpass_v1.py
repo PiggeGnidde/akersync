@@ -70,6 +70,8 @@ class PublicFieldTests(unittest.TestCase):
             {"7": {"elev_mean_m": 10}}, {"7": {"twi_mean": 8}}, {"4": "Vete (höst)"},
         )
         props = result["properties"]
+        self.assertEqual(props["model_versions"]["product"], "akerpass-mvp-v1.1")
+        self.assertEqual(props["model_versions"]["dataset"], "akerpass-public-v1.1")
         self.assertEqual(props["akerscore"], 93)
         self.assertEqual(props["akervarde"], 70)
         self.assertEqual(props["akervarde_applicability"], "applicable")
@@ -127,6 +129,8 @@ class PublicFieldTests(unittest.TestCase):
 class VerificationTests(unittest.TestCase):
     def test_chunk_accepts_value_above_100(self):
         document = {
+            "product_version": "akerpass-mvp-v1.1",
+            "dataset_version": "akerpass-public-v1.1",
             "fields": {"features": [{"properties": {
                 "akerscore": 95, "akerscore_p10": 90, "akerscore_p90": 98,
                 "akervarde": 125, "akervarde_p10": 103, "akervarde_p90": 186,
@@ -135,7 +139,13 @@ class VerificationTests(unittest.TestCase):
                 "historic_class": 9, "historic_class_status": "class_5_10",
                 "akerdrift": 84, "akerdrift_status": "OK",
                 "akerdrift_details": {"geometry_score": 88, "drift_terrain_factor": .95},
-                "model_versions": {"akerdrift": "akerdrift-fast-v2-hybrid-rc1"},
+                "model_versions": {
+                    "product": "akerpass-mvp-v1.1",
+                    "akerscore": "akerscore-soil-v0c",
+                    "akervarde": "akervarde-v1.0-rc1",
+                    "akerdrift": "akerdrift-fast-v2-hybrid-rc1",
+                    "dataset": "akerpass-public-v1.1",
+                },
             }}]},
             "blocks": {"features": []},
         }
@@ -220,6 +230,9 @@ class VerificationTests(unittest.TestCase):
             manifest = json.loads((dist / "municipalities.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["municipality_count"], 33)
             self.assertEqual(manifest["field_count"], 33)
+            self.assertEqual(manifest["product_version"], "akerpass-mvp-v1.1")
+            self.assertEqual(manifest["dataset_version"], "akerpass-public-v1.1")
+            self.assertEqual(manifest["akervarde_model_version"], "akervarde-v1.0-rc1")
             self.assertEqual(manifest["akerdrift_model_version"], "akerdrift-fast-v2-hybrid-rc1")
 
 

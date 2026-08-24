@@ -4,7 +4,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ========================================================================================
-echo AkerPass MVP UI V1 - public data, 33 kommuner, mobil karta och QA
+echo AkerPass MVP v1.1 - public data, 33 kommuner, mobil karta och QA
 echo ========================================================================================
 echo.
 

@@ -17,7 +17,7 @@ def run(script: str) -> None:
 
 def main() -> int:
     print("=" * 96)
-    print("ÅkerPass MVP UI V1 · public index → kommunfiler → frontend → QA")
+    print("ÅkerPass MVP v1.1 · public index → kommunfiler → frontend → QA")
     print("=" * 96)
     run("src/40_build_akervarde_public_index.py")
     run("src/41_build_akerpass_public_data.py")
