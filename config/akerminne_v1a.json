@@ -1,0 +1,26 @@
+{
+  "schema_version": "akerminne-config-v1a",
+  "reference_year": 2025,
+  "years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+  "pilot_municipality": "Skurup",
+  "pilot_municipality_code": "1264",
+  "official_sources": {
+    "landing_page": "https://jordbruksverket.se/e-tjanster-databaser-och-appar/e-tjanster-och-databaser-stod/kartor-och-gis",
+    "wfs": "https://epub.sjv.se/inspire/inspire/wfs",
+    "skifte_typename": "inspire:arslager_skifte",
+    "block_typename": "inspire:arslager_block",
+    "verified_on": "2026-08-25",
+    "verification_note": "Jordbruksverkets officiella GIS-sida listar årsvisa skifteslager 2015-2025 och blocklager inklusive 2015-2025, rekommenderar WFS/CQL och anger GeoPackage i SWEREF 99 TM. Grödkoder ska matchas mot rätt årsversion."
+  },
+  "field_contract": {
+    "current_web_id": "blockid|skiftesbeteckning",
+    "current_block_column": "blockid",
+    "current_field_column": "skiftesbeteckning",
+    "crop_code_column": "grdkod_mar",
+    "crop_subcategory_column": "grdkod_und",
+    "year_column": "arslager",
+    "region_column": "region_kod"
+  },
+  "network_probe_years": [2015, 2020, 2025],
+  "network_probe_max_features": 5
+}

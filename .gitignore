@@ -1,5 +1,6 @@
 # Local paths / credentials-ish machine configuration
 config/local_paths.json
+config/akerminne_local.json
 
 # Raw / large data: never commit
 data/raw/*
