@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import sys
 import unittest
+from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import box
 
-from akerminne_history_core import (
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from akerminne_history_core import (  # noqa: E402
     CropRecord,
     CropRegistry,
     build_reference_year,
