@@ -7,6 +7,7 @@ Label-only operation: geometry, intersections, coverage and identity matching ar
 from __future__ import annotations
 
 import argparse
+import base64
 import gzip
 import hashlib
 import json
@@ -51,11 +52,11 @@ def load_official_tables(directory: Path, manifest_path: Path):
     verified: dict[str, Any] = {}
     for year in years:
         meta = meta_years[str(year)]
-        path = directory / meta["normalized_file"]
+        path = directory / meta["payload_file"]
         if not path.exists():
             raise FileNotFoundError(path)
-        with gzip.open(path, "rb") as fh:
-            raw = fh.read()
+        encoded = path.read_text(encoding="ascii").strip()
+        raw = gzip.decompress(base64.b64decode(encoded, validate=True))
         sha = hashlib.sha256(raw).hexdigest()
         if sha != meta["normalized_sha256"]:
             raise RuntimeError(f"{year}: normalized SHA-256 mismatch: {sha}")
@@ -77,7 +78,7 @@ def load_official_tables(directory: Path, manifest_path: Path):
                 raise RuntimeError(f"{year}: conflicting official names for {(code, sub)}")
             table[(code, sub)] = (name, group)
         tables[year] = table
-        verified[str(year)] = {"rows": len(frame), "keys": len(table), "sha256": sha, "file": str(path)}
+        verified[str(year)] = {"rows": len(frame), "keys": len(table), "sha256": sha, "payload_file": str(path)}
     if sum(x["rows"] for x in verified.values()) != int(manifest["total_normalized_rows"]):
         raise RuntimeError("Official crop-code total row count mismatch")
     return tables, {"manifest": manifest, "verified": verified}
@@ -88,7 +89,7 @@ def lookup(tables, year: int, code: Any, subcategory: Any):
     table = tables.get(int(year), {})
     if (c, s) in table:
         return table[(c, s)]
-    if s is not None and (c, None) in table:
+    if s is not None and (c, None) in table:  # same-year fallback only
         return table[(c, None)]
     return None
 
@@ -191,10 +192,8 @@ def main() -> int:
         summary_before.to_parquet(sum_backup, index=False)
     comp_tmp = _write_verified_tmp(components_after, components_path)
     sum_tmp = _write_verified_tmp(summary_after, summary_path)
-    components_path.unlink(missing_ok=True)
-    comp_tmp.replace(components_path)
-    summary_path.unlink(missing_ok=True)
-    sum_tmp.replace(summary_path)
+    components_path.unlink(missing_ok=True); comp_tmp.replace(components_path)
+    summary_path.unlink(missing_ok=True); sum_tmp.replace(summary_path)
 
     report_dir.mkdir(parents=True, exist_ok=True)
     unknown = unknown_report(components_after)
@@ -204,12 +203,9 @@ def main() -> int:
         by_year.append({"year": int(year), "component_rows": int(len(g)), "known_rows": int(g["crop_known"].sum()), "unknown_rows": int((~g["crop_known"]).sum()), "known_pct": float(100*g["crop_known"].mean()) if len(g) else 0.0})
     report = {
         "schema_version": "akerminne-official-crop-labels-v1",
-        "dictionary_years": sorted(tables),
-        "dictionary_rows": int(meta["manifest"]["total_normalized_rows"]),
-        "component_rows": int(len(components_after)),
-        "known_component_rows": int(components_after["crop_known"].sum()),
-        "unknown_component_rows": int((~components_after["crop_known"]).sum()),
-        "unknown_combinations": int(len(unknown)),
+        "dictionary_years": sorted(tables), "dictionary_rows": int(meta["manifest"]["total_normalized_rows"]),
+        "component_rows": int(len(components_after)), "known_component_rows": int(components_after["crop_known"].sum()),
+        "unknown_component_rows": int((~components_after["crop_known"]).sum()), "unknown_combinations": int(len(unknown)),
         "by_year": by_year,
         "invariants": {"geometry_or_mapping_columns_changed": False, "component_rows": int(len(components_after)), "summary_rows": int(len(summary_after))},
     }
@@ -228,15 +224,12 @@ def main() -> int:
     report_md = report_dir / "official_crop_code_report.md"
     report_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    print("=" * 78)
-    print("ÅkerMinne official annual crop codes 2015-2025: PASS")
-    print("=" * 78)
+    print("=" * 78); print("ÅkerMinne official annual crop codes 2015-2025: PASS"); print("=" * 78)
     print(f"Official dictionary rows: {report['dictionary_rows']:,}")
     print(f"Component rows: {report['component_rows']:,}")
     print(f"Known/unknown: {report['known_component_rows']:,}/{report['unknown_component_rows']:,}")
     print(f"Remaining unknown combinations: {report['unknown_combinations']:,}")
-    print("Geometry/mapping/coverage changed: NO")
-    print(f"Report: {report_md}")
+    print("Geometry/mapping/coverage changed: NO"); print(f"Report: {report_md}")
     return 0
 
 
