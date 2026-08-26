@@ -1,10 +1,12 @@
 # ÅkerMinne official annual crop-code dictionaries 2015–2025
 
-Official annual crop-code workbooks supplied by Jordbruksverket customer service on 2026-08-26 were normalized to one gzip-compressed CSV per year. The original Excel workbooks are not committed; exact source filenames and SHA-256 hashes are recorded in `manifest.json`.
+Official annual crop-code workbooks supplied by Jordbruksverket customer service on 2026-08-26 were normalized to one CSV table per year. The original Excel workbooks are not committed; exact source filenames and SHA-256 hashes are recorded in `manifest.json`.
+
+For repository transport, each normalized CSV is stored as a UTF-8/ASCII text file named `crop_codes_YYYY.csv.gz.b64`: the exact normalized CSV bytes are deterministically gzip-compressed and then base64-encoded. This avoids binary-file transport issues while preserving the exact normalized CSV bytes. Before use, `src/60_apply_akerminne_official_crop_codes.py` base64-decodes and decompresses every annual payload and verifies the resulting CSV SHA-256 and row count against `manifest.json`.
 
 ## Contract
 
-Each normalized CSV contains:
+Each normalized annual CSV contains:
 
 - `crop_code_raw`: annual `grdkod_mar` code.
 - `crop_subcategory_raw`: annual `grdkod_und`/undercode when the supplied workbook contains an official undercode table; blank otherwise.
@@ -18,7 +20,7 @@ Each normalized CSV contains:
 2. the same year's main code `(year, crop_code_raw, blank)` if the exact undercode is absent;
 3. otherwise the explicit `Okänd grödkod <kod> (<år>)` fallback.
 
-Before use, `src/60_apply_akerminne_official_crop_codes.py` decompresses every annual file and checks its normalized SHA-256 and row count against `manifest.json`. The operation is label-only: geometry, intersections, coverage and identity matching are asserted unchanged.
+The relabel operation is label-only: geometry, intersections, coverage and identity matching are asserted unchanged.
 
 ## Source-format QA
 
