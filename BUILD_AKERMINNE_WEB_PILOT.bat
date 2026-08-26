@@ -47,6 +47,8 @@ py -3 src\42_build_akerpass_frontend.py >> "%LOG%" 2>&1
 if errorlevel 1 goto :fail
 py -3 src\59_patch_akerpass_akerminne_ui.py >> "%LOG%" 2>&1
 if errorlevel 1 goto :fail
+py -3 src\61_revise_akerminne_ui_copy.py >> "%LOG%" 2>&1
+if errorlevel 1 goto :fail
 py -3 src\43_verify_akerpass_web_v1.py >> "%LOG%" 2>&1
 if errorlevel 1 goto :fail
 py -3 src\58_verify_akerminne_web_pilot.py >> "%LOG%" 2>&1
