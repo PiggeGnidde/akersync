@@ -40,12 +40,13 @@
     "notes": "Strict 1:1 uses min(F_C,F_H). Split/merge graph uses max(F_C,F_H). Thresholds are visible pilot baselines, not hidden crop/sliver thresholds."
   },
   "history_status": {
+    "minimum_match_coverage": 0.01,
     "complete_coverage_min": 0.95,
     "mixed_secondary_crop_min_share": 0.05,
     "web_component_min_share": 0.01,
     "overlap_raw_tolerance": 1e-06,
     "material_overlap_excess": 0.005,
-    "pilot_basis": "Frozen after STOPPUNKT C on Skurup 2015-2025: 1% component display threshold removes ~44% of grouped crop rows but only ~0.06% of field-year area; 5% secondary crop defines material mixture; >5% uncovered area defines partial coverage. Raw components and raw overlap flags remain preserved."
+    "pilot_basis": "Frozen after STOPPUNKT C/D on Skurup 2015-2025: historical coverage below 1% is treated as no material public match because 1,189 of 2,223 former PARTIAL rows were below 1%, while the remaining PARTIAL distribution is concentrated toward substantial coverage. 1% is also the web-visible component threshold; it removes ~44% of grouped crop rows but only ~0.06% of field-year area. 5% secondary crop defines material mixture; >=95% coverage is complete. Raw components and raw overlap flags remain preserved."
   },
   "network_probe_years": [
     2015,
