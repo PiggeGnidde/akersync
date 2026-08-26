@@ -18,6 +18,7 @@ def load(name, path):
 ROOT = Path(__file__).resolve().parents[1]
 builder = load("akm_web_builder", ROOT / "src" / "57_build_akerminne_web_pilot.py")
 patcher = load("akm_ui_patcher", ROOT / "src" / "59_patch_akerpass_akerminne_ui.py")
+copyrev = load("akm_ui_copy_revision", ROOT / "src" / "61_revise_akerminne_ui_copy.py")
 
 
 def classified_rows(status_2020="SINGLE_CROP", coverage_2020=1.0, second_2020=.04):
@@ -93,6 +94,25 @@ class UiPatchTests(unittest.TestCase):
     def test_patch_is_idempotent(self):
         once=patcher.patch_html(self.sample())
         self.assertEqual(once,patcher.patch_html(once))
+
+    def test_copy_revision_replaces_technical_wording(self):
+        base=patcher.patch_html(self.sample())
+        out=copyrev.revise_html(base)
+        self.assertIn("AKERMINNE_PILOT_UI_COPY_R1",out)
+        self.assertIn("dagens skifte bestod av flera skiften",out)
+        self.assertIn("dagens skifte var del av ett större skifte",out)
+        self.assertIn("ändrad skiftesindelning",out)
+        self.assertIn("Jordbruksverkets officiella årsvisa kodlistor 2015–2025",out)
+        self.assertNotIn("historiska skiften sammanslagna",out)
+        self.assertNotIn("historiskt skifte delat",out)
+
+    def test_copy_revision_handles_low_coverage_and_is_idempotent(self):
+        base=patcher.patch_html(self.sample())
+        once=copyrev.revise_html(base)
+        self.assertIn("Endast ${fmt(100*coverage,0)} % historisk täckning",once)
+        self.assertIn("Gröduppgift visas inte vid så låg täckning",once)
+        self.assertIn("(missing||lowCoverage)?\"\"",once)
+        self.assertEqual(once,copyrev.revise_html(once))
 
 
 if __name__=="__main__":
