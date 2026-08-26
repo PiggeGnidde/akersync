@@ -49,6 +49,17 @@ class StatusTests(unittest.TestCase):
     def test_zero_is_no_public_match(self):
         out, _ = apply_history_status(summary(0.0), comps([]))
         self.assertEqual(out.iloc[0].status, "NO_PUBLIC_MATCH")
+        self.assertNotIn("BELOW_MIN_MATCH_COVERAGE", out.iloc[0].reason_flags)
+
+    def test_below_one_percent_is_no_public_match(self):
+        out, _ = apply_history_status(summary(.009), comps([("4", None, .9)]))
+        self.assertEqual(out.iloc[0].status, "NO_PUBLIC_MATCH")
+        self.assertIn("BELOW_MIN_MATCH_COVERAGE", out.iloc[0].reason_flags)
+
+    def test_exactly_one_percent_is_partial(self):
+        out, _ = apply_history_status(summary(.01), comps([("4", None, 1.0)]))
+        self.assertEqual(out.iloc[0].status, "PARTIAL_COVERAGE")
+        self.assertIn("LOW_COVERAGE", out.iloc[0].reason_flags)
 
     def test_overlap_materiality_is_separate(self):
         out, _ = apply_history_status(summary(1.006), comps([("4", None, 100.6)]))
