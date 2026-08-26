@@ -30,15 +30,28 @@ def main() -> int:
 
     html = index.read_text(encoding="utf-8")
     required_ui = (
-        "AKERMINNE_PILOT_UI_V1A", "ÅkerMinne · 2015–2025",
-        "Historiken beskriver den markyta som utgör dagens 2025-skifte",
-        "Små grödkomponenter under 1 % döljs", "loadAkerminnePilot",
-        "data/akerminne/1264_skurup.json", "gräns ändrad",
-        "historiska skiften sammanslagna", "historiskt skifte delat",
+        "AKERMINNE_PILOT_UI_V1A", "AKERMINNE_PILOT_UI_COPY_R1",
+        "ÅkerMinne · 2015–2025",
+        "Historiken beskriver markytan som utgör dagens 2025-skifte",
+        "Komponenter under 1 % döljs",
+        "Ett år markeras som flera grödor när den näst största grödan täcker minst 5 %",
+        "loadAkerminnePilot", "data/akerminne/1264_skurup.json",
+        "annan gränsdragning", "dagens skifte bestod av flera skiften",
+        "dagens skifte var del av ett större skifte",
+        "historisk täckning", "Gröduppgift visas inte vid så låg täckning",
+        "Jordbruksverkets officiella årsvisa kodlistor 2015–2025",
     )
     missing = [m for m in required_ui if m not in html]
     if missing:
         raise RuntimeError("ÅkerMinne frontend missing: " + ", ".join(missing))
+    forbidden_ui = (
+        "historiska skiften sammanslagna", "historiskt skifte delat",
+        "% av dagens skifte täcks",
+        "Saknad officiell årstabell visas som rå grödkod",
+    )
+    leaked = [m for m in forbidden_ui if m in html]
+    if leaked:
+        raise RuntimeError("Legacy ÅkerMinne UI copy remains: " + ", ".join(leaked))
 
     doc = json.loads(data_path.read_text(encoding="utf-8"))
     if doc.get("schema_version") != "akerminne-web-v1a":
@@ -109,6 +122,7 @@ def main() -> int:
     print(f"  Visible crop components: {visible_components:,}")
     print(f"  Material overlap warnings: {material_overlap:,}")
     print(f"  Sidecar size: {data_path.stat().st_size / 1024 / 1024:.2f} MiB")
+    print("  UI copy revision: R1")
     print("  Existing ÅkerPass UI remains verified separately by 43_verify_akerpass_web_v1.py")
     return 0
 
