@@ -1,21 +1,110 @@
 {
-  "schema_version": "akerminne-official-crop-dictionaries-v1",
+  "schema_version": "akerminne-official-crop-dictionaries-v2-text-payload",
   "source": "Jordbruksverket customer service; annual SAM crop-code workbooks supplied 2026-08-26",
   "source_page": "https://jordbruksverket.se/stod/jordbruk-tradgard-och-rennaring/sam-ansokan-och-allmant-om-jordbrukarstoden/grodkoder",
   "received_date": "2026-08-26",
   "normalization_contract": "Exact annual code/subcode labels only; same-year main-code fallback is allowed when an official undercode is absent; cross-year fallback is forbidden.",
   "years": {
-    "2015": {"source_filename": "Fastställda grödkoder 2015.xls", "source_sha256": "a014f636085a59487d725b57cc8123b526e3986769d2c0e0c86b0bf05dcf7aa3", "normalized_file": "crop_codes_2015.csv.gz", "normalized_rows": 90, "normalized_sha256": "fd9237494a3daf2f12f2debaa7b8dabea52257e12bd2b80954614b5b95c31c05", "main_codes": 90, "subcategory_codes": 0},
-    "2016": {"source_filename": "Kopia av Grödkodslista 2016 webbexemplar.xlsx", "source_sha256": "d41e0091f304b467928b2f205afd04dff0753662c06c0510c6cd5e1bd8338479", "normalized_file": "crop_codes_2016.csv.gz", "normalized_rows": 84, "normalized_sha256": "e7b6de6caa808789f9fd0a04fa3f607fd2ab176e9ff3ab70dc4caf4032780207", "main_codes": 84, "subcategory_codes": 0},
-    "2017": {"source_filename": "Kopia av Grödkodslista 2017 webbexemplar.xlsx", "source_sha256": "8a3528af22729845ed32aafaa2e873d6179f092e7eae46c381c2b291f2dc966a", "normalized_file": "crop_codes_2017.csv.gz", "normalized_rows": 84, "normalized_sha256": "6b15fe9ccd7727853d156e59ad406fc4df8d84f1876550a2b9d857bdc80f3e02", "main_codes": 84, "subcategory_codes": 0},
-    "2018": {"source_filename": "Kopia av Grödkodslista 2018 webbexemplar.xlsx", "source_sha256": "fe25002bcbb4eaac2711ba108296b4d59cf277df368e37c8090648ed88d8759a", "normalized_file": "crop_codes_2018.csv.gz", "normalized_rows": 81, "normalized_sha256": "794e3c83271568fee3b1819d1b3dbd48f121d07952550c65ee5cc8e568903062", "main_codes": 81, "subcategory_codes": 0},
-    "2019": {"source_filename": "Kopia av Grödkodslista 2019 webbexemplar.xlsx", "source_sha256": "14ea6163835eab0a4935a70f63a1e1d52d5b01dafee23cc906b1f8290a9813c5", "normalized_file": "crop_codes_2019.csv.gz", "normalized_rows": 179, "normalized_sha256": "fadc894d3c6937dcc8946281f068d90e3160741aa87d61d0aa727a94f81fce0d", "main_codes": 80, "subcategory_codes": 99},
-    "2020": {"source_filename": "Kopia av Grödkodslista 2020 webbexemplar.xlsx", "source_sha256": "4b4d12b06c8a882b79946d9a5d75c8dc3c1d2b663c7b23f001ec4228a09cb77b", "normalized_file": "crop_codes_2020.csv.gz", "normalized_rows": 179, "normalized_sha256": "8b13552d35285f38788573da08d00d6a9bb13873b8a6fa4ddc9eec078d9d113e", "main_codes": 80, "subcategory_codes": 99},
-    "2021": {"source_filename": "Kopia av Grödkodslista 2021 webbexemplar.xlsx", "source_sha256": "daa56aee296eed40c90eedef12390631ffdf375357aac8172ba12ebf125ca8d0", "normalized_file": "crop_codes_2021.csv.gz", "normalized_rows": 179, "normalized_sha256": "ff048143f76689580c4a4b6ce4e4bca2e5c41cb6ec995c187bf26694fc3ccfa0", "main_codes": 80, "subcategory_codes": 99},
-    "2022": {"source_filename": "Kopia av Grödkodslista 2022 webbexemplar.xlsx", "source_sha256": "05b1e002a240e4f234b7aa55ebfd431d1fd5692039c14a9c7d85f70fc2693799", "normalized_file": "crop_codes_2022.csv.gz", "normalized_rows": 179, "normalized_sha256": "ff048143f76689580c4a4b6ce4e4bca2e5c41cb6ec995c187bf26694fc3ccfa0", "main_codes": 80, "subcategory_codes": 99},
-    "2023": {"source_filename": "Kopia av Grödkodslista 2023 webbexemplar.xlsx", "source_sha256": "32829d63a560203e9e4ee7ce4221d62cfd5bdc862fb7cc4cf94537da1de0fc00", "normalized_file": "crop_codes_2023.csv.gz", "normalized_rows": 170, "normalized_sha256": "f1b6cd3fa0955d849dfcfcbc2f2d5032dc051f550c678c22a0ec5501ac41167d", "main_codes": 96, "subcategory_codes": 74},
-    "2024": {"source_filename": "Kopia av Grödkodslista 2024 webbexemplar.xlsx", "source_sha256": "827353cbbb7ffdc2ef4e93ec070a7faf0464a36d0d0c8ae2de605410c9b0ff9b", "normalized_file": "crop_codes_2024.csv.gz", "normalized_rows": 171, "normalized_sha256": "d932f152aa0d522f5624aa88020fd9cd676d96626f39b17158e95e499fa09aae", "main_codes": 99, "subcategory_codes": 72},
-    "2025": {"source_filename": "Kopia av Grödkodslista 2025 webbexemplar.xlsx", "source_sha256": "c1c21ec6be88aec91f4ddc108cb6f0f68a964a3f9dadc0d1746355d27c7ee827", "normalized_file": "crop_codes_2025.csv.gz", "normalized_rows": 176, "normalized_sha256": "f5276a59714d3bace2cc44d3a7f9c89bf73df3d7a057ff92f0c9e1990c364699", "main_codes": 100, "subcategory_codes": 76}
+    "2015": {
+      "source_filename": "Fastställda grödkoder 2015.xls",
+      "source_sha256": "a014f636085a59487d725b57cc8123b526e3986769d2c0e0c86b0bf05dcf7aa3",
+      "normalized_rows": 90,
+      "normalized_sha256": "fd9237494a3daf2f12f2debaa7b8dabea52257e12bd2b80954614b5b95c31c05",
+      "main_codes": 90,
+      "subcategory_codes": 0,
+      "payload_file": "crop_codes_2015.csv.gz.b64"
+    },
+    "2016": {
+      "source_filename": "Kopia av Grödkodslista 2016 webbexemplar.xlsx",
+      "source_sha256": "d41e0091f304b467928b2f205afd04dff0753662c06c0510c6cd5e1bd8338479",
+      "normalized_rows": 84,
+      "normalized_sha256": "e7b6de6caa808789f9fd0a04fa3f607fd2ab176e9ff3ab70dc4caf4032780207",
+      "main_codes": 84,
+      "subcategory_codes": 0,
+      "payload_file": "crop_codes_2016.csv.gz.b64"
+    },
+    "2017": {
+      "source_filename": "Kopia av Grödkodslista 2017 webbexemplar.xlsx",
+      "source_sha256": "8a3528af22729845ed32aafaa2e873d6179f092e7eae46c381c2b291f2dc966a",
+      "normalized_rows": 84,
+      "normalized_sha256": "6b15fe9ccd7727853d156e59ad406fc4df8d84f1876550a2b9d857bdc80f3e02",
+      "main_codes": 84,
+      "subcategory_codes": 0,
+      "payload_file": "crop_codes_2017.csv.gz.b64"
+    },
+    "2018": {
+      "source_filename": "Kopia av Grödkodslista 2018 webbexemplar.xlsx",
+      "source_sha256": "fe25002bcbb4eaac2711ba108296b4d59cf277df368e37c8090648ed88d8759a",
+      "normalized_rows": 81,
+      "normalized_sha256": "794e3c83271568fee3b1819d1b3dbd48f121d07952550c65ee5cc8e568903062",
+      "main_codes": 81,
+      "subcategory_codes": 0,
+      "payload_file": "crop_codes_2018.csv.gz.b64"
+    },
+    "2019": {
+      "source_filename": "Kopia av Grödkodslista 2019 webbexemplar.xlsx",
+      "source_sha256": "14ea6163835eab0a4935a70f63a1e1d52d5b01dafee23cc906b1f8290a9813c5",
+      "normalized_rows": 179,
+      "normalized_sha256": "fadc894d3c6937dcc8946281f068d90e3160741aa87d61d0aa727a94f81fce0d",
+      "main_codes": 80,
+      "subcategory_codes": 99,
+      "payload_file": "crop_codes_2019.csv.gz.b64"
+    },
+    "2020": {
+      "source_filename": "Kopia av Grödkodslista 2020 webbexemplar.xlsx",
+      "source_sha256": "4b4d12b06c8a882b79946d9a5d75c8dc3c1d2b663c7b23f001ec4228a09cb77b",
+      "normalized_rows": 179,
+      "normalized_sha256": "8b13552d35285f38788573da08d00d6a9bb13873b8a6fa4ddc9eec078d9d113e",
+      "main_codes": 80,
+      "subcategory_codes": 99,
+      "payload_file": "crop_codes_2020.csv.gz.b64"
+    },
+    "2021": {
+      "source_filename": "Kopia av Grödkodslista 2021 webbexemplar.xlsx",
+      "source_sha256": "daa56aee296eed40c90eedef12390631ffdf375357aac8172ba12ebf125ca8d0",
+      "normalized_rows": 179,
+      "normalized_sha256": "ff048143f76689580c4a4b6ce4e4bca2e5c41cb6ec995c187bf26694fc3ccfa0",
+      "main_codes": 80,
+      "subcategory_codes": 99,
+      "payload_file": "crop_codes_2021.csv.gz.b64"
+    },
+    "2022": {
+      "source_filename": "Kopia av Grödkodslista 2022 webbexemplar.xlsx",
+      "source_sha256": "05b1e002a240e4f234b7aa55ebfd431d1fd5692039c14a9c7d85f70fc2693799",
+      "normalized_rows": 179,
+      "normalized_sha256": "ff048143f76689580c4a4b6ce4e4bca2e5c41cb6ec995c187bf26694fc3ccfa0",
+      "main_codes": 80,
+      "subcategory_codes": 99,
+      "payload_file": "crop_codes_2022.csv.gz.b64"
+    },
+    "2023": {
+      "source_filename": "Kopia av Grödkodslista 2023 webbexemplar.xlsx",
+      "source_sha256": "32829d63a560203e9e4ee7ce4221d62cfd5bdc862fb7cc4cf94537da1de0fc00",
+      "normalized_rows": 170,
+      "normalized_sha256": "f1b6cd3fa0955d849dfcfcbc2f2d5032dc051f550c678c22a0ec5501ac41167d",
+      "main_codes": 96,
+      "subcategory_codes": 74,
+      "payload_file": "crop_codes_2023.csv.gz.b64"
+    },
+    "2024": {
+      "source_filename": "Kopia av Grödkodslista 2024 webbexemplar.xlsx",
+      "source_sha256": "827353cbbb7ffdc2ef4e93ec070a7faf0464a36d0d0c8ae2de605410c9b0ff9b",
+      "normalized_rows": 171,
+      "normalized_sha256": "d932f152aa0d522f5624aa88020fd9cd676d96626f39b17158e95e499fa09aae",
+      "main_codes": 99,
+      "subcategory_codes": 72,
+      "payload_file": "crop_codes_2024.csv.gz.b64"
+    },
+    "2025": {
+      "source_filename": "Kopia av Grödkodslista 2025 webbexemplar.xlsx",
+      "source_sha256": "c1c21ec6be88aec91f4ddc108cb6f0f68a964a3f9dadc0d1746355d27c7ee827",
+      "normalized_rows": 176,
+      "normalized_sha256": "f5276a59714d3bace2cc44d3a7f9c89bf73df3d7a057ff92f0c9e1990c364699",
+      "main_codes": 100,
+      "subcategory_codes": 76,
+      "payload_file": "crop_codes_2025.csv.gz.b64"
+    }
   },
-  "total_normalized_rows": 1572
+  "total_normalized_rows": 1572,
+  "payload_encoding": "base64(gzip(utf-8-csv))"
 }
