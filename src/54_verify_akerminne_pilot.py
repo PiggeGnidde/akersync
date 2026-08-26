@@ -220,12 +220,13 @@ def main() -> int:
         "# ÅkerMinne v1a – Skurup pilot QA – STOPPUNKT D", "",
         f"Generated: `{qa['generated_at_utc']}`", "",
         "## Frozen pilot thresholds", "",
+        f"- minimum material match: `coverage_display >= {scfg.minimum_match_coverage:.2f}`",
         f"- complete coverage: `coverage_display >= {scfg.complete_coverage_min:.2f}`",
         f"- MIXED_CROPS: second grouped crop share `>= {scfg.mixed_secondary_crop_min_share:.2f}`",
         f"- web-visible component: grouped crop share `>= {scfg.web_component_min_share:.2f}`",
         f"- raw overlap flag tolerance: `{scfg.overlap_raw_tolerance}`",
         f"- material overlap QA: raw excess `> {scfg.material_overlap_excess:.3f}`",
-        "- status precedence: NO_PUBLIC_MATCH -> PARTIAL_COVERAGE -> MIXED_CROPS -> SINGLE_CROP.",
+        "- status precedence: NO_PUBLIC_MATCH (< minimum match) -> PARTIAL_COVERAGE -> MIXED_CROPS -> SINGLE_CROP.",
         "- identity confidence, UNKNOWN_CODE and DUPLICATE_OVERLAP remain separate quality flags.", "",
         "## Status by year", "",
         "| Year | SINGLE | MIXED | PARTIAL | NO MATCH | raw overlap | material overlap | coverage P50 |",
@@ -252,7 +253,7 @@ def main() -> int:
     print("=" * 78)
     print("ÅkerMinne v1a · finalized pilot thresholds + reference QA · STOPPUNKT D")
     print("=" * 78)
-    print("Thresholds: coverage 95%; mixed second crop 5%; visible component 1%")
+    print("Thresholds: minimum match 1%; complete 95%; mixed second crop 5%; visible component 1%")
     print("Historical status counts:", json.dumps(qa["historical_status_counts"], sort_keys=True))
     print(f"Checklist: {len(checklist)} rows; problem GeoJSON fields: {checklist.current_field_id.nunique()}")
     print("QA MD:", mpath)
