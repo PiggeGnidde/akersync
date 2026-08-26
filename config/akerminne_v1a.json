@@ -21,6 +21,12 @@
     "year_column": "arslager",
     "region_column": "region_kod"
   },
+  "identity_matching": {
+    "strict_min_fraction": 0.90,
+    "relaxed_max_fraction": 0.50,
+    "tie_relative_fraction": 0.02,
+    "notes": "Strict 1:1 uses min(F_C,F_H). Split/merge graph uses max(F_C,F_H). Thresholds are visible pilot baselines, not hidden crop/sliver thresholds."
+  },
   "network_probe_years": [2015, 2020, 2025],
   "network_probe_max_features": 5
 }
