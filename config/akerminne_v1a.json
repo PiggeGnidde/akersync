@@ -1,7 +1,19 @@
 {
   "schema_version": "akerminne-config-v1a",
   "reference_year": 2025,
-  "years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+  "years": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
   "pilot_municipality": "Skurup",
   "pilot_municipality_code": "1264",
   "official_sources": {
@@ -22,11 +34,23 @@
     "region_column": "region_kod"
   },
   "identity_matching": {
-    "strict_min_fraction": 0.90,
-    "relaxed_max_fraction": 0.50,
+    "strict_min_fraction": 0.9,
+    "relaxed_max_fraction": 0.5,
     "tie_relative_fraction": 0.02,
     "notes": "Strict 1:1 uses min(F_C,F_H). Split/merge graph uses max(F_C,F_H). Thresholds are visible pilot baselines, not hidden crop/sliver thresholds."
   },
-  "network_probe_years": [2015, 2020, 2025],
+  "history_status": {
+    "complete_coverage_min": 0.95,
+    "mixed_secondary_crop_min_share": 0.05,
+    "web_component_min_share": 0.01,
+    "overlap_raw_tolerance": 1e-06,
+    "material_overlap_excess": 0.005,
+    "pilot_basis": "Frozen after STOPPUNKT C on Skurup 2015-2025: 1% component display threshold removes ~44% of grouped crop rows but only ~0.06% of field-year area; 5% secondary crop defines material mixture; >5% uncovered area defines partial coverage. Raw components and raw overlap flags remain preserved."
+  },
+  "network_probe_years": [
+    2015,
+    2020,
+    2025
+  ],
   "network_probe_max_features": 5
 }
