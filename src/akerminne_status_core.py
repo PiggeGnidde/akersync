@@ -5,11 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import pandas as pd
 
-STATUS_VERSION = "akerminne-status-v1a"
+STATUS_VERSION = "akerminne-status-v1a-r1"
 
 
 @dataclass(frozen=True)
 class HistoryStatusConfig:
+    minimum_match_coverage: float = 0.01
     complete_coverage_min: float = 0.95
     mixed_secondary_crop_min_share: float = 0.05
     web_component_min_share: float = 0.01
@@ -18,6 +19,7 @@ class HistoryStatusConfig:
 
     def validate(self) -> None:
         vals = {
+            "minimum_match_coverage": self.minimum_match_coverage,
             "complete_coverage_min": self.complete_coverage_min,
             "mixed_secondary_crop_min_share": self.mixed_secondary_crop_min_share,
             "web_component_min_share": self.web_component_min_share,
@@ -27,12 +29,15 @@ class HistoryStatusConfig:
         for name, value in vals.items():
             if value < 0 or value > 1:
                 raise ValueError(f"{name} must be in [0,1], got {value}")
+        if self.minimum_match_coverage > self.complete_coverage_min:
+            raise ValueError("minimum_match_coverage must be <= complete_coverage_min")
         if self.web_component_min_share > self.mixed_secondary_crop_min_share:
             raise ValueError("web_component_min_share must be <= mixed_secondary_crop_min_share")
 
     @classmethod
     def from_dict(cls, cfg: dict) -> "HistoryStatusConfig":
         out = cls(
+            minimum_match_coverage=float(cfg.get("minimum_match_coverage", 0.01)),
             complete_coverage_min=float(cfg.get("complete_coverage_min", 0.95)),
             mixed_secondary_crop_min_share=float(cfg.get("mixed_secondary_crop_min_share", 0.05)),
             web_component_min_share=float(cfg.get("web_component_min_share", 0.01)),
@@ -125,8 +130,10 @@ def apply_history_status(
         display = float(row.coverage_display)
         second_share = float(row.second_crop_share)
         flags = [f for f in str(getattr(row, "reason_flags", "") or "").split(";") if f]
-        if raw <= 0.0:
+        if display < cfg.minimum_match_coverage:
             status = "NO_PUBLIC_MATCH"
+            if raw > 0.0 and "BELOW_MIN_MATCH_COVERAGE" not in flags:
+                flags.append("BELOW_MIN_MATCH_COVERAGE")
         elif display < cfg.complete_coverage_min:
             status = "PARTIAL_COVERAGE"
             if "LOW_COVERAGE" not in flags:
