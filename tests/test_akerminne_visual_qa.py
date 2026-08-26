@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
 import tempfile
 import unittest
@@ -11,9 +12,11 @@ from shapely.geometry import box
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from importlib import import_module  # noqa: E402
-
-visual = import_module("56_build_akerminne_visual_qa")
+SPEC = importlib.util.spec_from_file_location("akerminne_visual_qa_builder", ROOT / "src" / "56_build_akerminne_visual_qa.py")
+if SPEC is None or SPEC.loader is None:
+    raise RuntimeError("Could not load visual QA builder module")
+visual = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(visual)
 
 
 class VisualQaTests(unittest.TestCase):
