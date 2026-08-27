@@ -22,10 +22,10 @@ def load(name: str, path: Path):
     return module
 
 
-prep = load("akm_skane_prepare", SRC / "62_prepare_akerminne_skane.py")
-build = load("akm_skane_build", SRC / "63_build_akerminne_municipality.py")
-run = load("akm_skane_run", SRC / "64_run_akerminne_skane.py")
-verify = load("akm_skane_verify", SRC / "65_verify_akerminne_skane.py")
+prep = load("akm_skane_prepare", ROOT / "src" / "62_prepare_akerminne_skane.py")
+build = load("akm_skane_build", ROOT / "src" / "63_build_akerminne_municipality.py")
+run = load("akm_skane_run", ROOT / "src" / "64_run_akerminne_skane.py")
+verify = load("akm_skane_verify", ROOT / "src" / "65_verify_akerminne_skane.py")
 
 MUN_CONFIG = ROOT / "config" / "akerminne_skane_municipalities.json"
 DICT_DIR = ROOT / "data" / "reference" / "akerminne_crop_codes_official"
@@ -90,6 +90,11 @@ class SkaneRunnerTests(unittest.TestCase):
             {"historical_status_counts": {"SINGLE_CROP": 7, "NO_PUBLIC_MATCH": 2}},
         ]
         self.assertEqual(verify._sum_nested(rows, "historical_status_counts"), {"MIXED_CROPS": 1, "NO_PUBLIC_MATCH": 2, "SINGLE_CROP": 12})
+
+    def test_child_python_environment_is_utf8(self):
+        env = run._subprocess_env()
+        self.assertEqual(env["PYTHONUTF8"], "1")
+        self.assertEqual(env["PYTHONIOENCODING"], "utf-8")
 
 
 if __name__ == "__main__":
