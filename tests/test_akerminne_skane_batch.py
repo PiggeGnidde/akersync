@@ -8,6 +8,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 
 def load(name: str, path: Path):
@@ -19,10 +22,10 @@ def load(name: str, path: Path):
     return module
 
 
-prep = load("akm_skane_prepare", ROOT / "src" / "62_prepare_akerminne_skane.py")
-build = load("akm_skane_build", ROOT / "src" / "63_build_akerminne_municipality.py")
-run = load("akm_skane_run", ROOT / "src" / "64_run_akerminne_skane.py")
-verify = load("akm_skane_verify", ROOT / "src" / "65_verify_akerminne_skane.py")
+prep = load("akm_skane_prepare", SRC / "62_prepare_akerminne_skane.py")
+build = load("akm_skane_build", SRC / "63_build_akerminne_municipality.py")
+run = load("akm_skane_run", SRC / "64_run_akerminne_skane.py")
+verify = load("akm_skane_verify", SRC / "65_verify_akerminne_skane.py")
 
 MUN_CONFIG = ROOT / "config" / "akerminne_skane_municipalities.json"
 DICT_DIR = ROOT / "data" / "reference" / "akerminne_crop_codes_official"
