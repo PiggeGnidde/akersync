@@ -47,12 +47,12 @@ def revise_html(html: str) -> str:
     out = _replace_once(html, OLD_YEAR_ROW, NEW_YEAR_ROW, "year-row revision")
     for i, (old, new) in enumerate(COPY_REPLACEMENTS, 1):
         out = _replace_once(out, old, new, f"copy revision {i}")
-    out = _replace_once(
-        out,
-        "/* AKERMINNE_PILOT_UI_V1A */",
-        "/* AKERMINNE_PILOT_UI_V1A */\n/* AKERMINNE_PILOT_UI_COPY_R1 */",
-        "revision marker",
-    )
+
+    # BASE_MARKER appears twice in the base patch (CSS + JS). Anchor the
+    # revision marker specifically to the CSS block, where .akm-summary follows.
+    css_anchor = "/* AKERMINNE_PILOT_UI_V1A */\n.akm-summary"
+    css_revised = "/* AKERMINNE_PILOT_UI_V1A */\n/* AKERMINNE_PILOT_UI_COPY_R1 */\n.akm-summary"
+    out = _replace_once(out, css_anchor, css_revised, "revision marker")
 
     required = (
         REVISION_MARKER,
