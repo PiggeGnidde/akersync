@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -24,6 +25,22 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SKANE = ROOT / "data" / "derived" / "akerminne_v1a" / "skane"
 DEFAULT_LOCAL = ROOT / "config" / "akerminne_local.json"
 SCHEMA_VERSION = "akerminne-municipality-v1a-r1"
+
+
+def _force_utf8_stdio() -> None:
+    """Make redirected Windows stdout/stderr deterministic UTF-8."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
+def _subprocess_env() -> dict[str, str]:
+    """Force child Python processes to encode pipes as UTF-8 on Windows."""
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
 
 
 def _atomic_json(doc: dict[str, Any], path: Path) -> None:
@@ -103,6 +120,7 @@ def run_checked(cmd: list[str], label: str, log_path: Path) -> None:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            env=_subprocess_env(),
         )
         assert process.stdout is not None
         for line in process.stdout:
@@ -114,6 +132,7 @@ def run_checked(cmd: list[str], label: str, log_path: Path) -> None:
 
 
 def main() -> int:
+    _force_utf8_stdio()
     ap = argparse.ArgumentParser()
     ap.add_argument("--skane-root", default=str(DEFAULT_SKANE))
     ap.add_argument("--local-config", default=str(DEFAULT_LOCAL))
