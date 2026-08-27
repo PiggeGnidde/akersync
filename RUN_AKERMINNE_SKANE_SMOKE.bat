@@ -3,6 +3,8 @@ setlocal EnableExtensions
 chcp 65001 >nul
 cd /d "%~dp0"
 
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
 set "LOGDIR=data\derived\akerminne_v1a\skane\logs"
 set "LOG=%LOGDIR%\skane_smoke.log"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
