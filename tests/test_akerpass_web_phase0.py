@@ -65,6 +65,15 @@ class AkerpassWebPhase0Tests(unittest.TestCase):
             "Ingen historisk klass i referensunderlaget",
         )
 
+    def test_sko_source_and_dominant_domains_are_distinct(self):
+        source_ids = ENRICH["EXPECTED_SKO_SOURCE_IDS"]
+        dominant_ids = ENRICH["EXPECTED_DOMINANT_SKO_IDS"]
+        self.assertEqual(len(source_ids), 18)
+        self.assertEqual(len(dominant_ids), 17)
+        self.assertIn("1011", source_ids)
+        self.assertNotIn("1011", dominant_ids)
+        self.assertIn("0731", dominant_ids)
+
     def test_frontend_patch_requires_exactly_one_marker(self):
         replace_once = PATCH["replace_once"]
         self.assertEqual(
