@@ -63,7 +63,7 @@ echo.
 echo [3/7] Verifiera exakt tillaten kodforandring sedan AkerPrestation phase 0 freeze...
 set "ACTUAL=%TEMP%\akerpass_context_freeze_actual_%RANDOM%.txt"
 set "EXPECTED=%TEMP%\akerpass_context_freeze_expected_%RANDOM%.txt"
-git diff --name-only %PHASE0_TAG%..HEAD ^| sort > "!ACTUAL!"
+git diff --name-only %PHASE0_TAG%..HEAD | sort > "!ACTUAL!"
 (
   echo BUILD_AKERPASS_WEB_PHASE0.bat
   echo BUILD_AKERPASS_WEB_PHASE0_WORKTREE.bat
@@ -168,10 +168,10 @@ echo AkerMinne base: %AKERMINNE_TAG% @ %AKERMINNE_SHA%
 echo Tests: WEB/context unittest + phase0 verifier + combined 33-municipality verifier PASS
 echo Scope: AkerPass + AkerMinne 2015-2025 + historisk jordbruksklass 1-10 + SKO
 echo Counts: 33 kommuner / 128636 skiften / 1414996 skifte-ar / 18 SKO source / 17 dominant
- echo Working tree: CLEAN
- echo Remote commit: VERIFIED on origin/%BRANCH%
- echo Annotated tag: PUSHED and remote-visible
- echo.
+echo Working tree: CLEAN
+echo Remote commit: VERIFIED on origin/%BRANCH%
+echo Annotated tag: PUSHED and remote-visible
+echo.
 git show --no-patch --decorate "%TAG%"
 echo.
 echo STOPPUNKT E - combined context freeze complete.
@@ -182,7 +182,7 @@ exit /b 0
 echo.
 echo ================================================================================================
 echo AKERPASS + AKERMINNE + CONTEXT V1.0 FREEZE: FAIL
- echo ================================================================================================
+echo ================================================================================================
 echo Ingen befintlig tagg flyttas eller tvingas.
 echo Kopiera hela konsoltexten till kodchatten.
 pause
