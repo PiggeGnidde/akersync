@@ -22,7 +22,19 @@ if not exist "data\derived\akerprestation_phase0\skane\field_static_context.parq
   exit /b 1
 )
 
-echo [0/2] AkerMinne recovery local-config preflight...
+echo [0/3] Recover validated orphaned AkerMinne web payload if available...
+where py >nul 2>nul
+if errorlevel 1 (
+  python src\restore_orphaned_akerminne_web_payload.py
+) else (
+  py -3 src\restore_orphaned_akerminne_web_payload.py
+)
+set "ORPHAN_RC=%ERRORLEVEL%"
+if "%ORPHAN_RC%"=="0" goto :tests
+if not "%ORPHAN_RC%"=="2" goto :error
+
+echo.
+echo No orphaned AkerMinne payload was restored. Preparing normal frozen-recovery config...
 where py >nul 2>nul
 if errorlevel 1 (
   python src\ensure_akerminne_recovery_local_config.py
@@ -31,8 +43,9 @@ if errorlevel 1 (
 )
 if errorlevel 1 goto :error
 
+:tests
 echo.
-echo [1/2] Combined WEB regression tests - Python standard library unittest...
+echo [1/3] Combined WEB regression tests - Python standard library unittest...
 where py >nul 2>nul
 if errorlevel 1 (
   python -m unittest discover -s tests -p "test_akerpass_web_phase0*.py" -v
@@ -42,7 +55,7 @@ if errorlevel 1 (
 if errorlevel 1 goto :error
 
 echo.
-echo [2/2] Discover/recover legacy + frozen AkerMinne artifacts, compose and verify...
+echo [2/3] Discover/recover legacy + frozen AkerMinne artifacts, compose and verify...
 where py >nul 2>nul
 if errorlevel 1 (
   python src\build_akerpass_web_phase0_worktree.py
@@ -51,6 +64,8 @@ if errorlevel 1 (
 )
 if errorlevel 1 goto :error
 
+echo.
+echo [3/3] Combined WEB FAS 0 completed and verified.
 echo.
 echo ================================================================================
 echo COMBINED WEB FAS 0 WORKTREE RUNNER: PASS
