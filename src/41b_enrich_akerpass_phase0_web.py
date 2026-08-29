@@ -20,6 +20,7 @@ from common import MUN_CODES, load_config
 PHASE0_VERSION = "akerprestation-phase0-v0a"
 EXPECTED_FIELDS = 128_636
 EXPECTED_CLASSES = set(range(1, 11))
+HISTORIC_CLASS_COVERAGE_TOL = 1e-6
 
 # Frozen phase-0 source domain contains 18 SKO IDs. 1011 occurs only as a tiny
 # raw component and is never dominant on a 2025 reference field. The public
@@ -63,6 +64,26 @@ def _clean_bool(value: Any) -> bool:
     return bool(value)
 
 
+def _coverage(value: Any) -> float:
+    if value is None or pd.isna(value):
+        return 0.0
+    return float(value)
+
+
+def published_historic_class(row: dict[str, Any]) -> int | None:
+    """Return class only when phase-0 regards the field as actually covered.
+
+    The frozen full-Skåne QA defines a fully missing historical class as
+    soil_class_coverage_unique <= 1e-6. A microscopic positive polygon touch can
+    still create a technical dominant_soil_class in the raw overlay summary;
+    publishing that as the field's class would be misleading. Preserve the raw
+    fact in the frozen phase-0 artifact, but suppress it in the public field view.
+    """
+    if _coverage(row.get("soil_class_coverage_unique")) <= HISTORIC_CLASS_COVERAGE_TOL:
+        return None
+    return _clean_int(row.get("dominant_soil_class"))
+
+
 def load_context(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(
@@ -97,7 +118,9 @@ def load_context(path: Path) -> pd.DataFrame:
 
 
 def enrich_properties(props: dict[str, Any], row: dict[str, Any]) -> None:
-    soil_class = _clean_int(row.get("dominant_soil_class"))
+    soil_class = published_historic_class(row)
+    soil_coverage = _coverage(row.get("soil_class_coverage_unique"))
+    class_is_missing = soil_class is None
     sko_id = _clean_text(row.get("dominant_sko_id"))
     if sko_id not in EXPECTED_SKO_SOURCE_IDS:
         raise RuntimeError(f"Ogiltigt dominant SKO-ID för {props.get('id')}: {sko_id!r}")
@@ -111,11 +134,17 @@ def enrich_properties(props: dict[str, Any], row: dict[str, Any]) -> None:
         if soil_class is not None
         else "Ingen historisk klass i referensunderlaget"
     )
-    props["historic_class_dominant_share"] = _clean_float(row.get("dominant_soil_class_share"))
-    props["historic_class_count"] = _clean_int(row.get("soil_class_count"))
-    props["historic_class_coverage"] = _clean_float(row.get("soil_class_coverage_unique"))
+    props["historic_class_dominant_share"] = (
+        None if class_is_missing else _clean_float(row.get("dominant_soil_class_share"))
+    )
+    props["historic_class_count"] = (
+        0 if class_is_missing else _clean_int(row.get("soil_class_count"))
+    )
+    props["historic_class_coverage"] = _clean_float(soil_coverage)
     props["historic_class_unclassified_share"] = _clean_float(row.get("unclassified_soil_share"))
-    props["historic_class_mixed"] = _clean_bool(row.get("mixed_soil_class"))
+    props["historic_class_mixed"] = (
+        False if class_is_missing else _clean_bool(row.get("mixed_soil_class"))
+    )
 
     # Keep SKO as text so a leading zero, e.g. 0731, can never be lost.
     props["sko_id"] = sko_id
@@ -203,6 +232,7 @@ def main() -> int:
 
     manifest["akerprestation_phase0_version"] = PHASE0_VERSION
     manifest["historic_class_domain"] = "1-10"
+    manifest["historic_class_missing_coverage_tolerance"] = HISTORIC_CLASS_COVERAGE_TOL
     manifest["sko_id_type"] = "string"
     manifest["sko_source_id_count"] = len(EXPECTED_SKO_SOURCE_IDS)
     manifest["sko_dominant_id_count"] = len(EXPECTED_DOMINANT_SKO_IDS)
@@ -212,6 +242,7 @@ def main() -> int:
     print("AKERPASS PHASE0 ENRICH: OK")
     print(f"  Public/context IDs: {len(seen):,}/{EXPECTED_FIELDS:,}")
     print(f"  Historisk klass saknas explicit: {missing_class:,}")
+    print(f"  Missing-class tolerance: coverage <= {HISTORIC_CLASS_COVERAGE_TOL:g}")
     print("  Dominanta klasser: " + ", ".join(f"{k}:{v:,}" for k, v in class_counts.items()))
     print(f"  Råa SKO-gränsfält: {boundary_sko:,}")
     print(f"  SKO source domain: {len(EXPECTED_SKO_SOURCE_IDS)} IDs")
