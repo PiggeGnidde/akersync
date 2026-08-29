@@ -126,8 +126,10 @@ def restore_payload(repo_root: Path = ROOT) -> tuple[str, Path | None]:
 
 
 def main() -> int:
-    restore_payload(ROOT)
-    return 0
+    status, _ = restore_payload(ROOT)
+    # Exit 2 means only that no orphaned package was available; the caller may
+    # continue into the normal frozen-recovery chain. Exit 0 means payload ready.
+    return 2 if status == "not_found" else 0
 
 
 if __name__ == "__main__":
