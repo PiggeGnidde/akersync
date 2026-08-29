@@ -22,6 +22,16 @@ if not exist "data\derived\akerprestation_phase0\skane\field_static_context.parq
   exit /b 1
 )
 
+echo [0/2] AkerMinne recovery local-config preflight...
+where py >nul 2>nul
+if errorlevel 1 (
+  python src\ensure_akerminne_recovery_local_config.py
+) else (
+  py -3 src\ensure_akerminne_recovery_local_config.py
+)
+if errorlevel 1 goto :error
+
+echo.
 echo [1/2] Combined WEB regression tests - Python standard library unittest...
 where py >nul 2>nul
 if errorlevel 1 (
@@ -32,7 +42,7 @@ if errorlevel 1 (
 if errorlevel 1 goto :error
 
 echo.
-echo [2/2] Discover legacy + AkerMinne web artifacts across Git worktrees, compose and verify...
+echo [2/2] Discover/recover legacy + frozen AkerMinne artifacts, compose and verify...
 where py >nul 2>nul
 if errorlevel 1 (
   python src\build_akerpass_web_phase0_worktree.py
