@@ -61,40 +61,41 @@ def validate_contract(qa: dict[str, Any], manifest: dict[str, Any]) -> list[str]
         errors.append("full-Skåne qa.json is not accepted PASS")
     if manifest.get("status") != "PASS":
         errors.append("full-Skåne manifest is not PASS")
-    if int(qa.get("reference_fields") or -1) != EXPECTED_REFERENCE_FIELDS:
+    if int(qa.get("reference_fields", -1)) != EXPECTED_REFERENCE_FIELDS:
         errors.append("qa reference_fields != 128,636")
-    if int(manifest.get("reference_fields") or -1) != EXPECTED_REFERENCE_FIELDS:
+    if int(manifest.get("reference_fields", -1)) != EXPECTED_REFERENCE_FIELDS:
         errors.append("manifest reference_fields != 128,636")
-    if int(qa.get("municipalities_passed") or -1) != EXPECTED_MUNICIPALITIES:
+    if int(qa.get("municipalities_passed", -1)) != EXPECTED_MUNICIPALITIES:
         errors.append("qa municipalities_passed != 33")
-    if int(qa.get("municipalities_total") or -1) != EXPECTED_MUNICIPALITIES:
+    if int(qa.get("municipalities_total", -1)) != EXPECTED_MUNICIPALITIES:
         errors.append("qa municipalities_total != 33")
 
-    if list((qa.get("soil") or {}).get("classes_present") or []) != EXPECTED_CLASSES:
+    soil = qa.get("soil") or {}
+    if list(soil.get("classes_present") or []) != EXPECTED_CLASSES:
         errors.append("soil classes are not exactly 1-10")
-    if int((qa.get("soil") or {}).get("unverified_component_rows") or -1) != 0:
+    if soil.get("unverified_component_rows") != 0:
         errors.append("unverified soil components are not zero")
-    if int((qa.get("soil") or {}).get("missing_fields") or -1) != 17_540:
+    if int(soil.get("missing_fields", -1)) != 17_540:
         errors.append("soil missing field count changed from validated 17,540")
-    if int((qa.get("soil") or {}).get("partial_fields") or -1) != 22_775:
+    if int(soil.get("partial_fields", -1)) != 22_775:
         errors.append("soil partial field count changed from validated 22,775")
-    if int((qa.get("soil") or {}).get("mixed_fields") or -1) != 18_439:
+    if int(soil.get("mixed_fields", -1)) != 18_439:
         errors.append("soil mixed field count changed from validated 18,439")
 
     sko = qa.get("sko") or {}
     if list(sko.get("sko_ids_present") or []) != EXPECTED_SKO_IDS:
         errors.append("SKO ID domain changed from validated 18 IDs")
-    if int(sko.get("boundary_fields") or -1) != 2_195:
+    if int(sko.get("boundary_fields", -1)) != 2_195:
         errors.append("raw SKO boundary field count changed from validated 2,195")
-    if int(sko.get("unverified_component_rows") or -1) != 0:
+    if sko.get("unverified_component_rows") != 0:
         errors.append("unverified SKO components are not zero")
-    if int(sko.get("missing_fields") or -1) != 0:
+    if sko.get("missing_fields") != 0:
         errors.append("SKO missing field count is not zero")
 
     aker = qa.get("akerminne_reference") or {}
     if aker.get("status") != "PASS":
         errors.append("ÅkerMinne reference verification is not PASS")
-    if int(aker.get("matched_ids") or -1) != EXPECTED_REFERENCE_FIELDS:
+    if int(aker.get("matched_ids", -1)) != EXPECTED_REFERENCE_FIELDS:
         errors.append("ÅkerMinne matched ID count != 128,636")
     if aker.get("verification_mode") != "freeze_contract_reference_identity":
         errors.append("unexpected ÅkerMinne verification mode")
