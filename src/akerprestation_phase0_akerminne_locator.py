@@ -4,8 +4,9 @@
 
 The first pilot version searched all Parquet files heuristically. That could
 select a checkpoint/component artifact instead of the frozen final classified
-field-year table. This locator accepts only the canonical final filename and
-validates its adjacent build manifest against the same 2025 field source.
+field-year table. This locator accepts only the canonical final filename under
+``skane/municipalities`` and validates its adjacent build manifest against the
+same 2025 field source.
 """
 from __future__ import annotations
 
@@ -43,6 +44,7 @@ def find_strict_frozen_akerminne_field_year_file(
 
     Guardrails:
     - exact canonical final filename only;
+    - only ``skane/municipalities`` outputs are eligible (no smoke/checkpoints);
     - adjacent build_manifest.json required;
     - municipality code/name must match;
     - manifest current source hash must equal today's frozen 2025 source hash;
@@ -53,7 +55,10 @@ def find_strict_frozen_akerminne_field_year_file(
     candidates: list[tuple[str, Path]] = []
 
     for root in find_akerminne_skane_roots(repo_root):
-        for path in root.rglob(CANONICAL_FILENAME):
+        municipality_root = root / "municipalities"
+        if not municipality_root.exists():
+            continue
+        for path in municipality_root.rglob(CANONICAL_FILENAME):
             manifest_path = path.parent / "build_manifest.json"
             if not manifest_path.exists():
                 continue
