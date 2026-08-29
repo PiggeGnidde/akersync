@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import runpy
 import sys
+import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,31 +35,45 @@ def base_row(**overrides):
     return row
 
 
-def test_enrichment_preserves_leading_zero_sko_and_class_1_10():
-    props = {"id": "1|A", "model_versions": {"akerscore": "unchanged"}}
-    ENRICH["enrich_properties"](props, base_row())
-    assert props["historic_class"] == 3
-    assert props["historic_class_status"] == "class_1_10"
-    assert props["sko_id"] == "0731"
-    assert isinstance(props["sko_id"], str)
-    assert props["model_versions"]["akerscore"] == "unchanged"
-    assert props["model_versions"]["akerprestation_phase0"] == "akerprestation-phase0-v0a"
+class AkerpassWebPhase0Tests(unittest.TestCase):
+    def test_enrichment_preserves_leading_zero_sko_and_class_1_10(self):
+        props = {"id": "1|A", "model_versions": {"akerscore": "unchanged"}}
+        ENRICH["enrich_properties"](props, base_row())
+        self.assertEqual(props["historic_class"], 3)
+        self.assertEqual(props["historic_class_status"], "class_1_10")
+        self.assertEqual(props["sko_id"], "0731")
+        self.assertIsInstance(props["sko_id"], str)
+        self.assertEqual(props["model_versions"]["akerscore"], "unchanged")
+        self.assertEqual(
+            props["model_versions"]["akerprestation_phase0"],
+            "akerprestation-phase0-v0a",
+        )
+
+    def test_missing_historic_class_is_explicit_and_not_imputed(self):
+        props = {"id": "2|B"}
+        ENRICH["enrich_properties"](
+            props,
+            base_row(dominant_soil_class=None, dominant_soil_class_share=0.0),
+        )
+        self.assertIsNone(props["historic_class"])
+        self.assertEqual(
+            props["historic_class_status"],
+            "not_classified_in_historic_reference",
+        )
+        self.assertEqual(
+            props["historic_class_status_label"],
+            "Ingen historisk klass i referensunderlaget",
+        )
+
+    def test_frontend_patch_requires_exactly_one_marker(self):
+        replace_once = PATCH["replace_once"]
+        self.assertEqual(
+            replace_once("abc OLD def", "OLD", "NEW", "test"),
+            "abc NEW def",
+        )
+        with self.assertRaises(RuntimeError):
+            replace_once("OLD OLD", "OLD", "NEW", "test")
 
 
-def test_missing_historic_class_is_explicit_and_not_imputed():
-    props = {"id": "2|B"}
-    ENRICH["enrich_properties"](props, base_row(dominant_soil_class=None, dominant_soil_class_share=0.0))
-    assert props["historic_class"] is None
-    assert props["historic_class_status"] == "not_classified_in_historic_reference"
-    assert props["historic_class_status_label"] == "Ingen historisk klass i referensunderlaget"
-
-
-def test_frontend_patch_requires_exactly_one_marker():
-    replace_once = PATCH["replace_once"]
-    assert replace_once("abc OLD def", "OLD", "NEW", "test") == "abc NEW def"
-    try:
-        replace_once("OLD OLD", "OLD", "NEW", "test")
-    except RuntimeError:
-        pass
-    else:
-        raise AssertionError("duplicate marker must fail")
+if __name__ == "__main__":
+    unittest.main()
