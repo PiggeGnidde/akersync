@@ -46,6 +46,18 @@ def _clean_int(value: Any) -> int | None:
     return int(value)
 
 
+def _clean_text(value: Any) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    return str(value)
+
+
+def _clean_bool(value: Any) -> bool:
+    if value is None or pd.isna(value):
+        return False
+    return bool(value)
+
+
 def load_context(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(
@@ -78,7 +90,7 @@ def load_context(path: Path) -> pd.DataFrame:
 
 def enrich_properties(props: dict[str, Any], row: dict[str, Any]) -> None:
     soil_class = _clean_int(row.get("dominant_soil_class"))
-    sko_id = str(row.get("dominant_sko_id") or "")
+    sko_id = _clean_text(row.get("dominant_sko_id"))
     if sko_id not in EXPECTED_SKO_IDS:
         raise RuntimeError(f"Ogiltigt dominant SKO-ID för {props.get('id')}: {sko_id!r}")
 
@@ -95,18 +107,18 @@ def enrich_properties(props: dict[str, Any], row: dict[str, Any]) -> None:
     props["historic_class_count"] = _clean_int(row.get("soil_class_count"))
     props["historic_class_coverage"] = _clean_float(row.get("soil_class_coverage_unique"))
     props["historic_class_unclassified_share"] = _clean_float(row.get("unclassified_soil_share"))
-    props["historic_class_mixed"] = bool(row.get("mixed_soil_class", False))
+    props["historic_class_mixed"] = _clean_bool(row.get("mixed_soil_class"))
 
     # Keep SKO as text so a leading zero, e.g. 0731, can never be lost.
     props["sko_id"] = sko_id
     props["sko_dominant_share"] = _clean_float(row.get("dominant_sko_share"))
     props["sko_count"] = _clean_int(row.get("sko_count"))
     props["sko_coverage"] = _clean_float(row.get("sko_coverage_unique"))
-    props["crosses_sko_boundary"] = bool(row.get("crosses_sko_boundary", False))
+    props["crosses_sko_boundary"] = _clean_bool(row.get("crosses_sko_boundary"))
 
-    props["phase0_context_status"] = str(row.get("context_status") or "")
-    props["phase0_context_reason_flags"] = str(row.get("reason_flags") or "")
-    props["phase0_source_manifest_id"] = str(row.get("source_manifest_id") or "")
+    props["phase0_context_status"] = _clean_text(row.get("context_status"))
+    props["phase0_context_reason_flags"] = _clean_text(row.get("reason_flags"))
+    props["phase0_source_manifest_id"] = _clean_text(row.get("source_manifest_id"))
     models = props.setdefault("model_versions", {})
     models["akerprestation_phase0"] = PHASE0_VERSION
 
@@ -152,7 +164,7 @@ def main() -> int:
                 raise RuntimeError(f"{municipality} {field_id}: saknas i fryst phase 0 context")
             if field_id in seen:
                 raise RuntimeError(f"Publik export innehåller dubbelt skifte: {field_id}")
-            context_municipality = str(row.get("municipality") or "")
+            context_municipality = _clean_text(row.get("municipality"))
             if context_municipality != municipality:
                 raise RuntimeError(
                     f"{field_id}: kommun mismatch public={municipality!r}, phase0={context_municipality!r}"
@@ -181,11 +193,6 @@ def main() -> int:
     manifest["historic_class_domain"] = "1-10"
     manifest["sko_id_type"] = "string"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-    # Keep the derived public manifest synchronized with dist when present.
-    derived_manifest = build_dir / "akerpass_public_v1" / "municipalities.json"
-    if derived_manifest.exists():
-        derived_manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print("AKERPASS PHASE0 ENRICH: OK")
     print(f"  Public/context IDs: {len(seen):,}/{EXPECTED_FIELDS:,}")
