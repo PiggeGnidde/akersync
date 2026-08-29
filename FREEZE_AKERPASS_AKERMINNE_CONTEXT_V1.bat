@@ -61,39 +61,13 @@ echo Bas-tags: PASS
 
 echo.
 echo [3/7] Verifiera exakt tillaten kodforandring sedan AkerPrestation phase 0 freeze...
-set "ACTUAL=%TEMP%\akerpass_context_freeze_actual_%RANDOM%.txt"
-set "EXPECTED=%TEMP%\akerpass_context_freeze_expected_%RANDOM%.txt"
-git diff --name-only %PHASE0_TAG%..HEAD | sort > "!ACTUAL!"
-(
-  echo BUILD_AKERPASS_WEB_PHASE0.bat
-  echo BUILD_AKERPASS_WEB_PHASE0_WORKTREE.bat
-  echo FREEZE_AKERPASS_AKERMINNE_CONTEXT_V1.bat
-  echo src/41b_enrich_akerpass_phase0_web.py
-  echo src/42b_patch_akerpass_frontend_phase0.py
-  echo src/43b_verify_akerpass_web_phase0.py
-  echo src/68b_patch_akerpass_akerminne_reused_ui.py
-  echo src/69b_verify_akerpass_akerminne_phase0_combined.py
-  echo src/build_akerpass_web_phase0.py
-  echo src/build_akerpass_web_phase0_worktree.py
-  echo src/ensure_akerminne_recovery_local_config.py
-  echo src/restore_orphaned_akerminne_web_payload.py
-  echo tests/test_akerpass_web_phase0.py
-  echo tests/test_akerpass_web_phase0_orphan_restore.py
-  echo tests/test_akerpass_web_phase0_recovery.py
-  echo tests/test_akerpass_web_phase0_worktree.py
-) | sort > "!EXPECTED!"
-fc /L "!EXPECTED!" "!ACTUAL!" >nul
+where py >nul 2>nul
 if errorlevel 1 (
-  echo FEL: diffen mot %PHASE0_TAG% innehaller annat an den godkanda WEB/context-allowlisten.
-  echo --- Actual ---
-  type "!ACTUAL!"
-  echo --- Expected ---
-  type "!EXPECTED!"
-  del /q "!ACTUAL!" "!EXPECTED!" >nul 2>&1
-  goto :fail
+  python src\77_verify_akerpass_context_freeze_scope.py --base %PHASE0_TAG%
+) else (
+  py -3 src\77_verify_akerpass_context_freeze_scope.py --base %PHASE0_TAG%
 )
-del /q "!ACTUAL!" "!EXPECTED!" >nul 2>&1
-echo Kodscope: PASS - inga befintliga AkerScore/AkerVarde/AkerDrift-modellfiler andrade.
+if errorlevel 1 goto :fail
 
 echo.
 echo [4/7] WEB/context regression tests...
