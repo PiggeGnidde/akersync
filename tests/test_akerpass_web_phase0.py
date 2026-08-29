@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import runpy
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ENRICH = runpy.run_path(str(ROOT / "src" / "41b_enrich_akerpass_phase0_web.py"), run_name="phase0_enrich")
-PATCH = runpy.run_path(str(ROOT / "src" / "42b_patch_akerpass_frontend_phase0.py"), run_name="phase0_patch")
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+ENRICH = runpy.run_path(str(SRC / "41b_enrich_akerpass_phase0_web.py"), run_name="phase0_enrich")
+PATCH = runpy.run_path(str(SRC / "42b_patch_akerpass_frontend_phase0.py"), run_name="phase0_patch")
 
 
 def base_row(**overrides):
