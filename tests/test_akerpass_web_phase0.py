@@ -53,7 +53,14 @@ class AkerpassWebPhase0Tests(unittest.TestCase):
         props = {"id": "2|B"}
         ENRICH["enrich_properties"](
             props,
-            base_row(dominant_soil_class=None, dominant_soil_class_share=0.0),
+            base_row(
+                dominant_soil_class=None,
+                dominant_soil_class_share=0.0,
+                soil_class_count=0,
+                soil_class_coverage_unique=0.0,
+                unclassified_soil_share=1.0,
+                mixed_soil_class=False,
+            ),
         )
         self.assertIsNone(props["historic_class"])
         self.assertEqual(
@@ -64,6 +71,41 @@ class AkerpassWebPhase0Tests(unittest.TestCase):
             props["historic_class_status_label"],
             "Ingen historisk klass i referensunderlaget",
         )
+
+    def test_microscopic_class_touch_at_phase0_missing_tolerance_is_suppressed(self):
+        props = {"id": "tiny|A"}
+        ENRICH["enrich_properties"](
+            props,
+            base_row(
+                dominant_soil_class=6,
+                dominant_soil_class_share=1.0,
+                soil_class_count=1,
+                soil_class_coverage_unique=5e-7,
+                unclassified_soil_share=0.9999995,
+                mixed_soil_class=False,
+            ),
+        )
+        self.assertIsNone(props["historic_class"])
+        self.assertEqual(props["historic_class_status"], "not_classified_in_historic_reference")
+        self.assertIsNone(props["historic_class_dominant_share"])
+        self.assertEqual(props["historic_class_count"], 0)
+        self.assertFalse(props["historic_class_mixed"])
+
+    def test_class_above_phase0_missing_tolerance_is_kept(self):
+        props = {"id": "small|A"}
+        ENRICH["enrich_properties"](
+            props,
+            base_row(
+                dominant_soil_class=6,
+                dominant_soil_class_share=1.0,
+                soil_class_count=1,
+                soil_class_coverage_unique=2e-6,
+                unclassified_soil_share=0.999998,
+                mixed_soil_class=False,
+            ),
+        )
+        self.assertEqual(props["historic_class"], 6)
+        self.assertEqual(props["historic_class_status"], "class_1_10")
 
     def test_sko_source_and_dominant_domains_are_distinct(self):
         source_ids = ENRICH["EXPECTED_SKO_SOURCE_IDS"]
