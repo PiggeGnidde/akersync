@@ -20,10 +20,15 @@ from common import MUN_CODES, load_config
 PHASE0_VERSION = "akerprestation-phase0-v0a"
 EXPECTED_FIELDS = 128_636
 EXPECTED_CLASSES = set(range(1, 11))
-EXPECTED_SKO_IDS = {
+
+# Frozen phase-0 source domain contains 18 SKO IDs. 1011 occurs only as a tiny
+# raw component and is never dominant on a 2025 reference field. The public
+# field view therefore legitimately contains 17 dominant SKO IDs.
+EXPECTED_SKO_SOURCE_IDS = {
     "0731", "1011", "1111", "1112", "1121", "1122", "1123", "1124", "1131",
     "1211", "1212", "1213", "1214", "1215", "1216", "1221", "1222", "1321",
 }
+EXPECTED_DOMINANT_SKO_IDS = EXPECTED_SKO_SOURCE_IDS - {"1011"}
 
 REQUIRED_CONTEXT_COLUMNS = (
     "current_field_id", "municipality", "reference_year",
@@ -83,15 +88,18 @@ def load_context(path: Path) -> pd.DataFrame:
     if sko.isna().any() or (sko.str.len() == 0).any():
         raise RuntimeError("Phase 0 context innehåller skifte utan dominant SKO")
     observed_sko = set(sko.astype(str).unique())
-    if observed_sko != EXPECTED_SKO_IDS:
-        raise RuntimeError(f"Phase 0 dominant SKO domain avviker: {sorted(observed_sko)}")
+    if observed_sko != EXPECTED_DOMINANT_SKO_IDS:
+        raise RuntimeError(
+            "Phase 0 dominant SKO domain avviker: "
+            f"{sorted(observed_sko)}; väntat {sorted(EXPECTED_DOMINANT_SKO_IDS)}"
+        )
     return frame
 
 
 def enrich_properties(props: dict[str, Any], row: dict[str, Any]) -> None:
     soil_class = _clean_int(row.get("dominant_soil_class"))
     sko_id = _clean_text(row.get("dominant_sko_id"))
-    if sko_id not in EXPECTED_SKO_IDS:
+    if sko_id not in EXPECTED_SKO_SOURCE_IDS:
         raise RuntimeError(f"Ogiltigt dominant SKO-ID för {props.get('id')}: {sko_id!r}")
 
     props["historic_class"] = soil_class
@@ -148,6 +156,7 @@ def main() -> int:
     class_counts = {i: 0 for i in range(1, 11)}
     missing_class = 0
     boundary_sko = 0
+    dominant_sko_seen: set[str] = set()
 
     for municipality, meta in municipalities.items():
         path = dist_dir / meta["file"]
@@ -177,6 +186,7 @@ def main() -> int:
                 missing_class += 1
             else:
                 class_counts[int(cls)] += 1
+            dominant_sko_seen.add(props["sko_id"])
             boundary_sko += int(props["crosses_sko_boundary"])
 
         document["static_context_version"] = PHASE0_VERSION
@@ -188,10 +198,15 @@ def main() -> int:
         missing = len(expected_ids - seen)
         extra = len(seen - expected_ids)
         raise RuntimeError(f"Phase 0/public ID reconciliation failed: missing={missing}, extra={extra}")
+    if dominant_sko_seen != EXPECTED_DOMINANT_SKO_IDS:
+        raise RuntimeError("Publik dominant SKO-domän ändrades under enrichment")
 
     manifest["akerprestation_phase0_version"] = PHASE0_VERSION
     manifest["historic_class_domain"] = "1-10"
     manifest["sko_id_type"] = "string"
+    manifest["sko_source_id_count"] = len(EXPECTED_SKO_SOURCE_IDS)
+    manifest["sko_dominant_id_count"] = len(EXPECTED_DOMINANT_SKO_IDS)
+    manifest["sko_dominant_ids"] = sorted(EXPECTED_DOMINANT_SKO_IDS)
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print("AKERPASS PHASE0 ENRICH: OK")
@@ -199,7 +214,9 @@ def main() -> int:
     print(f"  Historisk klass saknas explicit: {missing_class:,}")
     print("  Dominanta klasser: " + ", ".join(f"{k}:{v:,}" for k, v in class_counts.items()))
     print(f"  Råa SKO-gränsfält: {boundary_sko:,}")
-    print(f"  SKO-ID:n: {len(EXPECTED_SKO_IDS)} · ledande noll bevaras som text")
+    print(f"  SKO source domain: {len(EXPECTED_SKO_SOURCE_IDS)} IDs")
+    print(f"  Dominant SKO field domain: {len(EXPECTED_DOMINANT_SKO_IDS)} IDs · 1011 is source-only/non-dominant")
+    print("  SKO 0731: ledande nolla bevaras som text")
     return 0
 
 
