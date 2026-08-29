@@ -12,10 +12,11 @@ from common import MUN_CODES, load_config
 PHASE0_VERSION = "akerprestation-phase0-v0a"
 EXPECTED_FIELDS = 128_636
 EXPECTED_CLASSES = set(range(1, 11))
-EXPECTED_SKO_IDS = {
+EXPECTED_SKO_SOURCE_IDS = {
     "0731", "1011", "1111", "1112", "1121", "1122", "1123", "1124", "1131",
     "1211", "1212", "1213", "1214", "1215", "1216", "1221", "1222", "1321",
 }
+EXPECTED_DOMINANT_SKO_IDS = EXPECTED_SKO_SOURCE_IDS - {"1011"}
 EXPECTED_MISSING_CLASS = 17_540
 EXPECTED_SKO_BOUNDARY = 2_195
 
@@ -40,6 +41,12 @@ def main() -> int:
         raise RuntimeError("Kommunmanifest anger inte historisk klassdomän 1–10")
     if manifest.get("sko_id_type") != "string":
         raise RuntimeError("Kommunmanifest garanterar inte SKO som text")
+    if int(manifest.get("sko_source_id_count", -1)) != len(EXPECTED_SKO_SOURCE_IDS):
+        raise RuntimeError("Kommunmanifest anger inte 18 SKO-ID:n i fryst källdomän")
+    if int(manifest.get("sko_dominant_id_count", -1)) != len(EXPECTED_DOMINANT_SKO_IDS):
+        raise RuntimeError("Kommunmanifest anger inte 17 dominanta SKO-ID:n")
+    if set(manifest.get("sko_dominant_ids") or []) != EXPECTED_DOMINANT_SKO_IDS:
+        raise RuntimeError("Kommunmanifestets dominanta SKO-domän avviker")
     municipalities = manifest.get("municipalities") or {}
     if set(municipalities) != set(MUN_CODES) or manifest.get("municipality_count") != 33:
         raise RuntimeError("Kommunmanifest innehåller inte exakt Skånes 33 kommuner")
@@ -93,7 +100,7 @@ def main() -> int:
             if not isinstance(sko, str) or not sko:
                 sko_missing += 1
             else:
-                if sko not in EXPECTED_SKO_IDS:
+                if sko not in EXPECTED_SKO_SOURCE_IDS:
                     raise RuntimeError(f"{fid}: okänt SKO-ID {sko!r}")
                 sko_ids.add(sko)
                 leading_zero_seen |= sko.startswith("0")
@@ -107,8 +114,13 @@ def main() -> int:
         raise RuntimeError(f"Saknade historiska klasser {missing_class:,}; väntat {EXPECTED_MISSING_CLASS:,}")
     if sko_missing != 0:
         raise RuntimeError(f"Publika skiften utan SKO: {sko_missing:,}")
-    if sko_ids != EXPECTED_SKO_IDS:
-        raise RuntimeError(f"Publik SKO-domän avviker: {sorted(sko_ids)}")
+    if sko_ids != EXPECTED_DOMINANT_SKO_IDS:
+        raise RuntimeError(
+            f"Publik dominant SKO-domän avviker: {sorted(sko_ids)}; "
+            f"väntat {sorted(EXPECTED_DOMINANT_SKO_IDS)}"
+        )
+    if "1011" in sko_ids:
+        raise RuntimeError("SKO 1011 ska inte förekomma som dominant i fryst 2025-skifteskontext")
     if not leading_zero_seen or "0731" not in sko_ids:
         raise RuntimeError("Ledande nolla i SKO 0731 har inte bevarats")
     if sko_boundary != EXPECTED_SKO_BOUNDARY:
@@ -134,11 +146,13 @@ def main() -> int:
         raise RuntimeError("Frontend innehåller gammal klass-/årtalssemantik: " + ", ".join(present))
 
     print("VERIFY_AKERPASS_WEB_PHASE0: PASS")
-    print(f"  Kommuner: 33/33")
+    print("  Kommuner: 33/33")
     print(f"  Skiften: {len(ids):,}/{EXPECTED_FIELDS:,}")
     print("  Historisk jordbruksklass: 1–10")
     print(f"  Explicit oklassade skiften: {missing_class:,}")
-    print(f"  SKO-ID:n: {len(sko_ids)} · saknade: {sko_missing}")
+    print(f"  SKO source domain: {len(EXPECTED_SKO_SOURCE_IDS)} IDs")
+    print(f"  Dominant SKO field domain: {len(sko_ids)} IDs · 1011 source-only/non-dominant")
+    print(f"  Saknade dominanta SKO: {sko_missing}")
     print(f"  Råa SKO-gränsfält: {sko_boundary:,}")
     print("  SKO 0731: ledande nolla verifierad")
     print("  UI: Historik / referens innehåller klass + SKO; '1971' borttaget")
