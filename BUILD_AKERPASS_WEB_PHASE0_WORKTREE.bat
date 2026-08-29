@@ -5,7 +5,7 @@ cd /d "%~dp0"
 
 echo ========================================================================================
 echo AkerPass WEB FAS 0 - worktree-aware legacy artifact reuse
- echo ========================================================================================
+echo ========================================================================================
 echo.
 
 if not exist "config\local_paths.json" (
@@ -22,12 +22,12 @@ if not exist "data\derived\akerprestation_phase0\skane\field_static_context.parq
   exit /b 1
 )
 
-echo [1/2] WEB FAS 0 regression tests...
+echo [1/2] WEB FAS 0 regression tests - Python standard library unittest...
 where py >nul 2>nul
 if errorlevel 1 (
-  python -m pytest -q tests\test_akerpass_web_phase0.py tests\test_akerpass_web_phase0_worktree.py
+  python -m unittest discover -s tests -p "test_akerpass_web_phase0*.py" -v
 ) else (
-  py -3 -m pytest -q tests\test_akerpass_web_phase0.py tests\test_akerpass_web_phase0_worktree.py
+  py -3 -m unittest discover -s tests -p "test_akerpass_web_phase0*.py" -v
 )
 if errorlevel 1 goto :error
 
