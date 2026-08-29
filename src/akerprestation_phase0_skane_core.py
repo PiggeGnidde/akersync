@@ -189,7 +189,9 @@ def build_class_municipality_rows(
     rows: list[dict[str, Any]] = []
     if len(components):
         work = components.copy()
-        lookup = context[["current_field_id", "municipality_code", "municipality"]].drop_duplicates()
+        # Components already carry municipality; add only the code here to avoid
+        # creating municipality_x/municipality_y suffixes during county aggregation.
+        lookup = context[["current_field_id", "municipality_code"]].drop_duplicates()
         work = work.merge(lookup, on="current_field_id", how="left", validate="many_to_one")
         work["soil_class_normalized"] = pd.to_numeric(
             work["soil_class_normalized"], errors="coerce"
@@ -248,7 +250,8 @@ def build_sko_distribution_rows(
 ) -> list[dict[str, Any]]:
     if components.empty:
         return []
-    lookup = context[["current_field_id", "municipality_code", "municipality", "dominant_sko_id"]].drop_duplicates()
+    # SKO components already carry municipality; add code + dominant convenience field only.
+    lookup = context[["current_field_id", "municipality_code", "dominant_sko_id"]].drop_duplicates()
     work = components.merge(lookup, on="current_field_id", how="left", validate="many_to_one")
     grouped = (
         work.groupby(["municipality_code", "municipality", "sko_id"], dropna=False)
