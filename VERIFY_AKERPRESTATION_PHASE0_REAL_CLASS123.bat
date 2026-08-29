@@ -10,7 +10,7 @@ if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 
 echo ==============================================================================
 echo AkerPrestation phase 0 - REAL CLASS 1/2/3 GATE ONLY - STOPPUNKT B.1
-echo ==============================================================================
+echo ============================================================================== 
 
 for /f "delims=" %%B in ('git branch --show-current') do set "BRANCH=%%B"
 if /I not "%BRANCH%"=="feature/akerprestation-foundation-v0a" (
