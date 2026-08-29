@@ -1,0 +1,34 @@
+{
+  "schema_version": "akerprestation-phase0-config-v0a",
+  "reference_year": 2025,
+  "verified_soil_class_domain": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "analysis_component_area_epsilon_m2": 1e-06,
+  "coverage_numeric_tolerance": 1e-06,
+  "pilot": {
+    "municipality": "Skurup",
+    "municipality_code": "1264",
+    "expected_reference_fields": 2944,
+    "progress_every_fields": 250
+  },
+  "skane": {
+    "progress_every_fields": 5000,
+    "checkpoint_unit": "municipality_and_layer"
+  },
+  "guardrails": {
+    "do_not_impute_soil_class": true,
+    "preserve_raw_components": true,
+    "preserve_coverage_raw_gt_1": true,
+    "no_satellite_or_yield_model": true
+  }
+}
