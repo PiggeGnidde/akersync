@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from akerprestation_phase0_skane_core import (
     build_class_municipality_rows,
+    build_sko_distribution_rows,
     field_id_digest,
     municipality_validation,
     overall_acceptance,
@@ -71,14 +72,23 @@ class SkanePhase0CoreTests(unittest.TestCase):
         )
         self.assertEqual(qa["status"], "FAIL")
 
-    def test_class_municipality_rows_preserve_unclassified_gap(self):
+    def test_class_municipality_rows_preserve_unclassified_gap_with_real_component_schema(self):
         context = pd.DataFrame([{"current_field_id": "a", "municipality_code": "1", "municipality": "M", "field_area_m2": 100.0, "soil_class_coverage_unique": 0.75}])
-        components = pd.DataFrame([{"current_field_id": "a", "soil_class_normalized": 3, "intersection_area_m2": 75.0}])
+        components = pd.DataFrame([{"current_field_id": "a", "municipality": "M", "soil_class_normalized": 3, "intersection_area_m2": 75.0}])
         rows = build_class_municipality_rows(context, components)
         classified = next(x for x in rows if x["soil_class"] == "3")
         gap = next(x for x in rows if x["soil_class"] == "UNCLASSIFIED")
         self.assertAlmostEqual(classified["area_m2"], 75.0)
         self.assertAlmostEqual(gap["area_m2"], 25.0)
+
+    def test_sko_distribution_handles_component_municipality_without_suffix_collision(self):
+        context = pd.DataFrame([{"current_field_id": "a", "municipality_code": "1", "municipality": "M", "dominant_sko_id": "0731"}])
+        components = pd.DataFrame([{"current_field_id": "a", "municipality": "M", "sko_id": "0731", "intersection_area_m2": 100.0}])
+        rows = build_sko_distribution_rows(context, components)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["municipality"], "M")
+        self.assertEqual(rows[0]["sko_id"], "0731")
+        self.assertEqual(rows[0]["dominant_field_count"], 1)
 
     def test_overall_acceptance_requires_full_domain(self):
         ok = overall_acceptance(
