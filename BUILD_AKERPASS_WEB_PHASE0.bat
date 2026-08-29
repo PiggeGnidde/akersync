@@ -47,6 +47,17 @@ if not exist "data\derived\akerdrift_fast_v2_hybrid_rc1\akerdrift_fast_v2_hybrid
   exit /b 1
 )
 
+echo [1/2] WEB FAS 0 regression tests...
+where py >nul 2>nul
+if errorlevel 1 (
+  python -m pytest -q tests\test_akerpass_web_phase0.py
+) else (
+  py -3 -m pytest -q tests\test_akerpass_web_phase0.py
+)
+if errorlevel 1 goto :error
+
+echo.
+echo [2/2] Build + legacy QA + phase0 enrichment + phase0 QA...
 where py >nul 2>nul
 if errorlevel 1 (
   python src\build_akerpass_web_phase0.py
@@ -68,6 +79,6 @@ exit /b 0
 :error
 echo.
 echo WEB FAS 0 RUNNER: FAIL
- echo Kopiera hela konsoltexten till kodchatten.
+echo Kopiera hela konsoltexten till kodchatten.
 pause
 exit /b 1
