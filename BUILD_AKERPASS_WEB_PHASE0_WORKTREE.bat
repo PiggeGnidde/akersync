@@ -4,7 +4,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ========================================================================================
-echo AkerPass WEB FAS 0 - worktree-aware legacy artifact reuse
+echo AkerPass WEB FAS 0 - legacy AkerPass + AkerMinne 2015-2025 + klass 1-10 + SKO
 echo ========================================================================================
 echo.
 
@@ -22,7 +22,7 @@ if not exist "data\derived\akerprestation_phase0\skane\field_static_context.parq
   exit /b 1
 )
 
-echo [1/2] WEB FAS 0 regression tests - Python standard library unittest...
+echo [1/2] Combined WEB regression tests - Python standard library unittest...
 where py >nul 2>nul
 if errorlevel 1 (
   python -m unittest discover -s tests -p "test_akerpass_web_phase0*.py" -v
@@ -32,7 +32,7 @@ if errorlevel 1 (
 if errorlevel 1 goto :error
 
 echo.
-echo [2/2] Discover legacy artifacts across Git worktrees + build + verify...
+echo [2/2] Discover legacy + AkerMinne web artifacts across Git worktrees, compose and verify...
 where py >nul 2>nul
 if errorlevel 1 (
   python src\build_akerpass_web_phase0_worktree.py
@@ -43,17 +43,18 @@ if errorlevel 1 goto :error
 
 echo.
 echo ================================================================================
-echo WEB FAS 0 WORKTREE RUNNER: PASS
+echo COMBINED WEB FAS 0 WORKTREE RUNNER: PASS
 echo ================================================================================
 echo Lokal fil: dist\index.html
-echo Starta med START_AKERPASS_LOCAL.bat och kontrollera Historik / referens.
+echo Starta med START_AKERPASS_LOCAL.bat.
+echo Kontrollera bade AkerMinne 2015-2025 och Historik / referens med SKO.
 echo.
 pause
 exit /b 0
 
 :error
 echo.
-echo WEB FAS 0 WORKTREE RUNNER: FAIL
+echo COMBINED WEB FAS 0 WORKTREE RUNNER: FAIL
 echo Kopiera hela konsoltexten till kodchatten.
 pause
 exit /b 1
