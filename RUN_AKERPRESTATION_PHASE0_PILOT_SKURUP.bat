@@ -56,8 +56,8 @@ if errorlevel 1 (
 )
 
 echo.
-echo [1/4] Synthetic overlay tests...
-py -3 -m unittest discover -s tests -p "test_akerprestation_phase0_overlay.py" -v > "%LOGDIR%\pilot_overlay_tests.log" 2>&1
+echo [1/4] Synthetic overlay + frozen ÅkerMinne locator tests...
+py -3 -m unittest discover -s tests -p "test_akerprestation_phase0_*.py" -v > "%LOGDIR%\pilot_overlay_tests.log" 2>&1
 set "RC=%ERRORLEVEL%"
 type "%LOGDIR%\pilot_overlay_tests.log"
 if not "%RC%"=="0" (
@@ -68,7 +68,7 @@ if not "%RC%"=="0" (
 
 echo.
 echo [2/4] Skurup exact overlay - live progress every 250 fields...
-py -3 src\71_akerprestation_phase0_pilot.py --municipality Skurup --municipality-code 1264 --layers soil_class,sko --resume --progress-every 250
+py -3 src\71b_akerprestation_phase0_pilot.py --municipality Skurup --municipality-code 1264 --layers soil_class,sko --resume --progress-every 250
 if errorlevel 1 (
   echo.
   echo PILOT RUNNER: FAIL - overlay/integration
@@ -77,7 +77,7 @@ if errorlevel 1 (
 
 echo.
 echo [3/4] Resume self-test - both validated layer checkpoints must be reused...
-py -3 src\71_akerprestation_phase0_pilot.py --municipality Skurup --municipality-code 1264 --layers soil_class,sko --resume --resume-probe --progress-every 250
+py -3 src\71b_akerprestation_phase0_pilot.py --municipality Skurup --municipality-code 1264 --layers soil_class,sko --resume --resume-probe --progress-every 250
 if errorlevel 1 (
   echo.
   echo PILOT RUNNER: FAIL - resume self-test
