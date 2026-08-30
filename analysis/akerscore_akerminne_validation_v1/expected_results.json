@@ -1,0 +1,62 @@
+{
+  "analysis_version": "akerscore-akerminne-validation-v1.0",
+  "inventory": {
+    "strict_fields": 45275,
+    "local_quintile_fields": 44459,
+    "local_groups": 196
+  },
+  "local_quintiles": [
+    {
+      "q": 1,
+      "n": 8967,
+      "mean_score": 48.132112227134385,
+      "cereal_share": 0.236293119665485,
+      "vall_share": 0.3509411895243277,
+      "cereal_vs_vall": 0.46061109786050203
+    },
+    {
+      "q": 2,
+      "n": 8852,
+      "mean_score": 59.298816549104124,
+      "cereal_share": 0.2960374474523819,
+      "vall_share": 0.32897091109924365,
+      "cereal_vs_vall": 0.5271644199449536
+    },
+    {
+      "q": 3,
+      "n": 8861,
+      "mean_score": 66.43144435506461,
+      "cereal_share": 0.33675090254765233,
+      "vall_share": 0.306421767614071,
+      "cereal_vs_vall": 0.5794807105130569
+    },
+    {
+      "q": 4,
+      "n": 8852,
+      "mean_score": 72.7342008729098,
+      "cereal_share": 0.37126404122563184,
+      "vall_share": 0.2886535086518141,
+      "cereal_vs_vall": 0.6100755977496485
+    },
+    {
+      "q": 5,
+      "n": 8927,
+      "mean_score": 80.93284631262117,
+      "cereal_share": 0.3945854874498316,
+      "vall_share": 0.27252592011749627,
+      "cereal_vs_vall": 0.6405032042013666
+    }
+  ],
+  "bootstrap": {
+    "seed": 20260830,
+    "replicates": 5000,
+    "observed_q5_minus_q1": 0.15829236778434658,
+    "ci_2_5_pct": 0.13977225091497608,
+    "ci_97_5_pct": 0.17884245387330439
+  },
+  "block": {
+    "groups": 5770,
+    "fields": 14466,
+    "pairs_ge20": 891
+  }
+}
