@@ -1,0 +1,153 @@
+{
+  "exact": {
+    "inventory.drift_rows": 128636,
+    "inventory.drift_scored_rows": 128597,
+    "inventory.history_rows": 1414996,
+    "inventory.context_rows": 128636,
+    "inventory.raw_cohort_n": 99095,
+    "inventory.strict_cohort_n": 47235,
+    "inventory.local_cohort_n": 46431,
+    "inventory.local_group_n": 198,
+    "inventory.productive4_n": 37958,
+    "inventory.rotation_switch_n": 37924
+  },
+  "approx": {
+    "raw.spearman_drift_area": {
+      "value": 0.8731914409516547,
+      "tol": 1e-08
+    },
+    "raw.spearman_drift_cereal": {
+      "value": 0.5070912082378812,
+      "tol": 1e-08
+    },
+    "raw.spearman_drift_vall": {
+      "value": -0.17368175872533406,
+      "tol": 1e-08
+    },
+    "raw.spearman_drift_broad": {
+      "value": 0.5357150367381927,
+      "tol": 1e-08
+    },
+    "raw.spearman_logarea_cereal": {
+      "value": 0.46727444677486063,
+      "tol": 1e-08
+    },
+    "raw.spearman_logarea_vall": {
+      "value": -0.2557170470811156,
+      "tol": 1e-08
+    },
+    "raw.spearman_logarea_broad": {
+      "value": 0.4851271476450941,
+      "tol": 1e-08
+    },
+    "quintile.area_q5_minus_q1_broad_vs_vall_pp": {
+      "value": 40.729108971645175,
+      "tol": 0.02
+    },
+    "quintile.area_q5_minus_q1_cereal_productive_pp": {
+      "value": 28.47109929249213,
+      "tol": 0.02
+    },
+    "quintile.drift_q5_minus_q1_broad_vs_vall_pp": {
+      "value": 35.23305100744757,
+      "tol": 0.02
+    },
+    "quintile.drift_q5_minus_q1_cereal_productive_pp": {
+      "value": 24.08547728106363,
+      "tol": 0.02
+    },
+    "controlled.broad_vs_vall.effect_per_10_pp": {
+      "value": -0.1296176772117201,
+      "tol": 0.03
+    },
+    "controlled.broad_vs_vall.delta_r2": {
+      "value": 3.940876174612917e-06,
+      "tol": 2e-05
+    },
+    "controlled.cereal_productive.effect_per_10_pp": {
+      "value": -1.342552788751091,
+      "tol": 0.03
+    },
+    "controlled.cereal_productive.delta_r2": {
+      "value": 0.0007116582274451222,
+      "tol": 3e-05
+    },
+    "controlled.raps.effect_per_10_pp": {
+      "value": -0.6254806093847676,
+      "tol": 0.03
+    },
+    "controlled.sugarbeet.effect_per_10_pp": {
+      "value": 0.06008598955726339,
+      "tol": 0.03
+    },
+    "controlled.potato.effect_per_10_pp": {
+      "value": 0.6320499183110075,
+      "tol": 0.03
+    },
+    "controlled.maize.effect_per_10_pp": {
+      "value": 0.053061660407811406,
+      "tol": 0.03
+    },
+    "productive_use.effect_per_10_pp": {
+      "value": 12.216293188486828,
+      "tol": 0.05
+    },
+    "productive_use.ci_low_pp": {
+      "value": 10.636001399929043,
+      "tol": 0.08
+    },
+    "productive_use.ci_high_pp": {
+      "value": 13.796584977044613,
+      "tol": 0.08
+    },
+    "productive_use.delta_r2": {
+      "value": 0.052726582501068764,
+      "tol": 0.0002
+    },
+    "rotation.area_q5_minus_q1_category_count": {
+      "value": 0.7289168155369303,
+      "tol": 0.01
+    },
+    "rotation.area_q5_minus_q1_entropy": {
+      "value": 0.14281697374401134,
+      "tol": 0.005
+    },
+    "rotation.area_q5_minus_q1_calendar_switch_pp": {
+      "value": 25.756852627209692,
+      "tol": 0.05
+    },
+    "rotation.controlled.category_count.effect_per_10": {
+      "value": 0.012131122962779331,
+      "tol": 0.003
+    },
+    "rotation.controlled.category_count.p_value": {
+      "value": 0.3490843867315998,
+      "tol": 0.04
+    },
+    "rotation.controlled.entropy.effect_per_10": {
+      "value": 0.0024627919622647763,
+      "tol": 0.0015
+    },
+    "rotation.controlled.entropy.p_value": {
+      "value": 0.3273039137432031,
+      "tol": 0.05
+    },
+    "rotation.controlled.calendar_switch.effect_per_10": {
+      "value": -0.0038493428140922207,
+      "tol": 0.002
+    },
+    "rotation.controlled.calendar_switch.p_value": {
+      "value": 0.330642555087721,
+      "tol": 0.06
+    }
+  },
+  "invariants": {
+    "primary_broad_vs_vall_abs_effect_pp_max": 1.5,
+    "primary_broad_vs_vall_delta_r2_max": 0.001,
+    "rotation_category_count_abs_effect_max": 0.05,
+    "rotation_entropy_abs_effect_max": 0.01,
+    "rotation_calendar_switch_abs_effect_max": 0.02,
+    "productive_use_effect_pp_min": 8.0,
+    "productive_use_delta_r2_min": 0.03
+  }
+}

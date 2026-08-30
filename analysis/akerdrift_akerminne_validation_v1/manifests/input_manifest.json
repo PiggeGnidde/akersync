@@ -1,0 +1,31 @@
+{
+  "manifest_version": "akerdrift-akerminne-validation-inputs-v1",
+  "files": [
+    {
+      "source_group": "akerdrift",
+      "relative_path": "akerdrift_hybrid_rc1_selected.csv.gz",
+      "sha256": "9c7d3b633b728cfdfbfe6b713371f61ad7a0a5e19565fbd088d98d4f72ff843e",
+      "rows": 128636
+    },
+    {
+      "source_group": "akerminne_context",
+      "relative_path": "field_static_context_selected.csv.gz",
+      "sha256": "31db31b79b53a4c0aa32621fb7bfa44165ea65b6b46371c32e4e19935f59feea",
+      "rows": 128636
+    },
+    {
+      "source_group": "akerminne_context",
+      "relative_path": "akerminne_2015_2025_selected.csv.gz",
+      "sha256": "05423236dc30544f86422d42ce5c9095376a9d5dac58e6ea110f6e6702cecdcf",
+      "rows": 1414996
+    }
+  ],
+  "lineage": {
+    "akerdrift_model_version": "akerdrift-fast-v2-hybrid-rc1",
+    "akerdrift_source_parquet_sha256": "1f451db6a7d59dfa410ab8a6924f9216a2e0e3afb12c042159d94c717deca0aa",
+    "akerdrift_method_document_date": "2026-08-24",
+    "combined_context_tag": "akerpass-akerminne-context-v1.0",
+    "combined_context_commit": "1ad5c77656bb93664d94254af298009a6620da4f",
+    "akerminne_version": "akerminne-v1.0"
+  }
+}
