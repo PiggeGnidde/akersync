@@ -1,0 +1,145 @@
+{
+  "exact": {
+    "baseline_reproduction.n": 233,
+    "inventory.frozen_sales": 233,
+    "inventory.sales_with_locked_reconstruction": 215,
+    "inventory.sales_with_any_score": 212,
+    "inventory.score_coverage_ge80": 198,
+    "inventory.score_coverage_ge90": 191,
+    "inventory.score_coverage_ge95": 179,
+    "inventory.strict_context_coverage_ge80": 119,
+    "inventory.strict_context_coverage_ge90": 113,
+    "inventory.strict_context_coverage_ge95": 103,
+    "inventory.local_surprise_n_at_strict90": 111,
+    "inventory.strict_field_n": 58345,
+    "inventory.local_benchmark_groups_total": 273,
+    "inventory.local_benchmark_groups_n_ge25": 210,
+    "residual_correlations.raw_akerscore.n": 191,
+    "residual_correlations.class_surprise.n": 113,
+    "residual_correlations.local_class_sko_municipality_surprise.n": 111,
+    "retrospective_candidate_screen.sample_n": 111,
+    "retrospective_candidate_screen.candidate_n": 10
+  },
+  "approx": {
+    "baseline_reproduction.cv_r2_log": {
+      "value": 0.7008143898506298,
+      "tol": 5e-05
+    },
+    "baseline_reproduction.median_ape_pct": {
+      "value": 18.749714887179536,
+      "tol": 0.02
+    },
+    "raw_score_cv.ge90.base_cv_r2": {
+      "value": 0.7545007296780123,
+      "tol": 0.001
+    },
+    "raw_score_cv.ge90.aug_cv_r2": {
+      "value": 0.7550356777175973,
+      "tol": 0.001
+    },
+    "raw_score_cv.ge90.base_median_ape_pct": {
+      "value": 17.202607467526953,
+      "tol": 0.02
+    },
+    "raw_score_cv.ge90.aug_median_ape_pct": {
+      "value": 18.206816467342392,
+      "tol": 0.02
+    },
+    "raw_score_cv.ge95.base_cv_r2": {
+      "value": 0.7675298788544443,
+      "tol": 5e-05
+    },
+    "raw_score_cv.ge95.aug_cv_r2": {
+      "value": 0.7697981140846439,
+      "tol": 5e-05
+    },
+    "raw_score_cv.ge95.base_median_ape_pct": {
+      "value": 17.221328334257123,
+      "tol": 0.02
+    },
+    "raw_score_cv.ge95.aug_median_ape_pct": {
+      "value": 16.72350844441215,
+      "tol": 0.02
+    },
+    "raw_score_cv.ge95.base_p90_ape_pct": {
+      "value": 47.62817996976063,
+      "tol": 0.05
+    },
+    "raw_score_cv.ge95.aug_p90_ape_pct": {
+      "value": 46.031418022850154,
+      "tol": 0.05
+    },
+    "raw_score_cv.ge95.multiplicative_effect_pct_per_10_score": {
+      "value": 0.927354975689898,
+      "tol": 0.05
+    },
+    "class_surprise_cv.ge80.base_cv_r2": {
+      "value": 0.7293977639705638,
+      "tol": 5e-05
+    },
+    "class_surprise_cv.ge80.aug_cv_r2": {
+      "value": 0.7408952271950209,
+      "tol": 5e-05
+    },
+    "class_surprise_cv.ge80.base_median_ape_pct": {
+      "value": 20.110237579171486,
+      "tol": 0.02
+    },
+    "class_surprise_cv.ge80.aug_median_ape_pct": {
+      "value": 17.868576805629345,
+      "tol": 0.02
+    },
+    "class_surprise_cv.ge80.multiplicative_effect_pct_per_10_score": {
+      "value": -4.773137210895506,
+      "tol": 0.05
+    },
+    "local_surprise_cv.ge90.base_cv_r2": {
+      "value": 0.7079412520137586,
+      "tol": 5e-05
+    },
+    "local_surprise_cv.ge90.aug_cv_r2": {
+      "value": 0.7068849159046389,
+      "tol": 5e-05
+    },
+    "local_surprise_cv.ge90.base_median_ape_pct": {
+      "value": 20.06568267911677,
+      "tol": 0.02
+    },
+    "local_surprise_cv.ge90.aug_median_ape_pct": {
+      "value": 20.128315509049077,
+      "tol": 0.02
+    },
+    "residual_correlations.raw_akerscore.spearman_rho": {
+      "value": -0.0066978019447007904,
+      "tol": 1e-06
+    },
+    "residual_correlations.class_surprise.spearman_rho": {
+      "value": -0.22867183033142316,
+      "tol": 1e-06
+    },
+    "residual_correlations.class_surprise.p_value": {
+      "value": 0.014844175088993047,
+      "tol": 1e-05
+    },
+    "residual_correlations.local_class_sko_municipality_surprise.spearman_rho": {
+      "value": 0.006107446302209545,
+      "tol": 1e-06
+    },
+    "residual_correlations.local_class_sko_municipality_surprise.p_value": {
+      "value": 0.9492742969923768,
+      "tol": 1e-05
+    },
+    "retrospective_candidate_screen.local_surprise_p75": {
+      "value": 6.267678160578058,
+      "tol": 1e-05
+    },
+    "retrospective_candidate_screen.observed_pred_ratio_p25": {
+      "value": 0.8487026435738179,
+      "tol": 1e-05
+    },
+    "raw_score_cv.ge90.delta_cv_r2": {
+      "value": 0.0,
+      "tol": 0.002
+    }
+  }
+}

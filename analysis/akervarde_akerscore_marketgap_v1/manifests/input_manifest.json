@@ -1,0 +1,63 @@
+{
+  "manifest_version": "akervarde-akerscore-marketgap-inputs-v1",
+  "files": [
+    {
+      "source_group": "akervarde",
+      "relative_path": "akervarde_v1_0_rc1_freeze/freeze_manifest.json",
+      "sha256": "0d615176226cd5cff1066c2862c6205bd7689ca588eb614193279142d76d45fc",
+      "rows": null
+    },
+    {
+      "source_group": "akervarde",
+      "relative_path": "akervarde_v1_0_rc1_freeze/cv10_predictions.csv",
+      "sha256": "5a7397449f6adb6661e5964c9d53415ae207421169914e331ecb896034bc6ad5",
+      "rows": 233
+    },
+    {
+      "source_group": "akervarde",
+      "relative_path": "akervarde_v1_0_rc1_freeze/validation_metrics.json",
+      "sha256": "f247b2e54ee7493ae5e583fb5c760869c85b0ae73598066181e5550facb1f072",
+      "rows": null
+    },
+    {
+      "source_group": "akervarde",
+      "relative_path": "akervarde_v1_0_rc1_freeze/model_coefficients.csv",
+      "sha256": "93a29c1c185842cedd7f6d9cbfa2bd299451f7da5658253a610dafc74f67c1ce",
+      "rows": 14
+    },
+    {
+      "source_group": "akervarde",
+      "relative_path": "frozen_feature_source/kt_regime_features.csv",
+      "sha256": "38c7d8045f410dda6936969a147417f648ba96f5f059064b9e83f485484460c5",
+      "rows": 357
+    },
+    {
+      "source_group": "akervarde",
+      "relative_path": "value_regression_v0h_kt_expanded/multiblock_members.csv",
+      "sha256": "5121296daffc5b6ffee11b55870e8b4408380c1135ae110a269d346602288c21",
+      "rows": 1063
+    },
+    {
+      "source_group": "akerscore",
+      "relative_path": "akerscore_soil_skiften_selected.csv.gz",
+      "sha256": "71dfd711a4243b3cbe465de7eaa013725b2d2f9be3a8890d213a89bc095427da",
+      "rows": 128636
+    },
+    {
+      "source_group": "akerscore",
+      "relative_path": "field_static_context_selected.csv.gz",
+      "sha256": "31db31b79b53a4c0aa32621fb7bfa44165ea65b6b46371c32e4e19935f59feea",
+      "rows": 128636
+    }
+  ],
+  "lineage": {
+    "akervarde_model_id": "akervarde-v1.0-rc1",
+    "akervarde_git_commit": "d940d057489b1402dd7ed8c762913175b296192f",
+    "akervarde_model_source_sha256": "fc69be6c4eb40cfb544aaeebd3b814a5416aab77f1fad2b642cc5a3a4cd57e82",
+    "combined_context_tag": "akerpass-akerminne-context-v1.0",
+    "combined_context_commit": "1ad5c77656bb93664d94254af298009a6620da4f",
+    "akerscore_akerminne_validation_tag": "akerscore-akerminne-validation-v1.0",
+    "akerscore_akerminne_validation_commit": "9ca92418d6c100793dcaf3ae70705c97e556a9d5",
+    "akerscore_source": "akerscore_soil_v0c"
+  }
+}
