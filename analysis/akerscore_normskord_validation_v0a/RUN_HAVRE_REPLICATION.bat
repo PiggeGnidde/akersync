@@ -60,20 +60,24 @@ echo [4/5] All published Skane-domain Havre SKO...
 if errorlevel 1 goto :fail
 
 echo.
-echo [5/5] Pre-specified geographic core: exclude cross-county SKO 0731 1124 1131 1321...
-%PY% "%MODEL%" --sko-fit-table "%OUT%\base\sko_fit_table.csv" --climate-csv "%OUT%\climate\sko_climate_2011_2025_apr_jul.csv" --output-dir "%OUT%\geographic_core" --exclude-sko 0731 1124 1131 1321
-if errorlevel 1 goto :fail
+echo [5/5] Geographic-core climate model intentionally NOT fitted.
+echo After excluding cross-county SKO 0731 1124 1131 1321 only 7 complete Havre SKO remain.
+echo The score+temperature+precipitation model has 4 fitted coefficients, and LOOCV would
+ echo fit those 4 coefficients to only 6 SKO in each training fold. That is too thin to
+ echo use as a credible replication result. The all-SKO Havre climate model remains valid,
+echo and the score-only geographic-core sensitivity is reported separately by the base run.
 
 echo.
 echo ====================================================================================
-echo RUN_HAVRE_REPLICATION: PASS
+echo RUN_HAVRE_REPLICATION: PASS WITH CORE-CLIMATE SKIPPED ^(n=7^)
 echo ====================================================================================
 echo Main results:
 echo   %NORM%
 echo   %OUT%\base\results.json
+echo   %OUT%\base\sko_fit_table.csv
 echo   %OUT%\climate\sko_climate_2011_2025_apr_jul.csv
 echo   %OUT%\all_sko\climate_results.json
-echo   %OUT%\geographic_core\climate_results.json
+echo Note: no geographic_core climate_results.json is produced by design.
 exit /b 0
 
 :fail
