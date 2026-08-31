@@ -17,17 +17,29 @@ set "MODEL=%HERE%run_climate_validation_optional.py"
 where py >nul 2>nul
 if errorlevel 1 (set "PY=python") else (set "PY=py -3")
 
-if not exist "%TAS%" (echo FAIL: missing %TAS% & exit /b 2)
-if not exist "%PR%" (echo FAIL: missing %PR% & exit /b 2)
-if not exist "%INPUT%\field_static_context_selected.csv.gz" (echo FAIL: missing frozen inputs & exit /b 2)
-if not exist "%LOCALPATHS%" (echo FAIL: missing %LOCALPATHS% & exit /b 2)
+if not exist "%TAS%" (
+  echo FAIL: missing %TAS%
+  exit /b 2
+)
+if not exist "%PR%" (
+  echo FAIL: missing %PR%
+  exit /b 2
+)
+if not exist "%INPUT%\field_static_context_selected.csv.gz" (
+  echo FAIL: missing frozen inputs
+  exit /b 2
+)
+if not exist "%LOCALPATHS%" (
+  echo FAIL: missing %LOCALPATHS%
+  exit /b 2
+)
 if not exist "%OUT%" mkdir "%OUT%"
 if not exist "%OUT%\matpotatis" mkdir "%OUT%\matpotatis"
 if not exist "%OUT%\starkelsepotatis" mkdir "%OUT%\starkelsepotatis"
 
 echo ====================================================================================
 echo Potatis replication: Matpotatis + Starkelsepotatis
- echo ====================================================================================
+echo ====================================================================================
 
 echo.
 echo [1/10] Fetch Matpotatis 2026 normskord...
@@ -55,8 +67,8 @@ echo [5/10] Matpotatis geographic core climate if n permits...
 if errorlevel 1 goto :fail
 
 echo.
-echo [6/10] Fetch Starkelsepotatis 2026 normskord...
-%PY% "%FETCH%" --crop "Stärkelsepotatis" --output "%OUT%\starkelsepotatis\normskord_2026.csv"
+echo [6/10] Fetch Potatis for starkelse 2026 normskord...
+%PY% "%FETCH%" --crop "Potatis för stärkelse" --output "%OUT%\starkelsepotatis\normskord_2026.csv"
 if errorlevel 1 goto :fail
 
 echo.
