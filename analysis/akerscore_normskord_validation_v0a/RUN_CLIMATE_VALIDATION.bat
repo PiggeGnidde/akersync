@@ -7,33 +7,38 @@ set "INPUT=%ROOT%\work\akerscore_validation_csv_upload"
 set "LOCALPATHS=%ROOT%\config\local_paths.json"
 set "BASEFIT=%ROOT%\work\akerscore_normskord_validation_v0a\sko_fit_table.csv"
 set "OUT=%ROOT%\work\akerscore_normskord_climate_v0a"
-set "PTHBV=C:\AkerSyncRaw\smhi\pthbv_2011_2025_monthly.nc"
-if not "%~1"=="" set "PTHBV=%~1"
+
+set "TEMP_NC=C:\AkerSyncRaw\smhi\SMHI_pthbv_tas_2011_2025_monthly.nc"
+set "PRECIP_NC=C:\AkerSyncRaw\smhi\SMHI_pthbv_pr_2011_2025_monthly.nc"
+if not "%~1"=="" set "TEMP_NC=%~1"
+if not "%~2"=="" set "PRECIP_NC=%~2"
 
 set "HERE=%~dp0"
-set "PREP=%HERE%prepare_pthbv_climate.py"
+set "PREP=%HERE%prepare_pthbv_climate_twofiles.py"
 set "MODEL=%HERE%run_climate_validation.py"
 set "REQ=%HERE%climate_requirements.txt"
 
 echo ====================================================================================
 echo AkerScore x Normskord x SMHI PTHBV climate validation v0a
 echo ====================================================================================
-echo PTHBV: %PTHBV%
+echo Temperature : %TEMP_NC%
+echo Precipitation: %PRECIP_NC%
 echo.
 
-if not exist "%PTHBV%" (
-  echo FAIL: PTHBV NetCDF not found.
+if not exist "%TEMP_NC%" (
+  echo FAIL: temperature PTHBV NetCDF not found.
+  echo Expected default:
+  echo   %TEMP_NC%
   echo.
-  echo Download from SMHI PTHBV as:
-  echo   Hela Sverige - NetCDF
-  echo   2011 through 2025
-  echo   Manadsvarden
-  echo   Nederbord och temperatur
+  echo Put the downloaded tas file there, or pass temp and precip files as arguments.
+  exit /b 2
+)
+if not exist "%PRECIP_NC%" (
+  echo FAIL: precipitation PTHBV NetCDF not found.
+  echo Expected default:
+  echo   %PRECIP_NC%
   echo.
-  echo Save/rename it to:
-  echo   C:\AkerSyncRaw\smhi\pthbv_2011_2025_monthly.nc
-  echo.
-  echo Or pass the downloaded file as first argument to this BAT file.
+  echo Put the downloaded pr file there, or pass temp and precip files as arguments.
   exit /b 2
 )
 
@@ -69,11 +74,14 @@ if not exist "%OUT%" mkdir "%OUT%"
 
 echo.
 echo [1/3] Exact PTHBV grid x wheat-field polygon overlay...
-%PY% "%PREP%" --netcdf "%PTHBV%" --input-dir "%INPUT%" --local-paths "%LOCALPATHS%" --output-dir "%OUT%\climate"
+%PY% "%PREP%" --temp-netcdf "%TEMP_NC%" --precip-netcdf "%PRECIP_NC%" --input-dir "%INPUT%" --local-paths "%LOCALPATHS%" --output-dir "%OUT%\climate"
 if errorlevel 1 (
   echo.
-  echo PTHBV parser/overlay failed. Printing NetCDF structure for diagnosis:
-  %PY% "%HERE%inspect_pthbv.py" "%PTHBV%"
+  echo PTHBV parser/overlay failed. Printing temperature NetCDF structure:
+  %PY% "%HERE%inspect_pthbv.py" "%TEMP_NC%"
+  echo.
+  echo Printing precipitation NetCDF structure:
+  %PY% "%HERE%inspect_pthbv.py" "%PRECIP_NC%"
   goto :fail
 )
 
