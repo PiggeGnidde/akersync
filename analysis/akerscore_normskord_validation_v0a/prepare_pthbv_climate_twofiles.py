@@ -31,13 +31,27 @@ from run_validation import verify_inputs, load_inputs, prepare_wheat
 def _same_numeric(a, b) -> bool:
     aa = np.asarray(a)
     bb = np.asarray(b)
-    return aa.shape == bb.shape and np.allclose(aa.astype(float), bb.astype(float), rtol=0, atol=1e-9, equal_nan=True)
+    return aa.shape == bb.shape and np.allclose(
+        aa.astype(float), bb.astype(float), rtol=0, atol=1e-9, equal_nan=True
+    )
 
 
-def _same_time(a, b) -> bool:
-    aa = pd.DatetimeIndex(pd.to_datetime(np.asarray(a)))
-    bb = pd.DatetimeIndex(pd.to_datetime(np.asarray(b)))
-    return len(aa) == len(bb) and np.array_equal(aa.values, bb.values)
+def _month_keys(values) -> np.ndarray:
+    """Return YYYY-MM keys for monthly PTHBV timestamps.
+
+    SMHI's tas and pr monthly products may represent the same calendar month with
+    slightly different within-month timestamps (observed: midnight versus
+    06:00:32 on the 16th). For monthly climate aggregation the calendar month,
+    not the exact sub-day timestamp, is the meaningful coordinate.
+    """
+    idx = pd.DatetimeIndex(pd.to_datetime(np.asarray(values)))
+    return np.asarray([f"{v.year:04d}-{v.month:02d}" for v in idx], dtype=object)
+
+
+def _same_month_axis(a, b) -> bool:
+    aa = _month_keys(a)
+    bb = _month_keys(b)
+    return aa.shape == bb.shape and np.array_equal(aa, bb)
 
 
 def main() -> int:
@@ -49,7 +63,9 @@ def main() -> int:
     ap.add_argument("--output-dir", required=True)
     ap.add_argument("--temp-var")
     ap.add_argument("--precip-var")
-    ap.add_argument("--grid-crs", help="Override NetCDF grid CRS, e.g. EPSG:3006 or EPSG:3021")
+    ap.add_argument(
+        "--grid-crs", help="Override NetCDF grid CRS, e.g. EPSG:3006 or EPSG:3021"
+    )
     args = ap.parse_args()
 
     temp_path = Path(args.temp_netcdf)
@@ -75,7 +91,10 @@ def main() -> int:
     ctx, hist, score = load_inputs(input_dir)
     wheat, wheat_qa = prepare_wheat(ctx, hist, score)
     needed_ids = set(wheat["current_field_id"].astype(str).unique())
-    print(f"Primary winter-wheat field-years: {len(wheat):,}; unique fields: {len(needed_ids):,}")
+    print(
+        f"Primary winter-wheat field-years: {len(wheat):,}; "
+        f"unique fields: {len(needed_ids):,}"
+    )
 
     ds_t = xr.open_dataset(temp_path, decode_times=True)
     ds_p = xr.open_dataset(precip_path, decode_times=True)
@@ -91,13 +110,48 @@ def main() -> int:
         crs_p = discover_crs(ds_p, ds_p[precip_name], p_x, p_y, args.grid_crs)
 
         if crs_t != crs_p:
-            raise RuntimeError(f"Temperature and precipitation grids have different CRS: {crs_t} vs {crs_p}")
+            raise RuntimeError(
+                f"Temperature and precipitation grids have different CRS: "
+                f"{crs_t} vs {crs_p}"
+            )
         if not _same_numeric(ds_t[t_x].values, ds_p[p_x].values):
             raise RuntimeError("Temperature and precipitation x coordinates differ")
         if not _same_numeric(ds_t[t_y].values, ds_p[p_y].values):
             raise RuntimeError("Temperature and precipitation y coordinates differ")
-        if not _same_time(ds_t[t_time].values, ds_p[p_time].values):
-            raise RuntimeError("Temperature and precipitation time coordinates differ")
+
+        # Important PTHBV detail: monthly tas/pr files can use different exact
+        # timestamps inside the SAME represented month.  Example observed from
+        # official files: tas 2011-01-16 00:00:00 versus pr
+        # 2011-01-16 06:00:32.  Exact equality is therefore the wrong contract.
+        # Require instead an exact one-to-one YYYY-MM axis, then deliberately
+        # assign the temperature timestamps as canonical before xarray merging.
+        if not _same_month_axis(ds_t[t_time].values, ds_p[p_time].values):
+            t_keys = _month_keys(ds_t[t_time].values)
+            p_keys = _month_keys(ds_p[p_time].values)
+            first_diff = next(
+                (
+                    (i, str(t_keys[i]), str(p_keys[i]))
+                    for i in range(min(len(t_keys), len(p_keys)))
+                    if t_keys[i] != p_keys[i]
+                ),
+                None,
+            )
+            raise RuntimeError(
+                "Temperature and precipitation calendar-month axes differ; "
+                f"first difference={first_diff}, lengths={len(t_keys)}/{len(p_keys)}"
+            )
+
+        t_idx = pd.DatetimeIndex(pd.to_datetime(ds_t[t_time].values))
+        p_idx = pd.DatetimeIndex(pd.to_datetime(ds_p[p_time].values))
+        max_abs_offset_seconds = float(
+            np.max(np.abs((p_idx - t_idx).total_seconds()))
+        ) if len(t_idx) else 0.0
+        if max_abs_offset_seconds > 0:
+            print(
+                "PTHBV monthly timestamp convention differs between tas/pr; "
+                f"calendar months match exactly. Max within-month offset: "
+                f"{max_abs_offset_seconds:.0f} s. Canonicalizing to tas timestamps."
+            )
 
         rename = {}
         if p_time != t_time:
@@ -108,6 +162,11 @@ def main() -> int:
             rename[p_y] = t_y
         p_da = ds_p[precip_name].rename(rename) if rename else ds_p[precip_name]
 
+        # Avoid xarray coordinate alignment on the harmless sub-day timestamp
+        # difference by explicitly replacing precipitation's monthly coordinate
+        # with the canonical tas coordinate after YYYY-MM equality was proven.
+        p_da = p_da.assign_coords({t_time: ds_t[t_time].values})
+
         # Keep the temperature grid coordinates as the canonical PTHBV grid.
         merged = xr.Dataset(
             {
@@ -116,12 +175,21 @@ def main() -> int:
             }
         )
 
-        print(f"PTHBV variables: temperature={temp_name!r}, precipitation={precip_name!r}")
-        print(f"PTHBV axes: time={t_time!r}, x={t_x!r}, y={t_y!r}, CRS={crs_t.to_string()}")
+        print(
+            f"PTHBV variables: temperature={temp_name!r}, "
+            f"precipitation={precip_name!r}"
+        )
+        print(
+            f"PTHBV axes: time={t_time!r}, x={t_x!r}, y={t_y!r}, "
+            f"CRS={crs_t.to_string()}"
+        )
 
         t_mean, p_mean, climate_meta = aggregate_climate(
             merged, temp_name, precip_name, t_time, t_y, t_x
         )
+        climate_meta["tas_pr_time_alignment"] = "calendar_month"
+        climate_meta["tas_pr_max_timestamp_offset_seconds"] = max_abs_offset_seconds
+
         grid = build_grid(ds_t, t_mean, p_mean, t_x, t_y, crs_t)
         print(f"Finite PTHBV cells: {len(grid):,}")
 
@@ -129,7 +197,9 @@ def main() -> int:
         field_climate = exact_field_climate(fields, grid)
         sko_climate, match_qa = aggregate_sko(wheat, field_climate)
 
-        field_climate.to_csv(output_dir / "field_climate_2011_2025_apr_jul.csv.gz", index=False)
+        field_climate.to_csv(
+            output_dir / "field_climate_2011_2025_apr_jul.csv.gz", index=False
+        )
         sko_climate.to_csv(
             output_dir / "sko_climate_2011_2025_apr_jul.csv",
             index=False,
@@ -141,8 +211,19 @@ def main() -> int:
             "source": "SMHI PTHBV",
             "temperature_netcdf": str(temp_path),
             "precipitation_netcdf": str(precip_path),
-            "period": {"start_year": START_YEAR, "end_year": END_YEAR, "months": list(MONTHS)},
-            "spatial_method": "exact current-field polygon x PTHBV grid-cell intersection; then wheat-field-year area weighting",
+            "period": {
+                "start_year": START_YEAR,
+                "end_year": END_YEAR,
+                "months": list(MONTHS),
+            },
+            "spatial_method": (
+                "exact current-field polygon x PTHBV grid-cell intersection; "
+                "then wheat-field-year area weighting"
+            ),
+            "time_alignment_method": (
+                "require identical ordered YYYY-MM axes; canonicalize pr timestamps "
+                "to tas timestamps before xarray merge"
+            ),
             "grid_crs": crs_t.to_string(),
             "grid_cells_finite_sweden": int(len(grid)),
             "wheat_qa": wheat_qa,
@@ -157,7 +238,10 @@ def main() -> int:
         print(sko_climate.to_string(index=False))
         print("\nMATCH QA")
         print(json.dumps(match_qa, ensure_ascii=False, indent=2))
-        if match_qa["area_match_share"] is not None and match_qa["area_match_share"] < 0.98:
+        if (
+            match_qa["area_match_share"] is not None
+            and match_qa["area_match_share"] < 0.98
+        ):
             print("WARN: less than 98% of primary wheat field-year area received climate data")
         print("\nPTHBV CLIMATE PREPARATION: PASS")
         return 0
