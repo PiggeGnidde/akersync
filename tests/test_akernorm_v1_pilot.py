@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -61,7 +63,90 @@ def official() -> pd.DataFrame:
     ])
 
 
+def write_sidecar_fixture(
+    root: Path, *, visible_threshold: float = .01, material_threshold: float = .05,
+) -> None:
+    years = list(range(2015, 2026))
+    fields = {}
+    for field_id, dominant_code in (("f1", "4"), ("f2", "2")):
+        history = []
+        for year in years:
+            components = [[f"{year}|{dominant_code}|", 1.0]]
+            status = "SINGLE_CROP"
+            if field_id == "f1" and year == 2020:
+                components = [[f"{year}|4|", .94], [f"{year}|20|", .06]]
+                status = "MIXED_CROPS"
+            history.append({"y": year, "s": status, "c": 1.0, "i": "direct_id", "x": components})
+        fields[field_id] = history
+    sidecar = {
+        "schema_version": "akerminne-web-v1a",
+        "municipality": "Test",
+        "municipality_code": "1290",
+        "reference_year": 2025,
+        "years": years,
+        "field_count": 2,
+        "thresholds": {
+            "minimum_match": .01,
+            "complete_coverage": .95,
+            "mixed_secondary_crop": material_threshold,
+            "visible_component": visible_threshold,
+        },
+        "crop_names": {},
+        "fields": fields,
+    }
+    sidecar_path = root / "1290_test.json"
+    sidecar_path.write_text(json.dumps(sidecar, ensure_ascii=False), encoding="utf-8")
+    size = sidecar_path.stat().st_size
+    index = {
+        "schema_version": "akerminne-skane-web-index-v1",
+        "reference_year": 2025,
+        "years": years,
+        "municipality_count": 1,
+        "field_count": 2,
+        "field_years": 22,
+        "sidecar_bytes": size,
+        "municipalities": [{
+            "municipality": "Test", "municipality_code": "1290",
+            "file": "data/akerminne/1290_test.json", "field_count": 2,
+            "field_years": 22, "size_bytes": size,
+        }],
+    }
+    (root / "skane_index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+
+
 class AkerNormV1PilotTests(unittest.TestCase):
+    def test_frozen_web_sidecars_preserve_material_crop_components(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_sidecar_fixture(root)
+            grouped, sources = PILOT.load_web_sidecar_components(
+                root, {"f1", "f2"}, CONFIG, expected_municipalities=1,
+            )
+        material = grouped[
+            grouped["current_field_id"].eq("f1")
+            & grouped["history_year"].eq(2020)
+            & grouped["crop_code_raw"].eq("20")
+        ]
+        self.assertEqual(len(material), 1)
+        self.assertAlmostEqual(float(material.iloc[0]["crop_share_current"]), .06)
+        self.assertEqual(len(sources), 2)
+        self.assertTrue(all(source["source_mode"] == "FROZEN_WEB_SIDECAR" for source in sources))
+        self.assertTrue(all(len(source["sha256"]) == 64 for source in sources))
+
+    def test_frozen_web_sidecars_reject_changed_thresholds(self):
+        cases = [
+            ({"visible_threshold": .02}, "visible_threshold"),
+            ({"material_threshold": .06}, "material_threshold"),
+        ]
+        for kwargs, expected_error in cases:
+            with self.subTest(expected_error=expected_error), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_sidecar_fixture(root, **kwargs)
+                with self.assertRaisesRegex(RuntimeError, expected_error):
+                    PILOT.load_web_sidecar_components(
+                        root, {"f1", "f2"}, CONFIG, expected_municipalities=1,
+                    )
+
     def test_selection_covers_required_categories_and_is_deterministic(self):
         first_fields, first_coverage = PILOT.select_pilot(candidates(), official(), CONFIG)
         second_fields, second_coverage = PILOT.select_pilot(candidates().sample(frac=1, random_state=7), official(), CONFIG)

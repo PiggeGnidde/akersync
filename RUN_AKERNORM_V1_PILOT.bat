@@ -16,7 +16,7 @@ echo ===========================================================================
 echo AkerNorm V1 - BOUNDED PRODUCTION PILOT - STOPPUNKT B
 echo ========================================================================================
 echo Frozen input:  %INPUT%
-echo AkerMinne root:%AKERMINNE%
+echo AkerMinne source: %AKERMINNE%
 echo Output:        %OUT%
 echo.
 
@@ -40,7 +40,7 @@ if not exist "%OUT%\manifests\model_manifest.json" (
   exit /b 1
 )
 if not exist "%AKERMINNE%" (
-  echo FAIL: frozen AkerMinne Skane root is missing: %AKERMINNE%
+  echo FAIL: frozen AkerMinne source is missing: %AKERMINNE%
   exit /b 1
 )
 if not exist "%OUT%\logs" mkdir "%OUT%\logs"
@@ -68,7 +68,7 @@ exit /b 0
 
 :usage
 echo Usage:
-echo   RUN_AKERNORM_V1_PILOT.bat "FROZEN_INPUT_DIR" "AKERMINNE_SKANE_ROOT" ["OUTPUT_ROOT"]
+echo   RUN_AKERNORM_V1_PILOT.bat "FROZEN_INPUT_DIR" "AKERMINNE_SKANE_OR_SIDECAR_ROOT" ["OUTPUT_ROOT"]
 exit /b 2
 
 :fail

@@ -25,6 +25,8 @@ from akernorm_v1_core import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "config/akernorm_v1.json"
+EXPECTED_YEARS = list(range(2015, 2026))
+EXPECTED_WEB_COMPONENT_MIN_SHARE = 0.01
 
 
 def load_grouped_components(skane_root: Path) -> tuple[pd.DataFrame, list[dict]]:
@@ -44,6 +46,7 @@ def load_grouped_components(skane_root: Path) -> tuple[pd.DataFrame, list[dict]]
         ])
         frames.append(frame)
         sources.append({
+            "source_mode": "CANONICAL_PARQUET",
             "municipality_code": str(document.get("municipality_code", "")),
             "municipality": str(document.get("municipality", "")),
             "path": str(path), "rows": int(len(frame)), "sha256": sha256_file(path),
@@ -55,6 +58,145 @@ def load_grouped_components(skane_root: Path) -> tuple[pd.DataFrame, list[dict]]
         ["current_field_id", "history_year", "crop_code_raw"], as_index=False, dropna=False, sort=True
     )["crop_share_current"].sum()
     return grouped, sources
+
+
+def load_web_sidecar_components(
+    sidecar_root: Path,
+    expected_field_ids: set[str],
+    config: dict,
+    expected_municipalities: int = 33,
+) -> tuple[pd.DataFrame, list[dict]]:
+    """Recover material crop presence from the frozen ÅkerMinne web contract.
+
+    The web contract retains components at >=1%, while crop presence uses the
+    already-frozen >=5% materiality rule. It is therefore lossless for the
+    product decision made here, even when the larger canonical Parquets are no
+    longer retained.
+    """
+    index_path = sidecar_root / "skane_index.json"
+    if not index_path.exists():
+        raise RuntimeError(f"Missing frozen ÅkerMinne web index: {index_path}")
+    index = json.loads(index_path.read_text(encoding="utf-8-sig"))
+    expected_field_count = len(expected_field_ids)
+    expected_field_years = expected_field_count * len(EXPECTED_YEARS)
+    checks = {
+        "schema": index.get("schema_version") == "akerminne-skane-web-index-v1",
+        "reference_year": int(index.get("reference_year", -1)) == 2025,
+        "municipalities": int(index.get("municipality_count", -1)) == expected_municipalities,
+        "fields": int(index.get("field_count", -1)) == expected_field_count,
+        "field_years": int(index.get("field_years", -1)) == expected_field_years,
+        "years": index.get("years") == EXPECTED_YEARS,
+        "entries": len(index.get("municipalities") or []) == expected_municipalities,
+        "unique_municipality_codes": len({
+            str(row.get("municipality_code")) for row in (index.get("municipalities") or [])
+        }) == expected_municipalities,
+    }
+    failed = sorted(name for name, passed in checks.items() if not passed)
+    if failed:
+        raise RuntimeError(f"Frozen ÅkerMinne web index contract failed: {failed}")
+
+    visible_required = float(config["crop_presence"]["mixed_component_min_share"])
+    seen_fields: set[str] = set()
+    component_rows: list[dict] = []
+    sources = [{
+        "source_mode": "FROZEN_WEB_SIDECAR",
+        "path": str(index_path), "rows": expected_municipalities,
+        "bytes": index_path.stat().st_size, "sha256": sha256_file(index_path),
+    }]
+    total_bytes = 0
+    total_index_fields = 0
+    total_index_field_years = 0
+    for entry in sorted(index["municipalities"], key=lambda row: str(row["municipality_code"])):
+        path = sidecar_root / Path(str(entry["file"])).name
+        if not path.exists():
+            raise RuntimeError(f"Missing frozen ÅkerMinne municipality sidecar: {path}")
+        if path.stat().st_size != int(entry["size_bytes"]):
+            raise RuntimeError(f"ÅkerMinne sidecar byte count differs from index: {path}")
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        thresholds = payload.get("thresholds") or {}
+        visible = float(thresholds.get("visible_component", -1))
+        material = float(thresholds.get("mixed_secondary_crop", -1))
+        payload_fields = payload.get("fields") or {}
+        sidecar_checks = {
+            "schema": payload.get("schema_version") == "akerminne-web-v1a",
+            "municipality": str(payload.get("municipality")) == str(entry["municipality"]),
+            "municipality_code": str(payload.get("municipality_code")) == str(entry["municipality_code"]),
+            "reference_year": int(payload.get("reference_year", -1)) == 2025,
+            "field_count": int(payload.get("field_count", -1)) == int(entry["field_count"]) == len(payload_fields),
+            "field_years": int(entry.get("field_years", -1)) == len(payload_fields) * len(EXPECTED_YEARS),
+            "years": payload.get("years") == EXPECTED_YEARS,
+            "visible_threshold": math.isclose(
+                visible, EXPECTED_WEB_COMPONENT_MIN_SHARE, abs_tol=1e-15
+            ),
+            "material_threshold": math.isclose(material, visible_required, abs_tol=1e-15),
+        }
+        failed = sorted(name for name, passed in sidecar_checks.items() if not passed)
+        if failed:
+            raise RuntimeError(f"Frozen ÅkerMinne sidecar contract failed for {path.name}: {failed}")
+        for field_id, field_history in payload_fields.items():
+            field_id = str(field_id)
+            if field_id in seen_fields:
+                raise RuntimeError(f"Field ID occurs in several ÅkerMinne sidecars: {field_id}")
+            if field_id not in expected_field_ids:
+                raise RuntimeError(f"ÅkerMinne sidecar contains unknown frozen field ID: {field_id}")
+            if len(field_history) != len(EXPECTED_YEARS) or [int(item["y"]) for item in field_history] != EXPECTED_YEARS:
+                raise RuntimeError(f"ÅkerMinne sidecar has incomplete year sequence: {field_id}")
+            seen_fields.add(field_id)
+            for item in field_history:
+                year = int(item["y"])
+                for component in item.get("x") or []:
+                    if not isinstance(component, list) or len(component) != 2:
+                        raise RuntimeError(f"Malformed ÅkerMinne component for {field_id}/{year}")
+                    crop_key, share_raw = component
+                    parts = str(crop_key).split("|", 2)
+                    if len(parts) != 3 or int(parts[0]) != year or not parts[1]:
+                        raise RuntimeError(f"Malformed ÅkerMinne crop key: {crop_key}")
+                    share = float(share_raw)
+                    if share + 1e-12 < visible:
+                        raise RuntimeError(f"ÅkerMinne component is below declared visible threshold: {field_id}/{year}")
+                    if share + 1e-12 >= visible_required:
+                        component_rows.append({
+                            "current_field_id": field_id, "history_year": year,
+                            "crop_code_raw": parts[1], "crop_share_current": share,
+                        })
+        total_index_fields += int(entry["field_count"])
+        total_index_field_years += int(entry["field_years"])
+        total_bytes += path.stat().st_size
+        sources.append({
+            "source_mode": "FROZEN_WEB_SIDECAR",
+            "municipality_code": str(entry["municipality_code"]),
+            "municipality": str(entry["municipality"]), "path": str(path),
+            "rows": int(entry["field_years"]), "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+        })
+    if seen_fields != expected_field_ids:
+        missing = sorted(expected_field_ids - seen_fields)[:20]
+        raise RuntimeError(f"ÅkerMinne sidecars do not reconcile to frozen field IDs; missing sample: {missing}")
+    if (
+        total_index_fields != expected_field_count
+        or total_index_field_years != expected_field_years
+        or total_bytes != int(index.get("sidecar_bytes", -1))
+    ):
+        raise RuntimeError("ÅkerMinne sidecar totals differ from frozen index")
+    grouped = pd.DataFrame(component_rows)
+    if grouped.empty:
+        raise RuntimeError("Frozen ÅkerMinne sidecars contain no material crop components")
+    grouped = grouped.groupby(
+        ["current_field_id", "history_year", "crop_code_raw"], as_index=False, sort=True
+    )["crop_share_current"].sum()
+    return grouped, sources
+
+
+def load_component_source(
+    source_root: Path,
+    expected_field_ids: set[str],
+    config: dict,
+) -> tuple[pd.DataFrame, list[dict], str]:
+    if (source_root / "skane_index.json").exists():
+        grouped, sources = load_web_sidecar_components(source_root, expected_field_ids, config)
+        return grouped, sources, "FROZEN_WEB_SIDECAR"
+    grouped, sources = load_grouped_components(source_root)
+    return grouped, sources, "CANONICAL_PARQUET"
 
 
 def source_norms(output_root: Path) -> pd.DataFrame:
@@ -204,7 +346,10 @@ def qa_summary(pilot: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def write_pilot_qa(path: Path, pilot: pd.DataFrame, coverage: pd.DataFrame, summary: pd.DataFrame) -> None:
+def write_pilot_qa(
+    path: Path, pilot: pd.DataFrame, coverage: pd.DataFrame,
+    summary: pd.DataFrame, component_source_mode: str,
+) -> None:
     status_counts = pilot["model_status"].value_counts().sort_index()
     support_counts = pilot["score_support_status"].value_counts().sort_index()
     warnings = []
@@ -214,6 +359,7 @@ def write_pilot_qa(path: Path, pilot: pd.DataFrame, coverage: pd.DataFrame, summ
     lines = [
         "# ÅkerNorm V1 – bounded production pilot QA", "", "- Status: `PASS`",
         f"- Selected fields: `{pilot['current_field_id'].nunique()}`", f"- Field/crop rows: `{len(pilot)}`",
+        f"- ÅkerMinne component source: `{component_source_mode}`",
         "- Full Skåne field run: `NO`", "- Web/Sentinel-2: `NO`", "",
         "## Pilot coverage", "", "| Category | Required | Status | Field | Crop code |", "|---|---:|---|---|---:|",
     ]
@@ -278,7 +424,9 @@ def main() -> int:
         if missing:
             raise RuntimeError(f"Frozen context lacks pilot columns: {missing}")
         base = context[base_columns].merge(score[["current_field_id", "akerscore_soil_p50"]], on="current_field_id", how="left", validate="one_to_one")
-        grouped, component_sources = load_grouped_components(args.akerminne_skane_root.resolve())
+        grouped, component_sources, component_source_mode = load_component_source(
+            args.akerminne_skane_root.resolve(), set(context["current_field_id"]), config
+        )
         presence = build_history_presence(history, grouped, config)
         candidates = candidate_table(presence, base, references)
         selected_fields, coverage = select_pilot(candidates, official, config)
@@ -297,7 +445,7 @@ def main() -> int:
             axis=1,
         )
         atomic_csv(examples, qa_dir / "pilot_example_calculations.csv")
-        write_pilot_qa(qa_dir / "pilot_qa.md", pilot, coverage, summary)
+        write_pilot_qa(qa_dir / "pilot_qa.md", pilot, coverage, summary, component_source_mode)
         relative = [
             "pilot/field_akernorm_v1_pilot.parquet", "pilot/field_akernorm_v1_pilot.csv",
             "pilot/pilot_coverage.csv", "qa/pilot_invariants.csv", "qa/pilot_crop_summary.csv",
@@ -310,6 +458,7 @@ def main() -> int:
             "selected_fields": int(pilot["current_field_id"].nunique()), "field_crop_rows": int(len(pilot)),
             "status_counts": {str(k): int(v) for k, v in pilot["model_status"].value_counts().sort_index().items()},
             "score_support_counts": {str(k): int(v) for k, v in pilot["score_support_status"].value_counts().sort_index().items()},
+            "component_source_mode": component_source_mode,
             "component_sources": component_sources,
             "scope": {"pilot_run": True, "full_skane_run": False, "web_changed": False, "sentinel2_changed": False},
             "artifacts": artifact_records(output, relative),
@@ -320,6 +469,7 @@ def main() -> int:
         print("=" * 88)
         print(f"Selected fields: {pilot['current_field_id'].nunique()}")
         print(f"Field/crop rows: {len(pilot)}")
+        print(f"AkerMinne component source: {component_source_mode}")
         print("No full Skane, web or Sentinel-2 work ran.")
         return 0
     except Exception as exc:

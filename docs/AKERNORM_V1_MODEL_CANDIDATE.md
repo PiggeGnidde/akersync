@@ -55,7 +55,7 @@ All runners require explicit input paths and therefore do not hardcode a develop
 
 ```bat
 FREEZE_AKERNORM_V1_MODEL.bat "STOPPUNKT_A_DIR" "FROZEN_INPUT_DIR"
-RUN_AKERNORM_V1_PILOT.bat "FROZEN_INPUT_DIR" "AKERMINNE_SKANE_ROOT"
+RUN_AKERNORM_V1_PILOT.bat "FROZEN_INPUT_DIR" "AKERMINNE_SKANE_OR_SIDECAR_ROOT"
 VERIFY_AKERNORM_V1_PILOT.bat
 ```
 
@@ -63,6 +63,12 @@ The pilot selects a deterministic bounded test set. It must include grain premiu
 Kristianstad potatoes, oats, winter rape, low SKO share, a mixed/component-only history case,
 and a crop without a published norm. A missing-ÅkerScore case is included when one exists in
 the frozen input; absence is reported rather than fabricated.
+
+The component source may be either the canonical municipality Parquets or the frozen 33-file
+ÅkerMinne web sidecars plus `skane_index.json`. The latter contract preserves every crop
+component at 1% or more and is therefore lossless for the already-frozen 5% material-component
+presence rule. Its municipality/field/year totals, thresholds, file sizes, hashes and all
+128,636 field IDs are verified before it is accepted.
 
 ## STOPPUNKT B
 
