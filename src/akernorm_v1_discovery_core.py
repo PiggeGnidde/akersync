@@ -290,9 +290,23 @@ def _http_bytes(url: str, payload: dict[str, Any] | None = None) -> bytes:
 
 def _find_var(meta: dict[str, Any], wanted: str) -> dict[str, Any]:
     needle = _normalized(wanted)
-    matches = [v for v in meta["variables"] if needle in _normalized(f"{v.get('code', '')} {v.get('text', '')}")]
+    matches = [
+        var
+        for var in meta["variables"]
+        if needle in {
+            _normalized(var.get("code", "")),
+            _normalized(var.get("text", "")),
+        }
+    ]
     if len(matches) != 1:
-        raise RuntimeError(f"PXWeb dimension {wanted!r}: expected one match, found {len(matches)}")
+        available = [
+            {"code": str(var.get("code", "")), "text": str(var.get("text", ""))}
+            for var in meta.get("variables", [])
+        ]
+        raise RuntimeError(
+            f"PXWeb dimension {wanted!r}: expected one exact code/text match, "
+            f"found {len(matches)}; available dimensions: {available}"
+        )
     return matches[0]
 
 

@@ -11,6 +11,7 @@ import pandas as pd
 from src.akernorm_v1_discovery_core import (
     CONTEXT_COMMIT,
     VALIDATION_COMMIT,
+    _find_var,
     artifact_hashes,
     build_crop_code_contract,
     score_only_core_metrics,
@@ -21,6 +22,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AkerNormDiscoveryTests(unittest.TestCase):
+    def test_pxweb_dimension_resolution_is_exact(self):
+        metadata = {
+            "variables": [
+                {"code": "Skördeområde", "text": "Skördeområde"},
+                {"code": "Gröda", "text": "Gröda"},
+                {"code": "Variabel", "text": "Variabel"},
+                {"code": "År", "text": "År"},
+            ]
+        }
+        self.assertEqual(_find_var(metadata, "År")["code"], "År")
+
+    def test_pxweb_dimension_resolution_rejects_non_exact_match(self):
+        metadata = {"variables": [{"code": "Variabel", "text": "Variabel"}]}
+        with self.assertRaisesRegex(RuntimeError, "expected one exact code/text match"):
+            _find_var(metadata, "År")
+
     def test_crop_codes_are_stable_2015_2025(self):
         contract = build_crop_code_contract(ROOT)
         self.assertEqual(contract["status"], "PASS")
