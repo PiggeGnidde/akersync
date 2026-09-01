@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -29,6 +32,21 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = load_config(ROOT / "config/akernorm_v1.json")
 
 
+def load_freeze_module():
+    if str(ROOT / "src") not in sys.path:
+        sys.path.insert(0, str(ROOT / "src"))
+    spec = importlib.util.spec_from_file_location(
+        "akernorm_v1_freeze", ROOT / "src/80_freeze_akernorm_v1_model.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+FREEZE = load_freeze_module()
+
+
 def crop(code: int):
     return next(row for row in CONFIG["crops"] if int(row["canonical_code"]) == code)
 
@@ -54,6 +72,61 @@ def reference(value=60.0):
 
 
 class AkerNormV1ModelTests(unittest.TestCase):
+    def test_reference_reproduction_ignores_explicitly_excluded_rows(self):
+        crop_keys = ("hostvete", "varkorn", "havre", "hostraps")
+        references = []
+        with tempfile.TemporaryDirectory() as tmp:
+            stop_a = Path(tmp)
+            for index, crop_key in enumerate(crop_keys):
+                fit_dir = stop_a / f"reproduction/{crop_key}/base"
+                fit_dir.mkdir(parents=True)
+                pd.DataFrame([{
+                    "sko_id": "1214", "field_years": 10 + index,
+                    "unique_fields": 5 + index, "mean_akerscore_areaweighted": 70.0 + index,
+                    "norm_t_ha": 8.0 + index, "crop_area_fieldyear_ha": 12.5 + index,
+                }]).to_csv(fit_dir / "sko_fit_table.csv", index=False)
+                references.extend([
+                    {
+                        "crop_key": crop_key, "sko_id": "1214", "field_years": 10 + index,
+                        "unique_fields": 5 + index, "reference_score": 70.0 + index,
+                        "official_sko_norm_t_ha": 8.0 + index,
+                        "area_year_weight_m2": (12.5 + index) * 10_000,
+                        "reference_status": "INCLUDED",
+                    },
+                    {
+                        "crop_key": crop_key, "sko_id": "0731", "field_years": np.nan,
+                        "unique_fields": np.nan, "reference_score": np.nan,
+                        "official_sko_norm_t_ha": np.nan, "area_year_weight_m2": np.nan,
+                        "reference_status": "EXCLUDED_NO_OFFICIAL_NORM",
+                    },
+                ])
+            result = FREEZE.compare_reproduced_references(pd.DataFrame(references), stop_a)
+        self.assertEqual(len(result), 4)
+        self.assertTrue(result["status"].eq("PASS").all())
+
+    def test_reference_reproduction_still_rejects_included_value_difference(self):
+        crop_keys = ("hostvete", "varkorn", "havre", "hostraps")
+        references = []
+        with tempfile.TemporaryDirectory() as tmp:
+            stop_a = Path(tmp)
+            for crop_key in crop_keys:
+                fit_dir = stop_a / f"reproduction/{crop_key}/base"
+                fit_dir.mkdir(parents=True)
+                pd.DataFrame([{
+                    "sko_id": "1214", "field_years": 10, "unique_fields": 5,
+                    "mean_akerscore_areaweighted": 70.0, "norm_t_ha": 8.0,
+                    "crop_area_fieldyear_ha": 12.5,
+                }]).to_csv(fit_dir / "sko_fit_table.csv", index=False)
+                references.append({
+                    "crop_key": crop_key, "sko_id": "1214", "field_years": 10,
+                    "unique_fields": 5,
+                    "reference_score": 71.0 if crop_key == "havre" else 70.0,
+                    "official_sko_norm_t_ha": 8.0, "area_year_weight_m2": 125_000.0,
+                    "reference_status": "INCLUDED",
+                })
+            with self.assertRaisesRegex(RuntimeError, "reference_score"):
+                FREEZE.compare_reproduced_references(pd.DataFrame(references), stop_a)
+
     def test_raw_norm_unit_conversion_to_t_per_ha(self):
         raw = 8123
         self.assertEqual(raw / 1000.0, 8.123)

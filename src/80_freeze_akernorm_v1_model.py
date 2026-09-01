@@ -158,8 +158,14 @@ def compare_reproduced_references(reference: pd.DataFrame, stop_a: Path) -> pd.D
             raise RuntimeError(f"Missing reproduced fit table: {path}")
         fit = pd.read_csv(path, dtype={"sko_id": str})
         fit["sko_id"] = fit["sko_id"].astype(str).str.zfill(4)
-        actual = reference[reference["crop_key"].eq(crop_key)].copy()
-        merged = fit.merge(actual, on="sko_id", how="outer", suffixes=("_analysis", "_freeze"), indicator=True)
+        actual = reference[
+            reference["crop_key"].eq(crop_key)
+            & reference["reference_status"].eq("INCLUDED")
+        ].copy()
+        merged = fit.merge(
+            actual, on="sko_id", how="outer", suffixes=("_analysis", "_freeze"),
+            indicator=True, validate="one_to_one",
+        )
         for _, item in merged.iterrows():
             present = item["_merge"] == "both"
             checks = {
