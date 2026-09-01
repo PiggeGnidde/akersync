@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Replicate the ÅkerScore ↔ normskörd bridge for spring barley (Vårkorn).
+
+Confirmatory intent: same modelling choices as winter wheat, new crop target.
+Crop code is frozen to 2 = Korn (vår). Hasund or any other external yield
+calibration is not used in the fit.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from run_validation import (
+    KNOTS,
+    curve_on_grid,
+    fit_monotone,
+    fit_positive_linear,
+    linear_loocv,
+    load_inputs,
+    load_norms,
+    select_lambda_loocv,
+    sko_basis_matrix,
+    summarize_sko,
+    summarize_years,
+    verify_inputs,
+)
+
+CROP_CODE = 2
+CROP_LABEL = "Vårkorn / Korn (vår)"
+MIN_DOMINANT_SKO_SHARE = 0.95
+
+
+def prepare_crop(ctx: pd.DataFrame, hist: pd.DataFrame, score: pd.DataFrame):
+    base = ctx[["current_field_id", "dominant_sko_id", "dominant_sko_share"]].copy()
+    base["dominant_sko_id"] = (
+        base["dominant_sko_id"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(4)
+    )
+    base["dominant_sko_share"] = pd.to_numeric(base["dominant_sko_share"], errors="coerce")
+    sc = score[["current_field_id", "akerscore_soil_p50"]].copy()
+    sc["akerscore_soil_p50"] = pd.to_numeric(sc["akerscore_soil_p50"], errors="coerce")
+    base = base.merge(sc, on="current_field_id", how="left", validate="one_to_one")
+
+    h = hist.copy()
+    h["dominant_crop_code_num"] = pd.to_numeric(h["dominant_crop_code_raw"], errors="coerce")
+    h["current_area_m2"] = pd.to_numeric(h["current_area_m2"], errors="coerce")
+    h["history_year"] = pd.to_numeric(h["history_year"], errors="coerce")
+    crop = h[
+        h["status"].eq("SINGLE_CROP") & h["dominant_crop_code_num"].eq(CROP_CODE)
+    ].copy()
+
+    # QA: code 2 must actually describe spring barley in every observed year.
+    labels = (
+        crop[["history_year", "dominant_crop_name"]]
+        .drop_duplicates()
+        .sort_values(["history_year", "dominant_crop_name"])
+    )
+    bad = labels[~labels["dominant_crop_name"].fillna("").str.lower().str.contains("korn")]
+    if len(bad):
+        raise RuntimeError(f"Crop code {CROP_CODE} has unexpected labels:\n{bad.to_string(index=False)}")
+
+    crop = crop.merge(base, on="current_field_id", how="left", validate="many_to_one")
+    before = len(crop)
+    crop = crop[
+        crop["akerscore_soil_p50"].notna()
+        & crop["current_area_m2"].gt(0)
+        & crop["dominant_sko_share"].ge(MIN_DOMINANT_SKO_SHARE)
+        & crop["dominant_sko_id"].notna()
+    ].copy()
+    crop["weight_m2"] = crop["current_area_m2"].astype(float)
+    qa = {
+        "crop_code": CROP_CODE,
+        "crop_label": CROP_LABEL,
+        "field_years_single_crop_before_score_sko_filter": int(before),
+        "field_years_primary": int(len(crop)),
+        "unique_fields_primary": int(crop["current_field_id"].nunique()),
+        "years": sorted(int(v) for v in crop["history_year"].dropna().unique()),
+        "observed_crop_labels": labels.to_dict(orient="records"),
+    }
+    return crop, qa
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--input-dir", required=True)
+    ap.add_argument("--output-dir", required=True)
+    ap.add_argument(
+        "--norm-csv",
+        default=str(Path(__file__).with_name("normskord_varkorn_2026.csv")),
+    )
+    args = ap.parse_args()
+
+    input_dir = Path(args.input_dir)
+    out = Path(args.output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    verify_inputs(input_dir)
+    ctx, hist, score = load_inputs(input_dir)
+    norms = load_norms(Path(args.norm_csv))
+    crop, crop_qa = prepare_crop(ctx, hist, score)
+
+    sko = summarize_sko(crop, norms)
+    yearly, stability = summarize_years(crop)
+    sko = sko.merge(stability, on="sko_id", how="left", validate="one_to_one")
+    fit_df = sko[
+        sko["norm_t_ha"].notna() & sko["mean_akerscore_areaweighted"].notna()
+    ].copy().sort_values("sko_id")
+    if len(fit_df) < 8:
+        raise RuntimeError(f"Too few SKO with Vårkorn norm yield and crop data: {len(fit_df)}")
+
+    x = fit_df["mean_akerscore_areaweighted"].to_numpy(float)
+    y = fit_df["norm_t_ha"].to_numpy(float)
+    linear = fit_positive_linear(x, y)
+    loo_pred, loo = linear_loocv(x, y)
+    fit_df["linear_pred_t_ha"] = linear["pred"]
+    fit_df["linear_residual_t_ha"] = linear["resid"]
+    fit_df["linear_loocv_pred_t_ha"] = loo_pred
+    fit_df["linear_loocv_error_t_ha"] = y - loo_pred
+
+    P = sko_basis_matrix(crop, fit_df["sko_id"].tolist())
+    best_lambda, lambda_table = select_lambda_loocv(P, y)
+    knot_y, mono_pred = fit_monotone(P, y, best_lambda)
+    err = y - mono_pred
+    sst = float(np.sum((y-y.mean())**2))
+    mono = {
+        "selected_lambda_by_loocv_rmse": float(best_lambda),
+        "in_sample_r2": float(1-np.sum(err**2)/sst),
+        "in_sample_rmse_t_ha": float(np.sqrt(np.mean(err**2))),
+        "in_sample_mae_t_ha": float(np.mean(np.abs(err))),
+        "loocv_rmse_t_ha": float(lambda_table.iloc[0]["loocv_rmse_t_ha"]),
+        "loocv_mae_t_ha": float(lambda_table.iloc[0]["loocv_mae_t_ha"]),
+    }
+    fit_df["monotone_pred_t_ha"] = mono_pred
+    fit_df["monotone_residual_t_ha"] = err
+
+    pd.DataFrame({"akerscore_knot": KNOTS, "yield_t_ha": knot_y}).to_csv(
+        out / "monotone_knots.csv", index=False, encoding="utf-8-sig"
+    )
+    curve_on_grid(knot_y).to_csv(out / "akerscore_to_normyield_curve.csv", index=False, encoding="utf-8-sig")
+    lambda_table.to_csv(out / "monotone_lambda_loocv.csv", index=False, encoding="utf-8-sig")
+    sko.to_csv(out / "sko_all_summary.csv", index=False, encoding="utf-8-sig")
+    fit_df.to_csv(out / "sko_fit_table.csv", index=False, encoding="utf-8-sig")
+    yearly.to_csv(out / "sko_yearly_crop_score.csv", index=False, encoding="utf-8-sig")
+
+    result = {
+        "version": "akerscore-normskord-varkorn-validation-v0a",
+        "crop_code": CROP_CODE,
+        "crop": CROP_LABEL,
+        "target_year": 2026,
+        "n_sko": int(len(fit_df)),
+        "sko_ids": fit_df["sko_id"].tolist(),
+        "crop_qa": crop_qa,
+        "linear": {
+            "intercept_t_ha": linear["intercept_t_ha"],
+            "slope_t_ha_per_score": linear["slope_t_ha_per_score"],
+            "effect_t_ha_per_10_score": linear["effect_t_ha_per_10_score"],
+            "r2": linear["r2"],
+            "rmse_t_ha": linear["rmse_t_ha"],
+            "mae_t_ha": linear["mae_t_ha"],
+            **loo,
+        },
+        "monotone": mono,
+        "guardrail": "Independent crop replication; no Hasund-derived calibration is used in fitting.",
+    }
+    (out / "results.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print("="*88)
+    print("ÅkerScore ↔ Vårkorn normskörd 2026 — replication v0a")
+    print("="*88)
+    print(f"Crop field-years: {len(crop):,}; unique fields: {crop['current_field_id'].nunique():,}")
+    print(f"SKO used: {len(fit_df)} -> {', '.join(fit_df['sko_id'])}")
+    print("\nPRIMARY LINEAR FIT")
+    print(f"  norm_t_ha = {linear['intercept_t_ha']:.4f} + {linear['slope_t_ha_per_score']:.6f} * ÅkerScore")
+    print(f"  effect / +10 ÅkerScore: {linear['effect_t_ha_per_10_score']:.3f} t/ha")
+    print(f"  R²:                     {linear['r2']:.3f}")
+    print(f"  RMSE:                   {linear['rmse_t_ha']:.3f} t/ha")
+    print(f"  LOOCV RMSE:             {loo['loocv_rmse_t_ha']:.3f} t/ha")
+    print("\nMONOTONE FIT")
+    print(f"  selected lambda:        {best_lambda:g}")
+    print(f"  in-sample R²:           {mono['in_sample_r2']:.3f}")
+    print(f"  LOOCV RMSE:             {mono['loocv_rmse_t_ha']:.3f} t/ha")
+    for s, yy in zip(KNOTS, knot_y):
+        print(f"    ÅkerScore {s:5.1f} -> {yy:5.3f} t/ha")
+    print("\nSKO TABLE")
+    cols = ["sko_id", "norm_t_ha", "unique_fields", "field_years", "mean_akerscore_areaweighted", "linear_residual_t_ha"]
+    print(fit_df[cols].to_string(index=False))
+    print("\nVÅRKORN VALIDATION: PASS")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
