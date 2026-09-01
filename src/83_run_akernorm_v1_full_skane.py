@@ -103,8 +103,27 @@ def load_frozen_state(
 ) -> dict[str, Any]:
     model_manifest = verify_manifest(output_root / "manifests/model_manifest.json", output_root)
     source_manifest = verify_manifest(output_root / "manifests/source_manifest.json", output_root / "source")
+    pilot_manifest_path = output_root / "manifests/pilot_manifest.json"
+    pilot_manifest = verify_manifest(pilot_manifest_path, output_root)
+    stopb_path = output_root / "qa/stopb_verification.json"
+    if not stopb_path.exists():
+        raise RuntimeError("Independent STOPPUNKT B verification artifact is missing")
+    stopb = json.loads(stopb_path.read_text(encoding="utf-8-sig"))
+    if stopb.get("status") != "PASS":
+        raise RuntimeError("Independent STOPPUNKT B verification is not PASS")
     if model_manifest.get("source_manifest_id") != source_manifest.get("manifest_id"):
         raise RuntimeError("Model/source manifest IDs do not reconcile")
+    for document, label in ((pilot_manifest, "pilot manifest"), (stopb, "STOPPUNKT B verification")):
+        if document.get("model_manifest_id") != model_manifest.get("manifest_id"):
+            raise RuntimeError(f"{label} model manifest ID differs")
+        if document.get("source_manifest_id") != source_manifest.get("manifest_id"):
+            raise RuntimeError(f"{label} source manifest ID differs")
+    pilot_scope = pilot_manifest.get("scope", {})
+    if not pilot_scope.get("pilot_run") or any(pilot_scope.get(name) for name in ("full_skane_run", "web_changed", "sentinel2_changed")):
+        raise RuntimeError("Pilot manifest does not contain the accepted STOPPUNKT B scope")
+    stopb_scope = stopb.get("scope", {})
+    if not stopb_scope.get("pilot_run") or any(stopb_scope.get(name) for name in ("full_skane_run", "web_changed", "sentinel2_changed")):
+        raise RuntimeError("Independent STOPPUNKT B scope is not accepted")
     if any(model_manifest.get("scope", {}).get(name) for name in ("full_skane_run", "web_changed", "sentinel2_changed")):
         raise RuntimeError("Frozen model manifest crosses the authorized STOPPUNKT B scope")
 
@@ -142,6 +161,8 @@ def load_frozen_state(
     state = {
         "model_manifest": model_manifest,
         "source_manifest": source_manifest,
+        "pilot_manifest": pilot_manifest,
+        "stopb_verification": stopb,
         "input_records": input_records,
         "context": context,
         "history": history,
@@ -158,6 +179,8 @@ def load_frozen_state(
         "schema": FULL_SCHEMA,
         "model_manifest_id": model_manifest["manifest_id"],
         "source_manifest_id": source_manifest["manifest_id"],
+        "pilot_manifest_sha256": sha256_file(pilot_manifest_path),
+        "stopb_verification_sha256": sha256_file(stopb_path),
         "frozen_inputs": {name: row["sha256"] for name, row in sorted(input_records.items())},
         "component_fingerprint": state["component_fingerprint"],
         "config_sha256": sha256_file(CONFIG_PATH),
@@ -635,6 +658,8 @@ def main() -> int:
             "repository_head": git("rev-parse", "HEAD"), "run_key": state["run_key"],
             "model_manifest_id": state["model_manifest"]["manifest_id"],
             "source_manifest_id": state["source_manifest"]["manifest_id"],
+            "pilot_manifest_sha256": sha256_file(output_root / "manifests/pilot_manifest.json"),
+            "stopb_verification_sha256": sha256_file(output_root / "qa/stopb_verification.json"),
             "reference_fields": int(len(coverage)), "municipalities": int(len(checkpoints)),
             "field_crop_rows": int(len(result)), "numeric_rows": int(result["field_akernorm_t_ha"].notna().sum()),
             "output_hash": first_hash, "rerun_stability": "PASS",
