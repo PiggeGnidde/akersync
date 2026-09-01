@@ -25,6 +25,11 @@ for /f "delims=" %%S in ('git status --short') do (
   git status --short
   exit /b 1
 )
+for /f "delims=" %%B in ('git branch --show-current') do set "BRANCH=%%B"
+if /I not "%BRANCH%"=="feature/akernorm-product-v1a" (
+  echo FAIL: expected feature/akernorm-product-v1a, got %BRANCH%.
+  exit /b 1
+)
 where py >nul 2>nul
 if errorlevel 1 (
   echo FAIL: Python launcher 'py' is missing.
@@ -40,6 +45,14 @@ if not exist "%AKERMINNE%" (
 )
 if not exist "%OUT%\logs" mkdir "%OUT%\logs"
 
+echo [1/2] Pilot selection and calculation regression tests...
+py -3 -m unittest discover -s tests -p "test_akernorm_v1_pilot.py" -v > "%OUT%\logs\pilot_tests.log" 2>&1
+set "RC=%ERRORLEVEL%"
+type "%OUT%\logs\pilot_tests.log"
+if not "%RC%"=="0" goto :fail
+
+echo.
+echo [2/2] Bounded production pilot on frozen inputs...
 py -3 src\81_run_akernorm_v1_pilot.py --input-dir "%INPUT%" --akerminne-skane-root "%AKERMINNE%" --output-root "%OUT%" > "%OUT%\logs\pilot.log" 2>&1
 set "RC=%ERRORLEVEL%"
 type "%OUT%\logs\pilot.log"
@@ -61,5 +74,5 @@ exit /b 2
 :fail
 echo.
 echo RUN_AKERNORM_V1_PILOT: FAIL
-echo Return: %OUT%\logs\pilot.log and any *_traceback.log
+echo Return: %OUT%\logs\pilot_tests.log, %OUT%\logs\pilot.log and any *_traceback.log
 exit /b 1
