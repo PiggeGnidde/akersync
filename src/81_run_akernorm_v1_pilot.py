@@ -29,12 +29,13 @@ EXPECTED_YEARS = list(range(2015, 2026))
 EXPECTED_WEB_COMPONENT_MIN_SHARE = 0.01
 
 
-def load_grouped_components(skane_root: Path) -> tuple[pd.DataFrame, list[dict]]:
+def load_grouped_components(skane_root: Path) -> tuple[pd.DataFrame, list[dict], pd.DataFrame]:
     paths = sorted(skane_root.rglob("akerminne_crop_areas_grouped.parquet"), key=lambda p: str(p).lower())
     if not paths:
         raise RuntimeError(f"No canonical ÅkerMinne grouped crop artifacts under {skane_root}")
     frames = []
     sources = []
+    municipality_frames = []
     for path in paths:
         manifest = path.parent / "build_manifest.json"
         classified = path.parent / "akerminne_year_summary_classified.parquet"
@@ -44,6 +45,11 @@ def load_grouped_components(skane_root: Path) -> tuple[pd.DataFrame, list[dict]]
         frame = pd.read_parquet(path, columns=[
             "current_field_id", "history_year", "crop_code_raw", "crop_share_current"
         ])
+        classified_fields = pd.read_parquet(classified, columns=["current_field_id"])
+        classified_fields = classified_fields[["current_field_id"]].drop_duplicates().copy()
+        classified_fields["municipality_code"] = str(document.get("municipality_code", ""))
+        classified_fields["municipality"] = str(document.get("municipality", ""))
+        municipality_frames.append(classified_fields)
         frames.append(frame)
         sources.append({
             "source_mode": "CANONICAL_PARQUET",
@@ -57,7 +63,8 @@ def load_grouped_components(skane_root: Path) -> tuple[pd.DataFrame, list[dict]]
     grouped = grouped.groupby(
         ["current_field_id", "history_year", "crop_code_raw"], as_index=False, dropna=False, sort=True
     )["crop_share_current"].sum()
-    return grouped, sources
+    municipalities = pd.concat(municipality_frames, ignore_index=True)
+    return grouped, sources, municipalities
 
 
 def load_web_sidecar_components(
@@ -65,7 +72,7 @@ def load_web_sidecar_components(
     expected_field_ids: set[str],
     config: dict,
     expected_municipalities: int = 33,
-) -> tuple[pd.DataFrame, list[dict]]:
+) -> tuple[pd.DataFrame, list[dict], pd.DataFrame]:
     """Recover material crop presence from the frozen ÅkerMinne web contract.
 
     The web contract retains components at >=1%, while crop presence uses the
@@ -98,6 +105,7 @@ def load_web_sidecar_components(
     visible_required = float(config["crop_presence"]["mixed_component_min_share"])
     seen_fields: set[str] = set()
     component_rows: list[dict] = []
+    municipality_rows: list[dict] = []
     sources = [{
         "source_mode": "FROZEN_WEB_SIDECAR",
         "path": str(index_path), "rows": expected_municipalities,
@@ -142,6 +150,11 @@ def load_web_sidecar_components(
             if len(field_history) != len(EXPECTED_YEARS) or [int(item["y"]) for item in field_history] != EXPECTED_YEARS:
                 raise RuntimeError(f"ÅkerMinne sidecar has incomplete year sequence: {field_id}")
             seen_fields.add(field_id)
+            municipality_rows.append({
+                "current_field_id": field_id,
+                "municipality_code": str(entry["municipality_code"]),
+                "municipality": str(entry["municipality"]),
+            })
             for item in field_history:
                 year = int(item["y"])
                 for component in item.get("x") or []:
@@ -184,19 +197,53 @@ def load_web_sidecar_components(
     grouped = grouped.groupby(
         ["current_field_id", "history_year", "crop_code_raw"], as_index=False, sort=True
     )["crop_share_current"].sum()
-    return grouped, sources
+    return grouped, sources, pd.DataFrame(municipality_rows)
 
 
 def load_component_source(
     source_root: Path,
     expected_field_ids: set[str],
     config: dict,
-) -> tuple[pd.DataFrame, list[dict], str]:
+) -> tuple[pd.DataFrame, list[dict], str, pd.DataFrame]:
     if (source_root / "skane_index.json").exists():
-        grouped, sources = load_web_sidecar_components(source_root, expected_field_ids, config)
-        return grouped, sources, "FROZEN_WEB_SIDECAR"
-    grouped, sources = load_grouped_components(source_root)
-    return grouped, sources, "CANONICAL_PARQUET"
+        grouped, sources, municipalities = load_web_sidecar_components(source_root, expected_field_ids, config)
+        mode = "FROZEN_WEB_SIDECAR"
+    else:
+        grouped, sources, municipalities = load_grouped_components(source_root)
+        mode = "CANONICAL_PARQUET"
+    municipalities["current_field_id"] = municipalities["current_field_id"].astype(str)
+    if municipalities["current_field_id"].duplicated().any():
+        raise RuntimeError("ÅkerMinne component source assigns a field to several municipalities")
+    mapped = set(municipalities["current_field_id"])
+    if mapped != expected_field_ids:
+        missing = sorted(expected_field_ids - mapped)[:20]
+        extra = sorted(mapped - expected_field_ids)[:20]
+        raise RuntimeError(
+            f"ÅkerMinne municipality mapping differs from frozen context; missing={missing}, extra={extra}"
+        )
+    return grouped, sources, mode, municipalities
+
+
+def build_pilot_base(context: pd.DataFrame, score: pd.DataFrame, municipalities: pd.DataFrame) -> pd.DataFrame:
+    context_columns = ["current_field_id", "dominant_sko_id", "dominant_sko_share"]
+    missing = sorted(set(context_columns) - set(context.columns))
+    if missing:
+        raise RuntimeError(f"Frozen context lacks pilot columns: {missing}")
+    municipality_columns = ["current_field_id", "municipality_code", "municipality"]
+    missing_municipality = sorted(set(municipality_columns) - set(municipalities.columns))
+    if missing_municipality:
+        raise RuntimeError(f"ÅkerMinne municipality mapping lacks columns: {missing_municipality}")
+    base = context[context_columns].merge(
+        municipalities[municipality_columns], on="current_field_id", how="left", validate="one_to_one"
+    )
+    if base[["municipality_code", "municipality"]].isna().any().any():
+        raise RuntimeError("Frozen context contains fields without a verified ÅkerMinne municipality")
+    if base["municipality_code"].astype(str).str.strip().eq("").any() or base["municipality"].astype(str).str.strip().eq("").any():
+        raise RuntimeError("ÅkerMinne municipality mapping contains an empty code or name")
+    return base.merge(
+        score[["current_field_id", "akerscore_soil_p50"]],
+        on="current_field_id", how="left", validate="one_to_one",
+    )
 
 
 def source_norms(output_root: Path) -> pd.DataFrame:
@@ -419,14 +466,10 @@ def main() -> int:
         context["dominant_sko_share"] = pd.to_numeric(context["dominant_sko_share"], errors="coerce")
         score["current_field_id"] = score["current_field_id"].astype(str)
         score["akerscore_soil_p50"] = pd.to_numeric(score["akerscore_soil_p50"], errors="coerce")
-        base_columns = ["current_field_id", "municipality_code", "municipality", "dominant_sko_id", "dominant_sko_share"]
-        missing = sorted(set(base_columns) - set(context.columns))
-        if missing:
-            raise RuntimeError(f"Frozen context lacks pilot columns: {missing}")
-        base = context[base_columns].merge(score[["current_field_id", "akerscore_soil_p50"]], on="current_field_id", how="left", validate="one_to_one")
-        grouped, component_sources, component_source_mode = load_component_source(
+        grouped, component_sources, component_source_mode, municipalities = load_component_source(
             args.akerminne_skane_root.resolve(), set(context["current_field_id"]), config
         )
+        base = build_pilot_base(context, score, municipalities)
         presence = build_history_presence(history, grouped, config)
         candidates = candidate_table(presence, base, references)
         selected_fields, coverage = select_pilot(candidates, official, config)

@@ -119,7 +119,7 @@ class AkerNormV1PilotTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_sidecar_fixture(root)
-            grouped, sources = PILOT.load_web_sidecar_components(
+            grouped, sources, municipalities = PILOT.load_web_sidecar_components(
                 root, {"f1", "f2"}, CONFIG, expected_municipalities=1,
             )
         material = grouped[
@@ -132,6 +132,8 @@ class AkerNormV1PilotTests(unittest.TestCase):
         self.assertEqual(len(sources), 2)
         self.assertTrue(all(source["source_mode"] == "FROZEN_WEB_SIDECAR" for source in sources))
         self.assertTrue(all(len(source["sha256"]) == 64 for source in sources))
+        self.assertEqual(set(municipalities["current_field_id"]), {"f1", "f2"})
+        self.assertTrue(municipalities["municipality_code"].eq("1290").all())
 
     def test_frozen_web_sidecars_reject_changed_thresholds(self):
         cases = [
@@ -146,6 +148,18 @@ class AkerNormV1PilotTests(unittest.TestCase):
                     PILOT.load_web_sidecar_components(
                         root, {"f1", "f2"}, CONFIG, expected_municipalities=1,
                     )
+
+    def test_pilot_base_uses_verified_sidecar_municipality_mapping(self):
+        context = pd.DataFrame([{
+            "current_field_id": "f1", "dominant_sko_id": "1214", "dominant_sko_share": 1.0,
+        }])
+        score = pd.DataFrame([{"current_field_id": "f1", "akerscore_soil_p50": 75.0}])
+        municipalities = pd.DataFrame([{
+            "current_field_id": "f1", "municipality_code": "1290", "municipality": "Kristianstad",
+        }])
+        result = PILOT.build_pilot_base(context, score, municipalities)
+        self.assertEqual(result.loc[0, "municipality_code"], "1290")
+        self.assertEqual(result.loc[0, "municipality"], "Kristianstad")
 
     def test_selection_covers_required_categories_and_is_deterministic(self):
         first_fields, first_coverage = PILOT.select_pilot(candidates(), official(), CONFIG)
