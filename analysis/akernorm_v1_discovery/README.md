@@ -6,6 +6,8 @@ The wrapper verifies the context and validation tags, identifies the exact analy
 
 The final comparison is against the rounded values reported in the implementation specification. A mismatch is fatal and must not be adjusted silently.
 
+The source cross-check preserves the exact PxWeb query, raw response and 1 kg/ha values. The imported spring-barley analysis snapshot is separately identified as a 10 kg/ha, round-half-up representation. It passes only when every non-exact cell is mathematically rounding-equivalent; every such cell is listed in the source report and summarized as a discovery warning. Any value outside that declared representation remains a fatal mismatch.
+
 Windows entry points from the feature worktree:
 
 ```cmd

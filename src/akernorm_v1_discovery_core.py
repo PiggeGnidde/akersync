@@ -11,6 +11,7 @@ import math
 import re
 import subprocess
 import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -319,6 +320,28 @@ def _resolve_value(var: dict[str, Any], candidates: list[str]) -> tuple[str, str
     raise RuntimeError(
         f"PXWeb value not found for {candidates}; available labels: {[t for _, t in values]}"
     )
+
+
+def norm_snapshot_value_relation(
+    analysis_value: Any,
+    pxweb_value: Any,
+    rounding_increment_kg_ha: int,
+) -> str:
+    analysis_missing = pd.isna(analysis_value)
+    pxweb_missing = pd.isna(pxweb_value)
+    if analysis_missing or pxweb_missing:
+        return "EXACT" if analysis_missing and pxweb_missing else "MISMATCH"
+
+    analysis = Decimal(str(analysis_value))
+    pxweb = Decimal(str(pxweb_value))
+    if analysis == pxweb:
+        return "EXACT"
+    if rounding_increment_kg_ha <= 1:
+        return "MISMATCH"
+
+    increment = Decimal(rounding_increment_kg_ha)
+    rounded = (pxweb / increment).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * increment
+    return "ROUNDING_EQUIVALENT" if analysis == rounded else "MISMATCH"
 
 
 def _jsonstat_categories(document: dict[str, Any], dim_id: str) -> tuple[list[str], dict[str, str]]:

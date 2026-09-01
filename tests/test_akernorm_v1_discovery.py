@@ -14,6 +14,7 @@ from src.akernorm_v1_discovery_core import (
     _find_var,
     artifact_hashes,
     build_crop_code_contract,
+    norm_snapshot_value_relation,
     score_only_core_metrics,
 )
 
@@ -37,6 +38,20 @@ class AkerNormDiscoveryTests(unittest.TestCase):
         metadata = {"variables": [{"code": "Variabel", "text": "Variabel"}]}
         with self.assertRaisesRegex(RuntimeError, "expected one exact code/text match"):
             _find_var(metadata, "År")
+
+    def test_norm_snapshot_value_relation_preserves_exact_and_missing(self):
+        self.assertEqual(norm_snapshot_value_relation(4231, 4231, 10), "EXACT")
+        self.assertEqual(norm_snapshot_value_relation(float("nan"), float("nan"), 10), "EXACT")
+        self.assertEqual(norm_snapshot_value_relation(float("nan"), 4231, 10), "MISMATCH")
+
+    def test_norm_snapshot_value_relation_accepts_declared_half_up_rounding(self):
+        self.assertEqual(norm_snapshot_value_relation(4230, 4231, 10), "ROUNDING_EQUIVALENT")
+        self.assertEqual(norm_snapshot_value_relation(3900, 3895, 10), "ROUNDING_EQUIVALENT")
+        self.assertEqual(norm_snapshot_value_relation(5790, 5787, 10), "ROUNDING_EQUIVALENT")
+
+    def test_norm_snapshot_value_relation_rejects_wrong_precision_or_value(self):
+        self.assertEqual(norm_snapshot_value_relation(4230, 4231, 1), "MISMATCH")
+        self.assertEqual(norm_snapshot_value_relation(5780, 5787, 10), "MISMATCH")
 
     def test_crop_codes_are_stable_2015_2025(self):
         contract = build_crop_code_contract(ROOT)

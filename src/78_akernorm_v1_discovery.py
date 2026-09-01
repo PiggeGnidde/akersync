@@ -26,6 +26,7 @@ from akernorm_v1_discovery_core import (
     build_crop_code_contract,
     compare_reproduction,
     fetch_official_norms,
+    norm_snapshot_value_relation,
     repository_snapshot,
     run_logged,
     sha256_file,
@@ -130,8 +131,13 @@ def source_report(path: Path, source: dict, snapshot_comparison: list[dict]) -> 
     lines += ["", "## Cross-check against analysis snapshots", ""]
     for item in snapshot_comparison:
         lines.append(
-            f"- `{item['crop']}`: `{item['status']}` — compared `{item['compared_values']}` published norm values"
+            f"- `{item['crop']}`: `{item['outcome']}` — compared `{item['compared_sko_rows']}` SKO rows; "
+            f"exact `{item['exact_count']}`, rounding-equivalent `{item['rounding_equivalent_count']}`, "
+            f"rounding increment `{item['rounding_increment_kg_ha']}` kg/ha, max absolute difference "
+            f"`{item['max_absolute_difference_kg_ha']}` kg/ha"
         )
+        for equivalent in item["rounding_equivalences"]:
+            lines.append(f"  - `ROUNDING_EQUIVALENT`: {equivalent}")
         for mismatch in item["mismatches"]:
             lines.append(f"  - `MISMATCH`: {mismatch}")
     write_markdown(path, lines)
@@ -139,9 +145,9 @@ def source_report(path: Path, source: dict, snapshot_comparison: list[dict]) -> 
 
 def compare_analysis_snapshots(source: dict) -> list[dict]:
     results = []
-    for crop, committed_name in (
-        ("hostvete", "normskord_hostvete_2026.csv"),
-        ("varkorn", "normskord_varkorn_2026.csv"),
+    for crop, committed_name, rounding_increment in (
+        ("hostvete", "normskord_hostvete_2026.csv", 1),
+        ("varkorn", "normskord_varkorn_2026.csv", 10),
     ):
         current = pd.read_csv(source["legacy_paths"][crop], dtype={"sko_id": str})
         committed = pd.read_csv(ROOT / ANALYSIS_DIR / committed_name, dtype={"sko_id": str})
@@ -151,16 +157,39 @@ def compare_analysis_snapshots(source: dict) -> list[dict]:
         merged = committed[["sko_id", "norm_kg_ha"]].merge(
             current[["sko_id", "norm_kg_ha"]], on="sko_id", how="outer", suffixes=("_analysis", "_pxweb")
         )
+        exact_count = 0
+        rounding_equivalences = []
         mismatches = []
+        absolute_differences = []
         for row in merged.itertuples(index=False):
             left, right = row.norm_kg_ha_analysis, row.norm_kg_ha_pxweb
-            equal = (pd.isna(left) and pd.isna(right)) or (pd.notna(left) and pd.notna(right) and float(left) == float(right))
-            if not equal:
+            relation = norm_snapshot_value_relation(left, right, rounding_increment)
+            if pd.notna(left) and pd.notna(right):
+                absolute_differences.append(abs(float(left) - float(right)))
+            if relation == "EXACT":
+                exact_count += 1
+            elif relation == "ROUNDING_EQUIVALENT":
+                rounding_equivalences.append(
+                    f"SKO {row.sko_id}: analysis={left:g}, exact PxWeb={right:g}"
+                )
+            else:
                 mismatches.append(f"SKO {row.sko_id}: analysis={left}, current PxWeb={right}")
+        if mismatches:
+            outcome = "MISMATCH"
+        elif rounding_equivalences:
+            outcome = "PASS_ROUNDING_EQUIVALENT"
+        else:
+            outcome = "PASS_EXACT"
         results.append({
             "crop": crop,
             "status": "PASS" if not mismatches else "MISMATCH",
-            "compared_values": int(len(merged)),
+            "outcome": outcome,
+            "compared_sko_rows": int(len(merged)),
+            "exact_count": exact_count,
+            "rounding_equivalent_count": len(rounding_equivalences),
+            "rounding_increment_kg_ha": rounding_increment,
+            "max_absolute_difference_kg_ha": max(absolute_differences, default=0.0),
+            "rounding_equivalences": rounding_equivalences,
             "mismatches": mismatches,
         })
     return results
@@ -287,6 +316,14 @@ def main() -> int:
             stable_json(output / "official_norm_source_manifest.json", source)
             snapshot_comparison = compare_analysis_snapshots(source)
             source_report(output / "official_norm_source_report.md", source, snapshot_comparison)
+            for item in snapshot_comparison:
+                if item["rounding_equivalent_count"]:
+                    warnings.append(
+                        f"{item['crop']}: committed analysis snapshot has "
+                        f"{item['rounding_equivalent_count']} values represented at "
+                        f"{item['rounding_increment_kg_ha']} kg/ha precision; all are exact "
+                        "ROUND_HALF_UP equivalents of the preserved current PxWeb values"
+                    )
             mismatches = [item for item in snapshot_comparison if item["status"] != "PASS"]
             if mismatches:
                 raise RuntimeError("Current PxWeb values differ from committed analysis snapshots; see official_norm_source_report.md")
