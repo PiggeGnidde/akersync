@@ -14,6 +14,7 @@ from src.akernorm_v1_discovery_core import (
     _find_var,
     artifact_hashes,
     build_crop_code_contract,
+    clear_stale_fatal_traceback,
     norm_snapshot_value_relation,
     score_only_core_metrics,
 )
@@ -90,6 +91,20 @@ class AkerNormDiscoveryTests(unittest.TestCase):
             (root / "logs/run.log").write_text("log", encoding="utf-8")
             hashes = artifact_hashes(root)
             self.assertEqual(set(hashes), {"data.txt"})
+
+    def test_stale_fatal_traceback_is_removed_without_touching_other_logs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            logs = root / "logs"
+            logs.mkdir()
+            fatal = logs / "fatal_traceback.log"
+            keep = logs / "discovery_full.log"
+            fatal.write_text("old failure", encoding="utf-8")
+            keep.write_text("current log", encoding="utf-8")
+            self.assertTrue(clear_stale_fatal_traceback(root))
+            self.assertFalse(fatal.exists())
+            self.assertEqual(keep.read_text(encoding="utf-8"), "current log")
+            self.assertFalse(clear_stale_fatal_traceback(root))
 
     def test_frozen_commits_are_full_hashes(self):
         self.assertEqual(len(CONTEXT_COMMIT), 40)

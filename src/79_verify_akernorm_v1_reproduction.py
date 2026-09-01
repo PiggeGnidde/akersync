@@ -51,6 +51,11 @@ def main() -> int:
     manifest = json.loads((output / "discovery_manifest.json").read_text(encoding="utf-8"))
     if manifest.get("status") != "PASS":
         failures.append(f"discovery manifest status is {manifest.get('status')}, expected PASS")
+    if manifest.get("errors"):
+        failures.append(f"discovery manifest contains errors: {manifest.get('errors')}")
+    fatal_traceback = output / "logs/fatal_traceback.log"
+    if fatal_traceback.is_file():
+        failures.append(f"fatal traceback log exists after PASS run: {fatal_traceback}")
     scope = manifest.get("scope") or {}
     forbidden_true = [name for name, value in scope.items() if bool(value)]
     if forbidden_true:

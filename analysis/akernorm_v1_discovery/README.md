@@ -8,6 +8,8 @@ The final comparison is against the rounded values reported in the implementatio
 
 The source cross-check preserves the exact PxWeb query, raw response and 1 kg/ha values. The imported spring-barley analysis snapshot is separately identified as a 10 kg/ha, round-half-up representation. It passes only when every non-exact cell is mathematically rounding-equivalent; every such cell is listed in the source report and summarized as a discovery warning. Any value outside that declared representation remains a fatal mismatch.
 
+Each discovery run removes only a stale `logs/fatal_traceback.log` from an earlier attempt before starting. The independent verifier rejects a PASS manifest that still contains errors or a fatal traceback log.
+
 Windows entry points from the feature worktree:
 
 ```cmd

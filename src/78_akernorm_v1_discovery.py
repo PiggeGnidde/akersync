@@ -24,6 +24,7 @@ from akernorm_v1_discovery_core import (
     analysis_inventory,
     artifact_hashes,
     build_crop_code_contract,
+    clear_stale_fatal_traceback,
     compare_reproduction,
     fetch_official_norms,
     norm_snapshot_value_relation,
@@ -277,6 +278,7 @@ def main() -> int:
     reproduction = output / "reproduction"
     logs = output / "logs/steps"
     output.mkdir(parents=True, exist_ok=True)
+    clear_stale_fatal_traceback(output)
     warnings: list[str] = []
     errors: list[str] = []
     comparison = None

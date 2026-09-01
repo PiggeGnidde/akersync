@@ -91,6 +91,14 @@ def write_markdown(path: Path, lines: list[str]) -> None:
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
+def clear_stale_fatal_traceback(output_dir: Path) -> bool:
+    path = output_dir / "logs/fatal_traceback.log"
+    if not path.exists():
+        return False
+    path.unlink()
+    return True
+
+
 def git(root: Path, *args: str, check: bool = True) -> str:
     proc = subprocess.run(
         ["git", *args], cwd=root, text=True, encoding="utf-8", errors="replace",
