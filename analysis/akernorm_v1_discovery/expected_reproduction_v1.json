@@ -1,0 +1,27 @@
+{
+  "schema_version": "akernorm-v1-discovery-expected-v1",
+  "status": "DISCOVERY_ONLY_NOT_A_MODEL_CONTRACT",
+  "source": "AKERNORM_V1_IMPLEMENTATION_SPEC.md section 3.3 and 5.3",
+  "absolute_tolerance_for_reported_3_decimal_metrics": 0.0015,
+  "comparisons": [
+    {"analysis": "hostvete_score_only", "population": "all_published", "n_sko": 15, "effect_t_ha_per_10_score": 0.285, "r2": 0.412, "loocv_rmse_t_ha": 0.624},
+    {"analysis": "hostvete_score_plus_climate", "population": "exclude_1321_1124_1221", "n_sko": 12, "effect_t_ha_per_10_score": 0.288, "r2": 0.839, "loocv_rmse_t_ha": 0.363},
+    {"analysis": "varkorn_score_only", "population": "all_published", "n_sko": 17, "effect_t_ha_per_10_score": 0.441, "r2": 0.785, "loocv_rmse_t_ha": 0.516},
+    {"analysis": "varkorn_score_only", "population": "geographic_core", "n_sko": 13, "effect_t_ha_per_10_score": 0.389, "r2": 0.689, "loocv_rmse_t_ha": 0.562},
+    {"analysis": "havre_score_only", "population": "all_published", "n_sko": 9, "effect_t_ha_per_10_score": 0.239, "r2": 0.351, "loocv_rmse_t_ha": 0.706},
+    {"analysis": "havre_score_only", "population": "geographic_core", "n_sko": 7, "effect_t_ha_per_10_score": 0.241, "r2": 0.353, "loocv_rmse_t_ha": 1.250, "loocv_rmse_tolerance": 0.015},
+    {"analysis": "hostraps_score_only", "population": "all_published", "n_sko": 13, "effect_t_ha_per_10_score": 0.044, "r2": 0.135, "loocv_rmse_t_ha": 0.199},
+    {"analysis": "hostraps_score_only", "population": "geographic_core", "n_sko": 12, "effect_t_ha_per_10_score": 0.050, "r2": 0.153, "loocv_rmse_t_ha": 0.207},
+    {"analysis": "matpotatis_score_only", "population": "all_published", "n_sko": 9, "effect_t_ha_per_10_score": 1.195, "r2": 0.065, "loocv_rmse_t_ha": 6.858},
+    {"analysis": "matpotatis_score_only", "population": "geographic_core", "n_sko": 8, "effect_t_ha_per_10_score": 1.641, "r2": 0.101, "loocv_rmse_t_ha": 7.543},
+    {"analysis": "starkelsepotatis_score_only", "population": "all_published", "n_sko": 4, "effect_t_ha_per_10_score": 1.013, "r2": 0.128, "loocv_rmse_t_ha": 4.164}
+  ],
+  "proposed_v1_coefficients_for_traceability_only": {
+    "hostvete": 0.025,
+    "varkorn": 0.040,
+    "havre": 0.024,
+    "hostraps": 0.005,
+    "matpotatis": null,
+    "starkelsepotatis": null
+  }
+}
