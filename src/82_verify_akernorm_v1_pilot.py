@@ -17,15 +17,19 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTEXT_COMMIT = "1ad5c77656bb93664d94254af298009a6620da4f"
 
 
-def verify_manifest(root: Path, name: str) -> dict:
+def verify_manifest(root: Path, name: str, artifact_root: Path | None = None) -> dict:
     path = root / f"manifests/{name}"
     if not path.exists():
         raise RuntimeError(f"Missing manifest: {path}")
     document = json.loads(path.read_text(encoding="utf-8-sig"))
     if document.get("status") not in {"PASS", "FROZEN_CANDIDATE_STOPB"}:
         raise RuntimeError(f"Manifest is not PASS: {path}")
+    artifact_root = root if artifact_root is None else artifact_root
     for record in document.get("artifacts", []):
-        artifact = root / record["path"]
+        relative = Path(record["path"])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise RuntimeError(f"Manifest artifact path is unsafe: {record['path']}")
+        artifact = artifact_root / relative
         if not artifact.exists() or sha256_file(artifact) != record["sha256"]:
             raise RuntimeError(f"Manifest artifact mismatch: {record['path']}")
         if artifact.stat().st_size != int(record["bytes"]):
@@ -130,7 +134,7 @@ def main() -> int:
         if subprocess.check_output(["git", "status", "--short"], cwd=ROOT, text=True, encoding="utf-8").strip():
             raise RuntimeError("Working tree is not clean before STOPPUNKT B verification")
         config = load_config(ROOT / "config/akernorm_v1.json")
-        source = verify_manifest(root, "source_manifest.json")
+        source = verify_manifest(root, "source_manifest.json", root / "source")
         model = verify_manifest(root, "model_manifest.json")
         pilot = verify_manifest(root, "pilot_manifest.json")
         for document in (model, pilot):

@@ -25,7 +25,16 @@ def load_pilot_module():
     return module
 
 
+def load_verifier_module():
+    spec = importlib.util.spec_from_file_location("akernorm_v1_verifier", ROOT / "src/82_verify_akernorm_v1_pilot.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 PILOT = load_pilot_module()
+VERIFIER = load_verifier_module()
 CONFIG = load_config(ROOT / "config/akernorm_v1.json")
 
 
@@ -115,6 +124,30 @@ def write_sidecar_fixture(
 
 
 class AkerNormV1PilotTests(unittest.TestCase):
+    def test_source_manifest_artifacts_are_verified_relative_to_source_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "source/normalized/source.csv"
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text("frozen\n", encoding="utf-8")
+            manifest_dir = root / "manifests"
+            manifest_dir.mkdir()
+            manifest = {
+                "status": "FROZEN_CANDIDATE_STOPB",
+                "artifacts": [{
+                    "path": "normalized/source.csv", "bytes": artifact.stat().st_size,
+                    "sha256": PILOT.sha256_file(artifact),
+                }],
+            }
+            (manifest_dir / "source_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            result = VERIFIER.verify_manifest(
+                root, "source_manifest.json", root / "source"
+            )
+            self.assertEqual(result["status"], "FROZEN_CANDIDATE_STOPB")
+            artifact.write_text("tampered\n", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "artifact mismatch"):
+                VERIFIER.verify_manifest(root, "source_manifest.json", root / "source")
+
     def test_frozen_web_sidecars_preserve_material_crop_components(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
