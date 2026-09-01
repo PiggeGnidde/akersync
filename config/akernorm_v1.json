@@ -1,0 +1,130 @@
+{
+  "schema_version": "akernorm-model-config-v1",
+  "model_name": "AkerNorm",
+  "model_version": "akernorm-v1.0-rc1",
+  "status": "FROZEN_CANDIDATE_STOPB",
+  "official_norm_year": 2026,
+  "normalized_unit": "t/ha",
+  "context": {
+    "tag": "akerpass-akerminne-context-v1.0",
+    "commit": "1ad5c77656bb93664d94254af298009a6620da4f"
+  },
+  "validation": {
+    "tag": "akerscore-akerminne-validation-v1.0",
+    "commit": "9ca92418d6c100793dcaf3ae70705c97e556a9d5"
+  },
+  "analysis": {
+    "branch": "feature/akerscore-normskord-validation-v0a",
+    "commit": "0d889b5acd2aa99a3bf70c66b67b63dd79b2b846"
+  },
+  "frozen_inputs": {
+    "field_static_context_selected.csv.gz": {
+      "rows": 128636,
+      "sha256": "31db31b79b53a4c0aa32621fb7bfa44165ea65b6b46371c32e4e19935f59feea"
+    },
+    "akerminne_2015_2025_selected.csv.gz": {
+      "rows": 1414996,
+      "sha256": "05423236dc30544f86422d42ce5c9095376a9d5dac58e6ea110f6e6702cecdcf"
+    },
+    "akerscore_soil_skiften_selected.csv.gz": {
+      "rows": 128636,
+      "sha256": "71dfd711a4243b3cbe465de7eaa013725b2d2f9be3a8890d213a89bc095427da"
+    }
+  },
+  "akerscore_dataset": "akerscore_soil_v0c",
+  "akerminne_version": "akerminne-v1.0",
+  "akerminne_years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+  "sko_overlay_version": "akerpass-akerminne-context-v1.0",
+  "minimum_dominant_sko_share": 0.95,
+  "reference_population": {
+    "history_status": "SINGLE_CROP",
+    "weight": "current_area_m2 per qualified field-year",
+    "repeated_field_years": true,
+    "valid_score_required": true,
+    "positive_area_required": true
+  },
+  "crop_presence": {
+    "dominant_qualified_statuses": ["SINGLE_CROP", "MIXED_CROPS"],
+    "low_coverage_statuses": ["PARTIAL_COVERAGE"],
+    "mixed_component_status": "MIXED_CROPS",
+    "mixed_component_min_share": 0.05,
+    "source_config": "config/akerminne_v1a.json"
+  },
+  "display": {
+    "decimals": 1,
+    "rounding": "ROUND_HALF_UP",
+    "prediction_interval": false
+  },
+  "crops": [
+    {
+      "crop_key": "hostvete",
+      "canonical_code": 4,
+      "canonical_name": "Vete (höst)",
+      "pxweb_label": "Höstvete",
+      "model_mode": "FIELD_ADJUSTED",
+      "beta_t_ha_per_score": 0.025,
+      "effect_t_ha_per_10_score": 0.25
+    },
+    {
+      "crop_key": "varkorn",
+      "canonical_code": 2,
+      "canonical_name": "Korn (vår)",
+      "pxweb_label": "Vårkorn",
+      "model_mode": "FIELD_ADJUSTED",
+      "beta_t_ha_per_score": 0.04,
+      "effect_t_ha_per_10_score": 0.4
+    },
+    {
+      "crop_key": "havre",
+      "canonical_code": 3,
+      "canonical_name": "Havre",
+      "pxweb_label": "Havre",
+      "model_mode": "FIELD_ADJUSTED_HIGHER_UNCERTAINTY",
+      "beta_t_ha_per_score": 0.024,
+      "effect_t_ha_per_10_score": 0.24
+    },
+    {
+      "crop_key": "hostraps",
+      "canonical_code": 20,
+      "canonical_name": "Raps (höst)",
+      "pxweb_label": "Höstraps",
+      "model_mode": "FIELD_ADJUSTED_WEAK_EFFECT",
+      "beta_t_ha_per_score": 0.005,
+      "effect_t_ha_per_10_score": 0.05
+    },
+    {
+      "crop_key": "matpotatis",
+      "canonical_code": 45,
+      "canonical_name": "Matpotatis",
+      "pxweb_label": "Matpotatis",
+      "model_mode": "OFFICIAL_SKO_ONLY_UNVALIDATED_CROP",
+      "beta_t_ha_per_score": null,
+      "effect_t_ha_per_10_score": null
+    },
+    {
+      "crop_key": "starkelsepotatis",
+      "canonical_code": 46,
+      "canonical_name": "Stärkelsepotatis",
+      "pxweb_label": "Potatis för stärkelse",
+      "model_mode": "OFFICIAL_SKO_ONLY_UNVALIDATED_CROP",
+      "beta_t_ha_per_score": null,
+      "effect_t_ha_per_10_score": null
+    }
+  ],
+  "allowed_extrapolation": "No silent clamp; retain value and explicit score_support_status within observed reference support.",
+  "disallowed": [
+    "global regression intercept as local base",
+    "climate coefficients",
+    "score-adjusted potato",
+    "component-weighted multi-SKO estimate",
+    "individual numeric prediction interval",
+    "Sentinel-2 input"
+  ],
+  "known_limitations": [
+    "Official norm is a 2026 SKO-level reference, not a next-season forecast.",
+    "Havre has higher uncertainty and hostraps has a weak score effect.",
+    "Potato is official-SKO-only in V1.",
+    "No field-adjustment is produced below 0.95 dominant SKO share."
+  ],
+  "output_schema_version": "akernorm-field-v1"
+}
