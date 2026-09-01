@@ -45,6 +45,7 @@ def verify_scope() -> list[str]:
         "src/80_freeze_akernorm_v1_model.py", "src/81_run_akernorm_v1_pilot.py",
         "src/82_verify_akernorm_v1_pilot.py", "src/akernorm_v1_discovery_core.py", "src/akernorm_v1_core.py",
         "tests/test_akernorm_v1_discovery.py", "tests/test_akernorm_v1_model.py",
+        "tests/test_akernorm_v1_pilot.py",
     }
     allowed_prefixes = ("analysis/akerscore_normskord_validation_v0a/", "analysis/akernorm_v1_discovery/")
     unexpected = [path for path in changed if path not in allowed_exact and not path.startswith(allowed_prefixes)]
