@@ -1,0 +1,131 @@
+{
+  "schema_version": "rapskartan-geometry-lineage-v1",
+  "current_2025": {
+    "path": "C:\\AkerSyncRaw\\jv_skane_2025\\arslager_skifte_skane_2025.gpkg",
+    "sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706",
+    "expected_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706",
+    "hash_status": "PASS",
+    "field_identity_count": 128636,
+    "lineage": "Exact 2025 Jordbruksverket field layer used by frozen ÅkerMinne/ÅkerNorm.",
+    "blind_guard": "Only geometry/identity columns may be projected for 2025 model input; crop attributes remain behind the blind-label gate."
+  },
+  "historical_year_specific": [
+    {
+      "year": 2015,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 77557760,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "8611396e5de820afc7fd2756ee07c77e5226755f5a464cfe36c0e998a6216214"
+    },
+    {
+      "year": 2016,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 70393856,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "80f52d0cf7b1055699b94bafd8f2762549e7c79297f4b00e2a8417a381e2856a"
+    },
+    {
+      "year": 2017,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 73494528,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "e809d69fca2bc2c577a7a4bfdcb9d0727248463081a39d10bfa844936c7e1f64"
+    },
+    {
+      "year": 2018,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 78372864,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "2eaf33382a3700401b4c8e48be93661fb41c7819d1fb8490ae3068440ac54344"
+    },
+    {
+      "year": 2019,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 79802368,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "073a51a6def51a0c23509f880d58ed50452ec1f79a9201fcafac19efc2304d6d"
+    },
+    {
+      "year": 2020,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 83677184,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "9c42e86d6b4aee2eadab1f3d7609209700ab8eef1292f4d62499b0a74514a50a"
+    },
+    {
+      "year": 2021,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 83460096,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "f7673969a086c1c815c5f19ed2e1a424861ae43c99d34465a1253a681d4cb536"
+    },
+    {
+      "year": 2022,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 84520960,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "b6ec8c5f64975ee768b107612af3c2f9fec479fa68b1bb28b5a5badabedc6ffe"
+    },
+    {
+      "year": 2023,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 84889600,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "6305476729bbf29a0526c782de4762cca6ef038e9e52799d8afe49f7236ad109"
+    },
+    {
+      "year": 2024,
+      "expected_municipality_files": 33,
+      "existing_municipality_files": 33,
+      "total_bytes": 86597632,
+      "complete": true,
+      "missing_files": [],
+      "path_size_inventory_sha256": "0ffb0cd99406c7437872d345eb4f78736ae06972b1e2e8ae76c2a0aeeeaa7175"
+    }
+  ],
+  "complete_years": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "development_geometry_candidate_years": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "akerminne_harmonization": "ÅkerMinne 2015-2024 maps historical polygons to fixed 2025 reference fields; those harmonized shapes are not accepted as year-specific satellite training geometry.",
+  "classification_basis_proposal": "Use each development year's official field geometry and same-year crop label; use exact 2025 field geometry for blind predictions with crop columns projected out.",
+  "split_merge_rule": "Train/evaluate on the field definition of each target year. ÅkerMinne split/merge mapping is prior-only metadata, never a replacement geometry for satellite labels."
+}

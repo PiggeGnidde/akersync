@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "id": "S2A_MSIL2A_20240430T102021_N0510_R065_T33UUB_20240430T143850",
+      "collection": "sentinel-2-l2a",
+      "bbox": [
+        11.800511438780461,
+        54.91902653885059,
+        13.591601297939253,
+        55.93727334575647
+      ],
+      "properties": {
+        "datetime": "2024-04-30T10:20:21.024000Z",
+        "eo:cloud_cover": 34.23
+      }
+    }
+  ],
+  "context": null,
+  "numberMatched": null
+}

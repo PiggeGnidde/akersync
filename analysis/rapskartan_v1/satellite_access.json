@@ -1,0 +1,56 @@
+{
+  "stac": {
+    "status": "PASS",
+    "collection_url": "https://stac.dataspace.copernicus.eu/v1/collections/sentinel-2-l2a",
+    "search_url": "https://stac.dataspace.copernicus.eu/v1/search",
+    "bbox": [
+      13.17,
+      55.69,
+      13.18,
+      55.7
+    ],
+    "datetime": "2024-04-01T00:00:00Z/2024-04-30T23:59:59Z",
+    "ground_truth_selected_aoi": false,
+    "collection_id": "sentinel-2-l2a",
+    "collection_title": "Sentinel-2 Level-2A",
+    "collection_raw_sha256": "ed49673e2b8a21e7af93bf8af167e67cce89ec750a299eb85d39fdcbe0c0685a",
+    "search_raw_sha256": "45037f9c65224fcba8a3280447bcb7fd70c26af955663671588318b5407d358a",
+    "returned_items": 1,
+    "first_item_id": "S2A_MSIL2A_20240430T102021_N0510_R065_T33UUB_20240430T143850",
+    "first_item_datetime": "2024-04-30T10:20:21.024000Z",
+    "matched": null,
+    "stored_response": "source/sentinel2_stac_search_smoke.json"
+  },
+  "process": {
+    "status": "PASS",
+    "token_url": "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
+    "process_url": "https://sh.dataspace.copernicus.eu/process/v1",
+    "credential_environment_variables": [
+      "CDSE_CLIENT_ID",
+      "CDSE_CLIENT_SECRET"
+    ],
+    "credentials_logged": false,
+    "request_sha256": "bd7264c7e65fd8a371a0679a8305f846c5d988001d3df902ed687f336ca8ee89",
+    "bbox": [
+      13.17,
+      55.69,
+      13.18,
+      55.7
+    ],
+    "datetime": "2024-04-01T00:00:00Z/2024-04-30T23:59:59Z",
+    "width": 32,
+    "height": 32,
+    "bands": [
+      "B04",
+      "B08",
+      "SCL",
+      "dataMask"
+    ],
+    "ground_truth_selected_aoi": false,
+    "response_bytes": 8261,
+    "response_sha256": "68b536832275583ec6b3b92089e33222650830fa2ec6e05be4a2d159f1ff4f89",
+    "content_type": "image/tiff",
+    "processing_units_spent": "0.02",
+    "pixel_payload_persisted": false
+  }
+}

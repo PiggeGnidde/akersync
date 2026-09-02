@@ -1,11 +1,86 @@
 {
-  "schema_version": "rapskartan-skane-v1-discovery-source-manifest-v1",
-  "status": "IMPLEMENTATION_READY_FOR_WINDOWS_REPRODUCTION",
+  "schema_version": "rapskartan-skane-v1-discovery-v1",
+  "generated_at_utc": "2026-09-02T19:28:54.215763+00:00",
+  "status": "PASS",
   "upstream_tag": "akernorm-v1.0",
   "upstream_commit": "c859a69de51a104d10f87906d4d050a34222bbb4",
-  "phase": "STOPPUNKT_A_DISCOVERY_ONLY",
-  "classifier_created": false,
-  "mass_download_run": false,
-  "sentinel1_touched": false,
-  "web_touched": false
+  "feature_head": "4a51bfed574752a0758aee61e90a7250dd99b83c",
+  "scope": {
+    "discovery_only": true,
+    "row_level_2025_ground_truth_exported": false,
+    "classifier_created": false,
+    "features_created": false,
+    "threshold_selected": false,
+    "mass_download_run": false,
+    "sentinel1_touched": false,
+    "web_touched": false,
+    "deployment": false
+  },
+  "warnings": [
+    "AMBIGUOUS_S2_YEAR_USABILITY: exact optical coverage by development year is deferred to bounded S2 pilot",
+    "AMBIGUOUS_CLOUD_MASK: exact SCL/CLD mask is deliberately not frozen at discovery"
+  ],
+  "errors": [],
+  "artifacts": [
+    {
+      "path": "discovery_repository_report.md",
+      "bytes": 1063,
+      "sha256": "7da9f092174aea8486baf69c0dfd35d15cd909b6354b886087c04b02b1650c63"
+    },
+    {
+      "path": "crop_ground_truth_inventory.csv",
+      "bytes": 1342,
+      "sha256": "cb8ae60e50eca892882310e87f5ec78e49182e11f40a2e0e568e965db21ae27d"
+    },
+    {
+      "path": "crop_code_contract.json",
+      "bytes": 13123,
+      "sha256": "216e4c90c4bdb8f98aecc384f66d9ce8188a9814d2cd4e5cf9e825fa35cb94ec"
+    },
+    {
+      "path": "ground_truth_source.json",
+      "bytes": 464,
+      "sha256": "461464066c683bc0b59182c6577d94ff140e18a3e41022f2348c463a5fffcbcf"
+    },
+    {
+      "path": "geometry_lineage.json",
+      "bytes": 4664,
+      "sha256": "bdf08c296a9a32d740f3919a4bdec6a55bc62e5d0ce7e9a7fea12dd6cfc14942"
+    },
+    {
+      "path": "geometry_lineage.md",
+      "bytes": 2572,
+      "sha256": "991d5bedc00b0dcd63ee3dedd4027c69d6daad6a8ab948e14385dda3be16b73c"
+    },
+    {
+      "path": "satellite_access.json",
+      "bytes": 1914,
+      "sha256": "8515621cf623c8feb0f002c48e84f560adadc681f9e1d2547c75ff520801615d"
+    },
+    {
+      "path": "satellite_access_report.md",
+      "bytes": 2547,
+      "sha256": "15daeb72aae6b3e0d684f3f94cec45e24c38afdb7d0298ebedbee43ae8e42528"
+    },
+    {
+      "path": "cache_storage_estimate.json",
+      "bytes": 1848,
+      "sha256": "f691b906bf5025835abceea091b2825f01ed502581804ede5d62876a4fe9ea02"
+    },
+    {
+      "path": "temporal_cutoff_contract.json",
+      "bytes": 1435,
+      "sha256": "8cc44e0908018143b1b7e7816fc1c31d6c9ab2c81fa35ba4659430b1a08c63eb"
+    },
+    {
+      "path": "discovery_qa.md",
+      "bytes": 697,
+      "sha256": "db21ed42a140421bd280330903f2fc0450e14288166c98f93ed5960710b5299d"
+    },
+    {
+      "path": "source/sentinel2_stac_search_smoke.json",
+      "bytes": 493,
+      "sha256": "cbb7056ea278c776ee4312f27ec0ac77c34ecf269f19d94410bc1d9732c3d6ed"
+    }
+  ]
 }

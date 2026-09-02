@@ -1,0 +1,15 @@
+{
+  "path": "C:\\AkerSyncRepo\\work\\akerscore_validation_csv_upload\\akerminne_2015_2025_selected.csv.gz",
+  "sha256": "05423236dc30544f86422d42ce5c9095376a9d5dac58e6ea110f6e6702cecdcf",
+  "rows": 1414996,
+  "columns_read": [
+    "current_area_m2",
+    "current_field_id",
+    "dominant_crop_code_raw",
+    "dominant_crop_name",
+    "dominant_crop_subcategory_raw",
+    "history_year",
+    "status"
+  ],
+  "contains_row_level_2025_output": false
+}

@@ -1,0 +1,63 @@
+{
+  "status": "PLANNING_ESTIMATE_NOT_ALLOCATION",
+  "assumptions": {
+    "skane_area_km2": 11027,
+    "common_grid_m": 10,
+    "reflectance_bands": 10,
+    "quality_layers": [
+      "SCL",
+      "dataMask"
+    ],
+    "bytes_per_common_grid_pixel": 22,
+    "candidate_spring_observations_per_year": 24,
+    "candidate_development_years": 7
+  },
+  "uncompressed_full_scene_equivalent_gib_per_observation": 2.26,
+  "uncompressed_seven_year_upper_planning_gib": 379.6,
+  "recommended_source_cache_envelope_gib": [
+    200,
+    800
+  ],
+  "recommended_field_aggregate_envelope_gib": [
+    1,
+    5
+  ],
+  "pilot_budget": {
+    "area": "two small municipalities or <=500 fields",
+    "source_cache_gib": [
+      2,
+      10
+    ],
+    "api_requests": "bounded and logged"
+  },
+  "cache_contract": {
+    "root": "C:\\AkerSyncRaw\\rapskartan_v1\\sentinel2_l2a",
+    "layout": "provider/collection/target_year/acquisition_date/request_sha256",
+    "immutable_keys": [
+      "provider",
+      "collection",
+      "bbox_or_geometry_hash",
+      "time_range",
+      "bands",
+      "processing_parameters",
+      "evalscript_sha256"
+    ],
+    "required_provenance": [
+      "request.json",
+      "response_headers.json",
+      "response_sha256",
+      "acquisition timestamps",
+      "API endpoint",
+      "retrieved_at_utc"
+    ],
+    "secret_storage": "Environment variables only; never manifest, cache, log or Git."
+  },
+  "official_general_user_quota_snapshot": {
+    "sentinel_hub_requests_per_month": 10000,
+    "sentinel_hub_requests_per_minute": 300,
+    "processing_units_per_month": 10000,
+    "processing_units_per_minute": 300,
+    "source": "https://documentation.dataspace.copernicus.eu/Quotas.html",
+    "note": "Verify again before the data pilot because quotas can change."
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": "rapskartan-skane-v1-stopa-acceptance-v1",
+  "accepted_at_utc": "2026-09-02T19:41:57Z",
+  "status": "PASS",
+  "source_archive": {
+    "name": "rapskartan_stopA_return_4a51bfe.zip",
+    "sha256": "e8d60f249e0beedf8f6cc643fec8aca7b4359c651a23815ff78d94a156b2d9f2",
+    "execution_manifest_sha256": "95abd8bbe75233205f6af81b033c9ef8ef5197445b2417635ed1fcb938c1c9e1",
+    "feature_head": "4a51bfed574752a0758aee61e90a7250dd99b83c"
+  },
+  "review": {
+    "zip_integrity": "PASS",
+    "execution_manifest_artifacts": "12/12 PASS",
+    "credential_scan": "PASS",
+    "blocking_errors": 0,
+    "intentional_ambiguities": [
+      "AMBIGUOUS_S2_YEAR_USABILITY",
+      "AMBIGUOUS_CLOUD_MASK"
+    ]
+  },
+  "scope": {
+    "discovery_only": true,
+    "classifier_created": false,
+    "mass_download_run": false,
+    "sentinel1_touched": false,
+    "web_touched": false,
+    "deployment": false
+  },
+  "note": "Text artifacts are LF-normalized for Git. Their repository hashes are recorded below; the source archive hash preserves the exact Windows return package.",
+  "artifacts": [
+    {"path": "cache_storage_estimate.json", "bytes": 1785, "sha256": "17787e194bafb4c44376f9a4fabb0a394b2efad618bf5c84942e11cf5e960274"},
+    {"path": "crop_code_contract.json", "bytes": 12688, "sha256": "4ce330d84e262c8bf74a29e5a48c8a2ff745f1cf1ecc81a7593fd9ba51c8fd10"},
+    {"path": "crop_ground_truth_inventory.csv", "bytes": 1330, "sha256": "e0ae65686923aa460d43281035dcbbeb13abbe4b2d217bfca0c599dc6d77b16a"},
+    {"path": "discovery_manifest.json", "bytes": 2786, "sha256": "ef59b705bf944962de4909dfb8e4a51039aca38a3c18a282c758aaf696d7396f"},
+    {"path": "discovery_qa.md", "bytes": 676, "sha256": "7283e2a7a458564282e26db2f4e76ff532139bedd59a51193002d4edbc214bbb"},
+    {"path": "discovery_repository_report.md", "bytes": 1041, "sha256": "e66375df41bd2b2bae059d147a8ae81f24cc3a8180c7b0b990969eb7686af1b8"},
+    {"path": "geometry_lineage.json", "bytes": 4533, "sha256": "51bc7037b08d66dffeb973fea12c5595fd000577e794181490fe17fe48f76059"},
+    {"path": "geometry_lineage.md", "bytes": 2541, "sha256": "188aa0b4d88ae8e6fb0e093c7036a1555729664aab113c85bbab01f471f91bb2"},
+    {"path": "ground_truth_source.json", "bytes": 449, "sha256": "939fc648affe2d2bed7238de49d5b77a31a4966543adce0b4f8adb1cd79d1e59"},
+    {"path": "satellite_access.json", "bytes": 1858, "sha256": "32342ed67afbd70aabc678786bc0c9975f430b55aa376ad5c861c9819191cff8"},
+    {"path": "satellite_access_report.md", "bytes": 2503, "sha256": "755272dfbd7b4cb6198983731953728403811898d847afbca6584377433637e8"},
+    {"path": "source/sentinel2_stac_search_smoke.json", "bytes": 472, "sha256": "af4bacb9cfb72a1cf05a7e8d7993333174888cd49e60b22ef749777d2373cb33"},
+    {"path": "temporal_cutoff_contract.json", "bytes": 1414, "sha256": "f87891f4f49aeaee18604824037cc6c6bede2048345268a7444da1564424224e"}
+  ]
+}

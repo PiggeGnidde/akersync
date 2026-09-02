@@ -1,13 +1,435 @@
 {
   "schema_version": "rapskartan-crop-code-contract-v1",
-  "status": "GENERATED_AND_VERIFIED_BY_WINDOWS_DISCOVERY",
-  "positive_official_name": "Raps (höst)",
-  "lookup_contract": "Exact same-year (crop_code_raw, crop_subcategory_raw), then same-year main-code fallback only; cross-year fallback forbidden.",
-  "known_paths": {
-    "2015-2018": ["20/<NULL>"],
-    "2019-2025": ["20/<NULL>", "80/20"]
+  "status": "PASS",
+  "target": {
+    "binary_positive": "Raps (höst)",
+    "binary_negative": "all other official annual crop mappings"
   },
   "canonical_product_code": 20,
-  "explicit_non_positive_names": ["Raps (vår)", "Högerukaraps"],
-  "blind_guard": "No row-level 2025 labels are emitted at STOPPUNKT A."
+  "lookup_contract": "Exact same-year (crop_code_raw, crop_subcategory_raw), then same-year main-code fallback only; cross-year fallback forbidden.",
+  "positive_mappings": [
+    {
+      "year": 2015,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2016,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2017,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2018,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2019,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2019,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "20",
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2020,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2020,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "20",
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2021,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2021,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "20",
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2022,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2022,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "20",
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2023,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2023,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "20",
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2024,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2024,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "20",
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2025,
+      "crop_code_raw": "20",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (höst)",
+      "official_group": null
+    },
+    {
+      "year": 2025,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "20",
+      "official_name": "Raps (höst)",
+      "official_group": null
+    }
+  ],
+  "explicit_non_positive_rapeseed_mappings": [
+    {
+      "year": 2015,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2015,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2016,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2016,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2017,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2017,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2018,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2018,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2019,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2019,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2019,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "21",
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2020,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2020,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2020,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "21",
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2021,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2021,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2021,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "21",
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2022,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2022,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2022,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "21",
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2023,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2023,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2023,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "21",
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2024,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2024,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2024,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "21",
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2025,
+      "crop_code_raw": "21",
+      "crop_subcategory_raw": null,
+      "official_name": "Raps (vår)",
+      "official_group": null
+    },
+    {
+      "year": 2025,
+      "crop_code_raw": "26",
+      "crop_subcategory_raw": null,
+      "official_name": "Högerukaraps",
+      "official_group": null
+    },
+    {
+      "year": 2025,
+      "crop_code_raw": "80",
+      "crop_subcategory_raw": "21",
+      "official_name": "Raps (vår)",
+      "official_group": null
+    }
+  ],
+  "dictionary": {
+    "schema_version": "akerminne-official-crop-dictionaries-v2-text-payload",
+    "source": "Jordbruksverket customer service; annual SAM crop-code workbooks supplied 2026-08-26",
+    "received_date": "2026-08-26",
+    "total_normalized_rows": 1572,
+    "years": {
+      "2015": {
+        "normalized_rows": 90,
+        "keys": 90,
+        "normalized_sha256": "fd9237494a3daf2f12f2debaa7b8dabea52257e12bd2b80954614b5b95c31c05",
+        "source_filename": "Fastställda grödkoder 2015.xls",
+        "source_sha256": "a014f636085a59487d725b57cc8123b526e3986769d2c0e0c86b0bf05dcf7aa3"
+      },
+      "2016": {
+        "normalized_rows": 84,
+        "keys": 84,
+        "normalized_sha256": "e7b6de6caa808789f9fd0a04fa3f607fd2ab176e9ff3ab70dc4caf4032780207",
+        "source_filename": "Kopia av Grödkodslista 2016 webbexemplar.xlsx",
+        "source_sha256": "d41e0091f304b467928b2f205afd04dff0753662c06c0510c6cd5e1bd8338479"
+      },
+      "2017": {
+        "normalized_rows": 84,
+        "keys": 84,
+        "normalized_sha256": "6b15fe9ccd7727853d156e59ad406fc4df8d84f1876550a2b9d857bdc80f3e02",
+        "source_filename": "Kopia av Grödkodslista 2017 webbexemplar.xlsx",
+        "source_sha256": "8a3528af22729845ed32aafaa2e873d6179f092e7eae46c381c2b291f2dc966a"
+      },
+      "2018": {
+        "normalized_rows": 81,
+        "keys": 81,
+        "normalized_sha256": "794e3c83271568fee3b1819d1b3dbd48f121d07952550c65ee5cc8e568903062",
+        "source_filename": "Kopia av Grödkodslista 2018 webbexemplar.xlsx",
+        "source_sha256": "fe25002bcbb4eaac2711ba108296b4d59cf277df368e37c8090648ed88d8759a"
+      },
+      "2019": {
+        "normalized_rows": 179,
+        "keys": 179,
+        "normalized_sha256": "fadc894d3c6937dcc8946281f068d90e3160741aa87d61d0aa727a94f81fce0d",
+        "source_filename": "Kopia av Grödkodslista 2019 webbexemplar.xlsx",
+        "source_sha256": "14ea6163835eab0a4935a70f63a1e1d52d5b01dafee23cc906b1f8290a9813c5"
+      },
+      "2020": {
+        "normalized_rows": 179,
+        "keys": 179,
+        "normalized_sha256": "8b13552d35285f38788573da08d00d6a9bb13873b8a6fa4ddc9eec078d9d113e",
+        "source_filename": "Kopia av Grödkodslista 2020 webbexemplar.xlsx",
+        "source_sha256": "4b4d12b06c8a882b79946d9a5d75c8dc3c1d2b663c7b23f001ec4228a09cb77b"
+      },
+      "2021": {
+        "normalized_rows": 179,
+        "keys": 179,
+        "normalized_sha256": "ff048143f76689580c4a4b6ce4e4bca2e5c41cb6ec995c187bf26694fc3ccfa0",
+        "source_filename": "Kopia av Grödkodslista 2021 webbexemplar.xlsx",
+        "source_sha256": "daa56aee296eed40c90eedef12390631ffdf375357aac8172ba12ebf125ca8d0"
+      },
+      "2022": {
+        "normalized_rows": 179,
+        "keys": 179,
+        "normalized_sha256": "ff048143f76689580c4a4b6ce4e4bca2e5c41cb6ec995c187bf26694fc3ccfa0",
+        "source_filename": "Kopia av Grödkodslista 2022 webbexemplar.xlsx",
+        "source_sha256": "05b1e002a240e4f234b7aa55ebfd431d1fd5692039c14a9c7d85f70fc2693799"
+      },
+      "2023": {
+        "normalized_rows": 170,
+        "keys": 170,
+        "normalized_sha256": "f1b6cd3fa0955d849dfcfcbc2f2d5032dc051f550c678c22a0ec5501ac41167d",
+        "source_filename": "Kopia av Grödkodslista 2023 webbexemplar.xlsx",
+        "source_sha256": "32829d63a560203e9e4ee7ce4221d62cfd5bdc862fb7cc4cf94537da1de0fc00"
+      },
+      "2024": {
+        "normalized_rows": 171,
+        "keys": 171,
+        "normalized_sha256": "d932f152aa0d522f5624aa88020fd9cd676d96626f39b17158e95e499fa09aae",
+        "source_filename": "Kopia av Grödkodslista 2024 webbexemplar.xlsx",
+        "source_sha256": "827353cbbb7ffdc2ef4e93ec070a7faf0464a36d0d0c8ae2de605410c9b0ff9b"
+      },
+      "2025": {
+        "normalized_rows": 176,
+        "keys": 176,
+        "normalized_sha256": "f5276a59714d3bace2cc44d3a7f9c89bf73df3d7a057ff92f0c9e1990c364699",
+        "source_filename": "Kopia av Grödkodslista 2025 webbexemplar.xlsx",
+        "source_sha256": "c1c21ec6be88aec91f4ddc108cb6f0f68a964a3f9dadc0d1746355d27c7ee827"
+      }
+    }
+  },
+  "ground_truth_rules": {
+    "2025_use": "aggregate discovery inventory and later locked blind evaluation only",
+    "row_level_2025_export_at_stop_a": false,
+    "eligible_status_for_harmonized_inventory": "SINGLE_CROP",
+    "historical_training_geometry": "year-specific official field geometry; final eligibility pending complete Windows inventory"
+  },
+  "errors": []
 }
