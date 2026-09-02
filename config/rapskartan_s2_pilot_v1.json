@@ -1,0 +1,176 @@
+{
+  "schema_version": "rapskartan-s2-datapilot-v1",
+  "phase": "SENTINEL_2_DATAPILOT_ONLY",
+  "stop_point": "B",
+  "pilot_strata": [
+    {
+      "target_year": 2020,
+      "municipality_code": "1264",
+      "municipality_name": "Skurup",
+      "geography_role": "COASTAL_SOUTH",
+      "winter_rapeseed_fields": 6,
+      "winter_crop_control_fields": 3,
+      "spring_crop_control_fields": 3
+    },
+    {
+      "target_year": 2024,
+      "municipality_code": "1285",
+      "municipality_name": "Eslöv",
+      "geography_role": "INLAND_CENTRAL",
+      "winter_rapeseed_fields": 6,
+      "winter_crop_control_fields": 3,
+      "spring_crop_control_fields": 3
+    }
+  ],
+  "expected_selected_fields": 24,
+  "selection": {
+    "minimum_area_ha": 0.3,
+    "maximum_area_ha": 150.0,
+    "area_rule": "Deterministic evenly spaced ranks across the eligible area distribution within every stratum and crop group.",
+    "winter_crop_controls": [
+      "Vete (höst)",
+      "Korn (höst)",
+      "Rågvete (höst)",
+      "Råg"
+    ],
+    "spring_crop_controls": [
+      "Vete (vår)",
+      "Korn (vår)",
+      "Rågvete (vår)",
+      "Havre"
+    ],
+    "positive_crop": "Raps (höst)"
+  },
+  "temporal": {
+    "start_month_day": "03-01",
+    "end_exclusive_month_day": "06-11",
+    "daily_aggregation_interval": "P1D",
+    "cutoff_month_days": [
+      "03-15",
+      "03-31",
+      "04-10",
+      "04-20",
+      "04-30",
+      "05-10",
+      "05-20",
+      "05-31",
+      "06-10"
+    ],
+    "causal_rule": "No observation after a cutoff may be used when later temporal features are assembled."
+  },
+  "sentinel2": {
+    "collection": "sentinel-2-l2a",
+    "resolution_m": 10,
+    "mosaicking": "SIMPLE",
+    "mosaicking_order": "leastCC",
+    "max_scene_cloud_coverage_percent": 100,
+    "harmonize_values": true,
+    "reflectance_units": "REFLECTANCE",
+    "bands": [
+      "B02",
+      "B03",
+      "B04",
+      "B05",
+      "B06",
+      "B07",
+      "B08",
+      "B8A",
+      "B11",
+      "B12"
+    ],
+    "quality_bands": [
+      "SCL",
+      "CLD",
+      "dataMask"
+    ],
+    "indices": {
+      "NDVI": "(B08-B04)/(B08+B04)",
+      "NDRE": "(B8A-B05)/(B8A+B05)",
+      "EVI2": "2.5*(B08-B04)/(B08+2.4*B04+1)",
+      "GNDVI": "(B08-B03)/(B08+B03)",
+      "LSWI": "(B08-B11)/(B08+B11)",
+      "NIRV": "B08*NDVI",
+      "YELLOWNESS": "(B03-(B02+B04)/2)/(B03+(B02+B04)/2)"
+    }
+  },
+  "cloud_mask": {
+    "version": "s2l2a-scl-conservative-v1",
+    "valid_scl_codes": [
+      2,
+      4,
+      5
+    ],
+    "excluded_scl_codes": {
+      "0": "NO_DATA",
+      "1": "SATURATED_OR_DEFECTIVE",
+      "3": "CLOUD_SHADOW",
+      "6": "WATER",
+      "7": "LOW_PROBABILITY_CLOUD_OR_UNCLASSIFIED",
+      "8": "MEDIUM_PROBABILITY_CLOUD",
+      "9": "HIGH_PROBABILITY_CLOUD",
+      "10": "CIRRUS",
+      "11": "SNOW_OR_ICE"
+    },
+    "cld_use": "DIAGNOSTIC_ONLY_NOT_A_THRESHOLD",
+    "minimum_valid_pixels": 4,
+    "minimum_valid_pixel_fraction": 0.2
+  },
+  "edge_rules": [
+    {
+      "id": "ORIGINAL",
+      "negative_buffer_m": 0
+    },
+    {
+      "id": "BUFFER_10M",
+      "negative_buffer_m": 10
+    },
+    {
+      "id": "BUFFER_20M",
+      "negative_buffer_m": 20
+    }
+  ],
+  "statistics": {
+    "percentiles": [
+      10,
+      50,
+      90
+    ],
+    "primary_field_summary": "P50",
+    "scl_fraction_output": true
+  },
+  "qa": {
+    "timeseries_plot_fields": 8,
+    "cloud_mask_image_fields": 4,
+    "cloud_mask_dates_per_field": 2,
+    "image_max_pixels": 256
+  },
+  "resource_guards": {
+    "maximum_selected_fields": 50,
+    "maximum_authenticated_api_requests": 140,
+    "maximum_cache_bytes": 52428800,
+    "cache_root": "C:\\AkerSyncRaw\\rapskartan_v1\\sentinel2_l2a\\datapilot_v1"
+  },
+  "blind_guard": {
+    "allowed_target_years": [
+      2020,
+      2024
+    ],
+    "forbidden_target_year": 2025,
+    "row_level_2025_ids_allowed": false,
+    "row_level_2025_labels_allowed": false,
+    "model_training_allowed": false,
+    "threshold_selection_allowed": false,
+    "calibration_allowed": false
+  },
+  "forbidden_scope": {
+    "classifier": true,
+    "model_freeze": true,
+    "mass_download": true,
+    "sentinel1": true,
+    "blind_2025_evaluation": true,
+    "full_skane": true,
+    "web": true,
+    "deployment": true,
+    "tag": true
+  }
+}

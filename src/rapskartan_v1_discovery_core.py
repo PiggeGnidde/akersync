@@ -163,7 +163,7 @@ def satellite_code_inventory(root: Path) -> list[str]:
         if any(part in {".git", "dist", "data"} for part in path.parts):
             continue
         relative = path.relative_to(root).as_posix().lower()
-        if "rapskartan_v1" in relative or path.name.startswith(("RUN_RAPSKARTAN", "VERIFY_RAPSKARTAN")):
+        if "rapskartan_" in relative or path.name.startswith(("RUN_RAPSKARTAN", "VERIFY_RAPSKARTAN")):
             continue
         if "sentinel" in path.name.lower() or "satellite" in path.name.lower():
             hits.append(path.relative_to(root).as_posix())
