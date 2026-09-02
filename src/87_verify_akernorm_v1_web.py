@@ -228,6 +228,23 @@ def main() -> int:
         if len(entries) != EXPECTED_MUNICIPALITIES or {str(row["municipality_code"]) for row in entries} & DEEP_CODES != DEEP_CODES:
             raise RuntimeError("ÅkerNorm municipality index is incomplete")
         verify_html(dist / "index.html", entries)
+        cases = index.get("test_cases") or []
+        required_cases = {
+            "adjusted_wheat_premium", "adjusted_wheat_discount", "adjusted_barley",
+            "oats_higher_uncertainty", "rape_weak_effect", "table_potato_official_only",
+            "starch_potato_official_only", "history_component_only", "low_sko_share",
+            "missing_akerscore", "unsupported_crop", "no_qualifying_crops",
+        }
+        if {str(row.get("category")) for row in cases} != required_cases:
+            raise RuntimeError("Web test-case inventory is incomplete")
+        for case in cases:
+            if case["category"] == "no_qualifying_crops":
+                if case.get("status") != "NOT_PRESENT_IN_STOPC":
+                    raise RuntimeError("No-history web case must document frozen-input absence")
+                continue
+            direct = str(case.get("direct_url") or "")
+            if not all(token in direct for token in ("kommun=", "block=", "skifte=", "lager=score")):
+                raise RuntimeError(f"Web test case lacks direct field URL: {case['category']}")
 
         total_fields = total_rows = total_bytes = 0
         statuses: Counter[str] = Counter()
@@ -273,6 +290,10 @@ def main() -> int:
         if dict(sorted(statuses.items())) != index.get("status_counts"):
             raise RuntimeError("All-Skåne web status reconciliation differs")
         write_reports(output_root, manifest, index, sizes)
+        (output_root / "qa/web_test_cases.json").write_text(
+            json.dumps({"schema_version": "akernorm-web-test-cases-v1", "status": "PASS", "test_cases": cases}, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         print("=" * 88)
         print("AKERNORM V1 STOPPUNKT D WEB VERIFIER: PASS")
         print("=" * 88)

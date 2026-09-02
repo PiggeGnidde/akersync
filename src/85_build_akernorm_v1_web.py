@@ -20,6 +20,7 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import pandas as pd
 
@@ -252,8 +253,8 @@ def build_payload(result: pd.DataFrame, coverage: pd.DataFrame, checkpoint: dict
         raise RuntimeError("Municipality rows do not share one norm year/model/source")
     dictionaries, indexes = make_dictionaries(result)
     fields: dict[str, list[list[Any]]] = {field_id: [] for field_id in field_ids}
-    for field_id, group in result.groupby(result["current_field_id"].astype(str), sort=True):
-        ordered = sorted((row for _, row in group.iterrows()), key=row_sort_key)
+    for field_id, group_rows in result.groupby(result["current_field_id"].astype(str), sort=True):
+        ordered = sorted((row for _, row in group_rows.iterrows()), key=row_sort_key)
         fields[str(field_id)] = [pack_row(row, indexes) for row in ordered]
     statuses = Counter(result["model_status"].astype(str))
     return {
@@ -271,6 +272,71 @@ def build_payload(result: pd.DataFrame, coverage: pd.DataFrame, checkpoint: dict
     }
 
 
+def test_case_candidates(result: pd.DataFrame) -> list[dict[str, Any]]:
+    """Return at most one deterministic municipality candidate per UI contract case."""
+    specs = (
+        ("adjusted_wheat_premium", result["crop_code_canonical"].eq(4) & result["model_status"].astype(str).str.startswith("FIELD_ADJUSTED") & result["adjustment_t_ha"].gt(0)),
+        ("adjusted_wheat_discount", result["crop_code_canonical"].eq(4) & result["model_status"].astype(str).str.startswith("FIELD_ADJUSTED") & result["adjustment_t_ha"].lt(0)),
+        ("adjusted_barley", result["crop_code_canonical"].eq(2) & result["model_status"].eq("FIELD_ADJUSTED")),
+        ("oats_higher_uncertainty", result["model_status"].eq("FIELD_ADJUSTED_HIGHER_UNCERTAINTY")),
+        ("rape_weak_effect", result["model_status"].eq("FIELD_ADJUSTED_WEAK_EFFECT")),
+        ("table_potato_official_only", result["crop_code_canonical"].eq(45) & result["model_status"].astype(str).str.startswith("OFFICIAL_SKO_ONLY")),
+        ("starch_potato_official_only", result["crop_code_canonical"].eq(46) & result["model_status"].astype(str).str.startswith("OFFICIAL_SKO_ONLY")),
+        ("history_component_only", result["history_quality"].eq("HISTORY_COMPONENT_ONLY")),
+        ("low_sko_share", result["model_status"].eq("UNAVAILABLE_LOW_SKO_SHARE")),
+        ("missing_akerscore", result["model_status"].eq("UNAVAILABLE_MISSING_AKERSCORE")),
+        ("unsupported_crop", result["model_status"].eq("UNAVAILABLE_NO_OFFICIAL_NORM")),
+    )
+    candidates = []
+    for category, mask in specs:
+        pool = result.loc[mask].sort_values(["current_field_id", "crop_code_canonical"], kind="mergesort")
+        if pool.empty:
+            continue
+        row = pool.iloc[0]
+        field_id = str(row["current_field_id"])
+        block, separator, field = field_id.partition("|")
+        if not separator or not block or not field:
+            raise RuntimeError(f"Public direct-link field ID is malformed: {field_id}")
+        municipality = str(row["municipality"])
+        candidates.append({
+            "category": category, "municipality_code": str(row["municipality_code"]),
+            "municipality": municipality, "current_field_id": field_id,
+            "block_id": block, "skifte_id": field, "crop_code": int(row["crop_code_canonical"]),
+            "crop_name": str(row["crop_name"]), "model_status": str(row["model_status"]),
+            "direct_url": "?" + urlencode({"kommun": municipality, "block": block, "skifte": field, "lager": "score"}),
+        })
+    return candidates
+
+
+def select_test_cases(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    preferred = {
+        "adjusted_wheat_premium": "1264", "adjusted_wheat_discount": "1264",
+        "adjusted_barley": "1262", "table_potato_official_only": "1290",
+        "starch_potato_official_only": "1290",
+    }
+    categories = [
+        "adjusted_wheat_premium", "adjusted_wheat_discount", "adjusted_barley",
+        "oats_higher_uncertainty", "rape_weak_effect", "table_potato_official_only",
+        "starch_potato_official_only", "history_component_only", "low_sko_share",
+        "missing_akerscore", "unsupported_crop",
+    ]
+    selected = []
+    for category in categories:
+        pool = [row for row in candidates if row["category"] == category]
+        pool.sort(key=lambda row: (
+            0 if row["municipality_code"] == preferred.get(category) else 1,
+            row["municipality_code"], row["current_field_id"], row["crop_code"],
+        ))
+        if not pool:
+            raise RuntimeError(f"STOPPUNKT C lacks required web test case: {category}")
+        selected.append(pool[0])
+    selected.append({
+        "category": "no_qualifying_crops", "status": "NOT_PRESENT_IN_STOPC",
+        "reason": "Every frozen 2025 field has at least one displayable historical crop row; empty-field rendering is regression-tested synthetically.",
+    })
+    return selected
+
+
 def build_data(output_root: Path, destination: Path, stopc: dict[str, Any]) -> dict[str, Any]:
     temporary = destination.with_name(destination.name + ".tmp")
     backup = destination.with_name(destination.name + ".previous")
@@ -280,10 +346,12 @@ def build_data(output_root: Path, destination: Path, stopc: dict[str, Any]) -> d
     entries = []
     total_fields = total_rows = total_bytes = 0
     total_statuses: Counter[str] = Counter()
+    candidates: list[dict[str, Any]] = []
     for directory, checkpoint in checkpoint_directories(output_root):
         result = pd.read_parquet(directory / "field_akernorm_v1.parquet")
         coverage = pd.read_parquet(directory / "field_coverage.parquet")
         payload = build_payload(result, coverage, checkpoint)
+        candidates.extend(test_case_candidates(result))
         filename = f"{checkpoint['municipality_code']}_{slug(checkpoint['municipality'])}.json"
         path = temporary / filename
         atomic_text(stable_json(payload, compact=True), path)
@@ -308,7 +376,7 @@ def build_data(output_root: Path, destination: Path, stopc: dict[str, Any]) -> d
         "municipality_count": len(entries), "field_count": total_fields,
         "field_crop_rows": total_rows, "sidecar_bytes": total_bytes,
         "status_counts": {key: total_statuses[key] for key in sorted(total_statuses)},
-        "municipalities": entries,
+        "municipalities": entries, "test_cases": select_test_cases(candidates),
     }
     atomic_text(stable_json(index), temporary / "skane_index.json")
     if backup.exists():

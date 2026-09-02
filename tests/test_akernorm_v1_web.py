@@ -84,5 +84,14 @@ class AkerNormWebTests(unittest.TestCase):
         self.assertEqual([statuses[row[status_index]] for row in packed], ["FIELD_ADJUSTED", "FIELD_ADJUSTED", "OFFICIAL_SKO_ONLY_UNVALIDATED_CROP", "UNAVAILABLE_NO_OFFICIAL_NORM"])
         self.assertEqual([row[code_index] for row in packed[:2]], [2, 4])
 
+    def test_web_case_has_public_direct_link(self):
+        frame = pd.DataFrame([record("12345|7A", 4, "Vete (höst)", "FIELD_ADJUSTED", adjustment=.3)])
+        cases = BUILD.test_case_candidates(frame)
+        self.assertEqual(len(cases), 1)
+        self.assertEqual(cases[0]["category"], "adjusted_wheat_premium")
+        self.assertIn("kommun=Kristianstad", cases[0]["direct_url"])
+        self.assertIn("block=12345", cases[0]["direct_url"])
+        self.assertIn("skifte=7A", cases[0]["direct_url"])
+
 if __name__ == "__main__":
     unittest.main()

@@ -56,8 +56,9 @@ echo   5. %OUT%\manifests\akernorm_web_manifest.json
 echo   6. %OUT%\qa\web_qa.md
 echo   7. %OUT%\qa\web_payload_sizes.csv
 echo   8. %OUT%\qa\stopd_verification.json
-echo   9. Screenshots: adjusted, official-only, unavailable, Kristianstad + 2 municipalities, mobile
-echo  10. Every WARN, ERROR, FAIL, MISMATCH and BLOCKED line under %OUT%\logs
+echo   9. %OUT%\qa\web_test_cases.json with direct local field URLs
+echo  10. Screenshots: adjusted, official-only, unavailable, Kristianstad + 2 municipalities, mobile
+echo  11. Every WARN, ERROR, FAIL, MISMATCH and BLOCKED line under %OUT%\logs
 exit /b 0
 
 :usage
