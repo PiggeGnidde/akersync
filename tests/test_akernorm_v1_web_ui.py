@@ -39,6 +39,11 @@ class AkerNormWebUiTests(unittest.TestCase):
         self.assertIn("Officiell normskörd saknas i SKO", patched)
         self.assertIn("Årsberoende grödkod", patched)
         self.assertIn("Årsvisa grödnamn", patched)
+        self.assertIn("Begrepp och gula markeringar", patched)
+        self.assertIn("Skillnaden mellan skiftets ÅkerNorm och den officiella SKO-normen", patched)
+        self.assertIn("P05–P95", patched)
+        self.assertIn("10 score-poäng ändrar ÅkerNorm med 0,05 t/ha", patched)
+        self.assertIn("den näst största grödan täcker minst 5 %", patched)
         self.assertIn("@media(max-width:700px)", patched)
 
     def test_ui_patch_rejects_incomplete_mapping(self):

@@ -183,8 +183,9 @@ def verify_html(path: Path, entries: list[dict[str, Any]]) -> None:
         "Normal produktionsnivå – inte prognos för nästa skördeår",
         "Skiftesanpassad ÅkerNorm", "Officiell normskörd i området",
         "Skiftesanpassad ÅkerNorm: ej tillgänglig ännu", "ÅkerNorm ej tillgänglig ännu",
-        "Officiell normskörd saknas i SKO", "Årsberoende grödkod", "Årsvisa grödnamn",
-        "Högre osäkerhet", "Svag skiftesjustering", "akernormToggle(this)",
+        "Officiell normskörd saknas i SKO", "Begrepp och gula markeringar", "Skiftesjustering",
+        "Årsberoende grödkod", "Årsvisa grödnamn", "Högre osäkerhet", "Svag skiftesjustering",
+        "Flera grödor", "P05–P95", "0,05 t/ha", "akernormToggle(this)",
         "data/akernorm/1290_kristianstad.json", "${akerminneSection(p)}", "${akernormSection(p)}",
         "Historisk jordbruksklass — referensdata", "Skördeområde (SKO)",
     )
