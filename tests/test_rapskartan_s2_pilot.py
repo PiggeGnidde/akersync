@@ -83,6 +83,8 @@ class RapskartanS2PilotTests(unittest.TestCase):
             self.assertIn(name, script)
         for name in self.contract["sentinel2"]["indices"]:
             self.assertIn(name, script)
+        self.assertIn('bands:["B02","B03"', script)
+        self.assertNotIn('{id:"B02"}', script)
         self.assertIn("dataMask", script)
         self.assertIn("s.SCL", script)
         self.assertIn("s.CLD", script)

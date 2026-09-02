@@ -25,7 +25,7 @@ from rapskartan_v1_discovery_core import load_official_tables, official_lookup, 
 
 
 TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
-STATS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
+STATS_URL = "https://sh.dataspace.copernicus.eu/statistics/v1"
 PROCESS_URL = "https://sh.dataspace.copernicus.eu/process/v1"
 STAC_SEARCH_URL = "https://stac.dataspace.copernicus.eu/v1/search"
 CRS_UTM33 = "http://www.opengis.net/def/crs/EPSG/0/32633"
@@ -120,13 +120,13 @@ def stat_evalscript(contract: dict[str, Any]) -> str:
     outputs = bands + list(contract["sentinel2"]["indices"])
     valid = ",".join(str(int(x)) for x in contract["cloud_mask"]["valid_scl_codes"])
     input_bands = bands + ["SCL", "CLD", "dataMask"]
-    band_defs = ",".join(f'{{id:"{name}"}}' for name in outputs + ["CLD"])
+    band_defs = json.dumps(outputs + ["CLD"], separators=(",", ":"))
     return f'''//VERSION=3
 function setup(){{
   return {{
     input: [{{bands: {json.dumps(input_bands)}}}],
     output: [
-      {{id:"default", bands:[{band_defs}], sampleType:"FLOAT32"}},
+      {{id:"default", bands:{band_defs}, sampleType:"FLOAT32"}},
       {{id:"dataMask", bands:1}}
     ],
     mosaicking:"{contract['sentinel2']['mosaicking']}"
@@ -150,14 +150,14 @@ function evaluatePixel(s){{
 
 
 def scl_evalscript(contract: dict[str, Any]) -> str:
-    scl_defs = ",".join(f'{{id:"SCL_{code}"}}' for code in range(12))
+    scl_defs = json.dumps([f"SCL_{code}" for code in range(12)], separators=(",", ":"))
     values = ",".join(f"s.SCL=={code}?1:0" for code in range(12))
     return f'''//VERSION=3
 function setup(){{
   return {{
     input:[{{bands:["SCL","dataMask"]}}],
     output:[
-      {{id:"default",bands:[{scl_defs}],sampleType:"FLOAT32"}},
+      {{id:"default",bands:{scl_defs},sampleType:"FLOAT32"}},
       {{id:"dataMask",bands:1}}
     ],
     mosaicking:"{contract['sentinel2']['mosaicking']}"
@@ -344,6 +344,8 @@ class ApiCache:
         headers: dict[str, str] = {}
         body = b""
         for attempt in range(1, tries + 1):
+            if self.authenticated_requests >= self.request_limit:
+                raise RuntimeError(f"RESOURCE_GUARD: authenticated request limit {self.request_limit} exceeded")
             self.authenticated_requests += 1
             request = urllib.request.Request(endpoint, data=request_bytes, method="POST")
             request.add_header("Authorization", f"Bearer {self.token}")
@@ -356,7 +358,14 @@ class ApiCache:
                     if response.status < 200 or response.status >= 300:
                         raise RuntimeError(f"HTTP {response.status}")
                 break
-            except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            except urllib.error.HTTPError as exc:
+                last_error = exc
+                if exc.code == 401 and attempt < tries:
+                    self.token = oauth_token()
+                elif attempt == tries:
+                    raise RuntimeError(f"Copernicus request failed after {tries} attempts: HTTP {exc.code}") from exc
+                time.sleep(2 * attempt)
+            except (urllib.error.URLError, TimeoutError) as exc:
                 last_error = exc
                 if attempt == tries:
                     raise RuntimeError(f"Copernicus request failed after {tries} attempts: {type(exc).__name__}") from exc
@@ -394,6 +403,8 @@ def parse_stat_response(
     edge_rule: str,
 ) -> list[dict[str, Any]]:
     parsed = json.loads(body.decode("utf-8"))
+    if parsed.get("status") not in (None, "OK"):
+        raise RuntimeError(f"Statistics API status is not OK: {parsed.get('status')}")
     bands = contract["sentinel2"]["bands"] + list(contract["sentinel2"]["indices"]) + ["CLD"]
     rows: list[dict[str, Any]] = []
     for item in parsed.get("data", []):
@@ -433,6 +444,8 @@ def parse_stat_response(
 
 def parse_scl_response(body: bytes, *, field_meta: dict[str, Any]) -> list[dict[str, Any]]:
     parsed = json.loads(body.decode("utf-8"))
+    if parsed.get("status") not in (None, "OK"):
+        raise RuntimeError(f"SCL Statistics API status is not OK: {parsed.get('status')}")
     rows: list[dict[str, Any]] = []
     for item in parsed.get("data", []):
         interval = item.get("interval") or {}
@@ -627,3 +640,87 @@ def artifact_records(root: Path, relative_paths: Iterable[str]) -> list[dict[str
             raise RuntimeError(f"Missing manifest artifact: {name}")
         records.append({"path": name, "bytes": path.stat().st_size, "sha256": sha256_file(path)})
     return records
+
+
+def dataframe_csv_bytes(frame: pd.DataFrame) -> bytes:
+    return frame.to_csv(
+        index=False,
+        lineterminator="\n",
+        float_format="%.10g",
+        na_rep="",
+    ).encode("utf-8")
+
+
+def write_dataframe(path: Path, frame: pd.DataFrame) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = dataframe_csv_bytes(frame)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_bytes(body)
+    path.unlink(missing_ok=True)
+    temporary.replace(path)
+    return sha256_bytes(body)
+
+
+def public_stac_inventory(
+    bbox_wgs84: Iterable[float],
+    year: int,
+    contract: dict[str, Any],
+    *,
+    timeout: int = 120,
+) -> dict[str, Any]:
+    start, end = period_for_year(year, contract)
+    params = {
+        "collections": contract["sentinel2"]["collection"],
+        "bbox": ",".join(f"{float(value):.8f}" for value in bbox_wgs84),
+        "datetime": f"{start}/{end}",
+        "limit": "100",
+    }
+    url = STAC_SEARCH_URL + "?" + urllib.parse.urlencode(params)
+    current_url = url
+    seen_urls: set[str] = set()
+    raw_hashes: list[str] = []
+    item_by_id: dict[str, dict[str, Any]] = {}
+    pages = 0
+    while current_url:
+        if current_url in seen_urls:
+            raise RuntimeError("Public STAC pagination loop detected")
+        if pages >= 10:
+            raise RuntimeError("Public STAC pagination exceeded the bounded 10-page guard")
+        seen_urls.add(current_url)
+        request = urllib.request.Request(current_url, headers={"User-Agent": "AkerSync-Rapskartan/1.0"})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read()
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            raise RuntimeError(f"Public STAC request failed: {type(exc).__name__}") from exc
+        pages += 1
+        raw_hashes.append(sha256_bytes(raw))
+        parsed = json.loads(raw.decode("utf-8"))
+        for feature in parsed.get("features") or []:
+            props = feature.get("properties") or {}
+            item = {
+                "id": feature.get("id"),
+                "datetime": props.get("datetime"),
+                "eo_cloud_cover": props.get("eo:cloud_cover"),
+                "platform": props.get("platform"),
+                "constellation": props.get("constellation"),
+            }
+            item_by_id[str(item["id"])] = item
+        next_links = [link for link in parsed.get("links") or [] if link.get("rel") == "next"]
+        current_url = urllib.parse.urljoin(current_url, str(next_links[0]["href"])) if next_links else ""
+    items = sorted(item_by_id.values(), key=lambda item: (str(item.get("datetime")), str(item.get("id"))))
+    if not items:
+        raise RuntimeError(f"Public STAC returned no Sentinel-2 L2A items for {year}")
+    return {
+        "schema_version": "rapskartan-s2-stac-inventory-v1",
+        "collection": contract["sentinel2"]["collection"],
+        "target_year": int(year),
+        "bbox_wgs84": [round(float(value), 8) for value in bbox_wgs84],
+        "time_range": {"from": start, "to": end},
+        "query_sha256": sha256_bytes(url.encode("utf-8")),
+        "response_pages": pages,
+        "raw_response_inventory_sha256": sha256_bytes("\n".join(raw_hashes).encode("utf-8")),
+        "returned_items": len(items),
+        "items": items,
+        "pagination_note": "All advertised STAC next links followed, bounded by a 10-page guard.",
+    }
