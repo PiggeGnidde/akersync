@@ -71,6 +71,8 @@ class RapskartanDiscoveryTests(unittest.TestCase):
 
     def test_cutoffs_are_ordered_and_causal_contract_is_explicit(self):
         contract = cutoff_contract()
+        committed = json.loads((ROOT / "analysis/rapskartan_v1/temporal_cutoff_contract.json").read_text(encoding="utf-8"))
+        self.assertEqual(committed, contract)
         self.assertEqual([(x["month"], x["day"]) for x in contract["cutoff_month_days"]], CUTOFF_MONTH_DAYS)
         self.assertEqual(contract["blind_year_dates"][0], "2025-03-15")
         self.assertEqual(contract["blind_year_dates"][-1], "2025-06-10")
