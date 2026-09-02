@@ -1,0 +1,21 @@
+{
+  "schema_version": "rapskartan-temporal-cutoff-contract-v1",
+  "status": "DISCOVERY_FROZEN_BEFORE_2025_ROW_LEVEL_LABEL_ACCESS",
+  "calendar_rule": "The same month/day grid is applied independently to every target year.",
+  "cutoff_month_days": [
+    {"month": 3, "day": 15, "label_sv": "15-03"},
+    {"month": 3, "day": 31, "label_sv": "31-03"},
+    {"month": 4, "day": 10, "label_sv": "10-04"},
+    {"month": 4, "day": 20, "label_sv": "20-04"},
+    {"month": 4, "day": 30, "label_sv": "30-04"},
+    {"month": 5, "day": 10, "label_sv": "10-05"},
+    {"month": 5, "day": 20, "label_sv": "20-05"},
+    {"month": 5, "day": 31, "label_sv": "31-05"},
+    {"month": 6, "day": 10, "label_sv": "10-06"}
+  ],
+  "blind_year_dates": ["2025-03-15", "2025-03-31", "2025-04-10", "2025-04-20", "2025-04-30", "2025-05-10", "2025-05-20", "2025-05-31", "2025-06-10"],
+  "causal_rule": "Every acquisition used by a prediction must have acquisition_time <= prediction_cutoff_date 23:59:59Z.",
+  "reporting_fields_required_later": ["prediction_cutoff_date", "latest_usable_acquisition", "usable_observation_count", "days_since_latest_observation", "cloud_free_pixel_coverage", "sensor_passes"],
+  "not_frozen_at_stop_a": ["feature set", "cloud mask details", "edge buffer", "model", "threshold", "calibration"],
+  "change_control": "Any grid change after this commit creates a new version and cannot use 2025 labels as evidence."
+}

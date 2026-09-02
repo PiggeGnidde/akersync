@@ -1,0 +1,11 @@
+{
+  "schema_version": "rapskartan-skane-v1-discovery-source-manifest-v1",
+  "status": "IMPLEMENTATION_READY_FOR_WINDOWS_REPRODUCTION",
+  "upstream_tag": "akernorm-v1.0",
+  "upstream_commit": "c859a69de51a104d10f87906d4d050a34222bbb4",
+  "phase": "STOPPUNKT_A_DISCOVERY_ONLY",
+  "classifier_created": false,
+  "mass_download_run": false,
+  "sentinel1_touched": false,
+  "web_touched": false
+}

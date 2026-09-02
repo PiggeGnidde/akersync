@@ -1,0 +1,13 @@
+{
+  "schema_version": "rapskartan-crop-code-contract-v1",
+  "status": "GENERATED_AND_VERIFIED_BY_WINDOWS_DISCOVERY",
+  "positive_official_name": "Raps (höst)",
+  "lookup_contract": "Exact same-year (crop_code_raw, crop_subcategory_raw), then same-year main-code fallback only; cross-year fallback forbidden.",
+  "known_paths": {
+    "2015-2018": ["20/<NULL>"],
+    "2019-2025": ["20/<NULL>", "80/20"]
+  },
+  "canonical_product_code": 20,
+  "explicit_non_positive_names": ["Raps (vår)", "Högerukaraps"],
+  "blind_guard": "No row-level 2025 labels are emitted at STOPPUNKT A."
+}
