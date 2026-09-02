@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -32,6 +33,7 @@ MANIFEST_SCHEMA = "akernorm-web-manifest-v1"
 EXPECTED_MUNICIPALITIES = 33
 EXPECTED_FIELDS = 128_636
 EXPECTED_ROWS = 402_922
+V1_CROP_CODES = {2, 3, 4, 20, 45, 46}
 OWNED_PREFIX = Path("data/akernorm")
 ROW_COLUMNS = [
     "crop_code", "crop_name", "history_year_count", "history_component_year_count",
@@ -174,6 +176,51 @@ def history_years(value: Any) -> list[int]:
     return [int(year) for year in values]
 
 
+def load_official_crop_tables() -> tuple[dict[int, Any], dict[str, Any]]:
+    module_path = ROOT / "src/60_apply_akerminne_official_crop_codes.py"
+    spec = importlib.util.spec_from_file_location("akernorm_web_official_crop_codes", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load official crop-code verifier: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    directory = ROOT / "data/reference/akerminne_crop_codes_official"
+    tables, metadata = module.load_official_tables(directory, directory / "manifest.json")
+    return tables, {"lookup": module.lookup, **metadata}
+
+
+def apply_official_web_crop_labels(result: pd.DataFrame, tables: dict[int, Any], lookup: Any) -> tuple[pd.DataFrame, int, int]:
+    """Attach exact year-sensitive labels and replace raw fallback display names."""
+    work = result.copy()
+    corrected = 0
+    year_sensitive = 0
+    labels = []
+    annual_labels = []
+    for row in work.itertuples(index=False):
+        current = clean_text(row.crop_name)
+        code = str(int(row.crop_code_canonical))
+        annual = []
+        for year in sorted(history_years(row.history_years)):
+            record = lookup(tables, year, code, None)
+            annual.append([year, str(record[0]) if record is not None else current])
+        unique = list(dict.fromkeys(label for _, label in annual if label))
+        if current.startswith("Grödkod ") and not unique:
+            raise RuntimeError(f"Official annual crop label is unresolved: {current}")
+        if len(unique) > 1:
+            display = f"{annual[-1][1]} (kod {code}; årsnamn varierar)"
+            year_sensitive += 1
+        else:
+            display = unique[0] if unique else current
+        labels.append(display)
+        annual_labels.append(annual)
+        corrected += int(display != current)
+    work["crop_name"] = labels
+    work["_annual_crop_labels"] = annual_labels
+    unresolved = sorted(set(work.loc[work["crop_name"].astype(str).str.startswith("Grödkod "), "crop_name"]))
+    if unresolved:
+        raise RuntimeError("Official annual crop labels did not resolve: " + ", ".join(unresolved))
+    return work, corrected, year_sensitive
+
+
 def status_group(status: str) -> int:
     if status.startswith("FIELD_ADJUSTED"):
         return 0
@@ -184,11 +231,14 @@ def status_group(status: str) -> int:
 
 def row_sort_key(row: pd.Series) -> tuple[Any, ...]:
     years = history_years(row["history_years"])
+    code = int(row["crop_code_canonical"])
+    status = str(row["model_status"])
+    model_priority = 0 if not status.startswith("UNAVAILABLE") or code in V1_CROP_CODES else 1
     return (
-        status_group(str(row["model_status"])),
+        status_group(status), model_priority,
         -(max(years) if years else 0),
         -int(row["history_year_count"]),
-        int(row["crop_code_canonical"]),
+        code,
         str(row["crop_name"]),
     )
 
@@ -252,6 +302,24 @@ def build_payload(result: pd.DataFrame, coverage: pd.DataFrame, checkpoint: dict
     if len(years) != 1 or len(versions) != 1 or len(source_ids) != 1:
         raise RuntimeError("Municipality rows do not share one norm year/model/source")
     dictionaries, indexes = make_dictionaries(result)
+    annual_crop_labels: dict[str, dict[str, str]] = {}
+    annual_source = result["_annual_crop_labels"] if "_annual_crop_labels" in result else [None] * len(result)
+    for annual, code_value, current_name, history in zip(
+        annual_source, result["crop_code_canonical"], result["crop_name"], result["history_years"]
+    ):
+        if not isinstance(annual, list):
+            annual = [[year, clean_text(current_name)] for year in history_years(history)]
+        code = str(int(code_value))
+        for year, label in annual:
+            year_labels = annual_crop_labels.setdefault(str(int(year)), {})
+            old = year_labels.get(code)
+            if old is not None and old != str(label):
+                raise RuntimeError(f"Conflicting annual crop labels for {year}/code {code}: {old!r} vs {label!r}")
+            year_labels[code] = str(label)
+    annual_crop_labels = {
+        year: {code: values[code] for code in sorted(values, key=int)}
+        for year, values in sorted(annual_crop_labels.items(), key=lambda item: int(item[0]))
+    }
     fields: dict[str, list[list[Any]]] = {field_id: [] for field_id in field_ids}
     for field_id, group_rows in result.groupby(result["current_field_id"].astype(str), sort=True):
         ordered = sorted((row for _, row in group_rows.iterrows()), key=row_sort_key)
@@ -268,6 +336,7 @@ def build_payload(result: pd.DataFrame, coverage: pd.DataFrame, checkpoint: dict
         "field_crop_rows": int(len(result)),
         "status_counts": {key: statuses[key] for key in sorted(statuses)},
         "columns": ROW_COLUMNS, "dictionaries": dictionaries,
+        "annual_crop_labels": annual_crop_labels,
         "fields": fields,
     }
 
@@ -347,8 +416,14 @@ def build_data(output_root: Path, destination: Path, stopc: dict[str, Any]) -> d
     total_fields = total_rows = total_bytes = 0
     total_statuses: Counter[str] = Counter()
     candidates: list[dict[str, Any]] = []
+    crop_tables, crop_metadata = load_official_crop_tables()
+    corrected_labels = 0
+    year_sensitive_rows = 0
     for directory, checkpoint in checkpoint_directories(output_root):
         result = pd.read_parquet(directory / "field_akernorm_v1.parquet")
+        result, corrected, year_sensitive = apply_official_web_crop_labels(result, crop_tables, crop_metadata["lookup"])
+        corrected_labels += corrected
+        year_sensitive_rows += year_sensitive
         coverage = pd.read_parquet(directory / "field_coverage.parquet")
         payload = build_payload(result, coverage, checkpoint)
         candidates.extend(test_case_candidates(result))
@@ -375,6 +450,9 @@ def build_data(output_root: Path, destination: Path, stopc: dict[str, Any]) -> d
         "full_manifest_id": stopc["full_manifest_id"], "output_hash": stopc["output_hash"],
         "municipality_count": len(entries), "field_count": total_fields,
         "field_crop_rows": total_rows, "sidecar_bytes": total_bytes,
+        "official_crop_labels_resolved": corrected_labels,
+        "year_sensitive_crop_rows": year_sensitive_rows,
+        "official_crop_dictionary_manifest_sha256": sha256_file(ROOT / "data/reference/akerminne_crop_codes_official/manifest.json"),
         "status_counts": {key: total_statuses[key] for key in sorted(total_statuses)},
         "municipalities": entries, "test_cases": select_test_cases(candidates),
     }

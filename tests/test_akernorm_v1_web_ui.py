@@ -36,6 +36,9 @@ class AkerNormWebUiTests(unittest.TestCase):
         self.assertIn("Normal produktionsnivå – inte prognos för nästa skördeår", patched)
         self.assertIn("Skiftesanpassad ÅkerNorm: ej tillgänglig ännu", patched)
         self.assertIn("ÅkerNorm ej tillgänglig ännu", patched)
+        self.assertIn("Officiell normskörd saknas i SKO", patched)
+        self.assertIn("Årsberoende grödkod", patched)
+        self.assertIn("Årsvisa grödnamn", patched)
         self.assertIn("@media(max-width:700px)", patched)
 
     def test_ui_patch_rejects_incomplete_mapping(self):

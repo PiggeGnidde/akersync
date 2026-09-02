@@ -84,6 +84,44 @@ class AkerNormWebTests(unittest.TestCase):
         self.assertEqual([statuses[row[status_index]] for row in packed], ["FIELD_ADJUSTED", "FIELD_ADJUSTED", "OFFICIAL_SKO_ONLY_UNVALIDATED_CROP", "UNAVAILABLE_NO_OFFICIAL_NORM"])
         self.assertEqual([row[code_index] for row in packed[:2]], [2, 4])
 
+    def test_unavailable_v1_crop_precedes_newer_unsupported_crop(self):
+        rows = [
+            record("f", 33, "Sötlupiner", "UNAVAILABLE_NO_OFFICIAL_NORM", years=[2025], norm=None, value=None, display=None),
+            record("f", 3, "Havre", "UNAVAILABLE_NO_OFFICIAL_NORM", years=[2020], norm=None, value=None, display=None),
+        ]
+        payload = BUILD.build_payload(
+            pd.DataFrame(rows), pd.DataFrame({"current_field_id": ["f"]}),
+            {"municipality_code": "1290", "municipality": "Kristianstad", "reference_fields": 1},
+        )
+        code_index = payload["columns"].index("crop_code")
+        self.assertEqual([row[code_index] for row in payload["fields"]["f"]], [3, 33])
+
+    def test_official_crop_labels_are_resolved_by_history_year(self):
+        tables, metadata = BUILD.load_official_crop_tables()
+        frame = pd.DataFrame([
+            record("stable-60", 60, "Grödkod 60", "UNAVAILABLE_NO_OFFICIAL_NORM", years=[2016, 2020], norm=None, value=None, display=None),
+            record("stable-33", 33, "Grödkod 33", "UNAVAILABLE_NO_OFFICIAL_NORM", years=[2023], norm=None, value=None, display=None),
+            record("varying-50", 50, "Grödkod 50", "UNAVAILABLE_NO_OFFICIAL_NORM", years=[2017, 2018], norm=None, value=None, display=None),
+        ])
+        resolved, corrected, varying = BUILD.apply_official_web_crop_labels(frame, tables, metadata["lookup"])
+        by_field = resolved.set_index("current_field_id")
+        self.assertEqual(by_field.loc["stable-60", "crop_name"], "Träda")
+        self.assertEqual(by_field.loc["stable-33", "crop_name"], "Sötlupiner")
+        self.assertEqual(by_field.loc["stable-60", "_annual_crop_labels"], [[2016, "Träda"], [2020, "Träda"]])
+        self.assertEqual(
+            by_field.loc["varying-50", "_annual_crop_labels"],
+            [[2017, "Slåtter och betesvall på åker"], [2018, "Slåtter och betesvall på åkermark"]],
+        )
+        self.assertIn("årsnamn varierar", by_field.loc["varying-50", "crop_name"])
+        self.assertEqual((corrected, varying), (3, 1))
+        payload = BUILD.build_payload(
+            resolved, pd.DataFrame({"current_field_id": resolved["current_field_id"]}),
+            {"municipality_code": "1290", "municipality": "Kristianstad", "reference_fields": 3},
+        )
+        self.assertEqual(payload["annual_crop_labels"]["2020"]["60"], "Träda")
+        self.assertEqual(payload["annual_crop_labels"]["2017"]["50"], "Slåtter och betesvall på åker")
+        self.assertEqual(payload["annual_crop_labels"]["2018"]["50"], "Slåtter och betesvall på åkermark")
+
     def test_web_case_has_public_direct_link(self):
         frame = pd.DataFrame([record("12345|7A", 4, "Vete (höst)", "FIELD_ADJUSTED", adjustment=.3)])
         cases = BUILD.test_case_candidates(frame)

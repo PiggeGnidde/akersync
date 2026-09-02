@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 import subprocess
@@ -20,6 +21,7 @@ EXPECTED_FIELDS = 128_636
 EXPECTED_ROWS = 402_922
 EXPECTED_MUNICIPALITIES = 33
 DEEP_CODES = {"1262", "1264", "1290"}  # Lomma, Skurup, Kristianstad
+V1_CROP_CODES = {2, 3, 4, 20, 45, 46}
 ROW_COLUMNS = [
     "crop_code", "crop_name", "history_year_count", "history_component_year_count",
     "history_years", "history_quality", "sko_id", "sko_share",
@@ -77,6 +79,41 @@ def scalar(value: Any) -> Any:
     return value
 
 
+def load_official_crop_tables() -> tuple[dict[int, Any], Any]:
+    path = ROOT / "src/60_apply_akerminne_official_crop_codes.py"
+    spec = importlib.util.spec_from_file_location("akernorm_verify_official_crop_codes", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load official crop-code verifier: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    directory = ROOT / "data/reference/akerminne_crop_codes_official"
+    tables, _ = module.load_official_tables(directory, directory / "manifest.json")
+    return tables, module.lookup
+
+
+def annual_crop_labels(row: pd.Series, tables: dict[int, Any], lookup: Any) -> list[list[Any]]:
+    current = str(row["crop_name"])
+    code = str(int(row["crop_code_canonical"]))
+    annual = []
+    for year in sorted(years(row["history_years"])):
+        record = lookup(tables, year, code, None)
+        annual.append([year, str(record[0]) if record is not None else current])
+    if current.startswith("Grödkod ") and not any(label and not label.startswith("Grödkod ") for _, label in annual):
+        raise RuntimeError(f"Official annual crop label is unresolved: {current}")
+    return annual
+
+
+def resolved_crop_name(row: pd.Series, tables: dict[int, Any], lookup: Any) -> str:
+    annual = annual_crop_labels(row, tables, lookup)
+    unique = list(dict.fromkeys(label for _, label in annual if label))
+    if len(unique) > 1:
+        return f"{annual[-1][1]} (kod {int(row['crop_code_canonical'])}; årsnamn varierar)"
+    return unique[0] if unique else str(row["crop_name"])
+
+
+CROP_TABLES, CROP_LOOKUP = load_official_crop_tables()
+
+
 def years(value: Any) -> list[int]:
     return [int(item) for item in json.loads(str(value or "[]"))]
 
@@ -87,16 +124,18 @@ def group(status: str) -> int:
 
 def sort_key(row: pd.Series) -> tuple[Any, ...]:
     history = years(row["history_years"])
+    code = int(row["crop_code_canonical"])
+    status = str(row["model_status"])
     return (
-        group(str(row["model_status"])), -(max(history) if history else 0),
-        -int(row["history_year_count"]), int(row["crop_code_canonical"]), str(row["crop_name"]),
+        group(status), 0 if not status.startswith("UNAVAILABLE") or code in V1_CROP_CODES else 1,
+        -(max(history) if history else 0), -int(row["history_year_count"]), code, resolved_crop_name(row, CROP_TABLES, CROP_LOOKUP),
     )
 
 
 def source_array(row: pd.Series, reverse: dict[str, dict[str, int]]) -> list[Any]:
     text = lambda value: "" if value is None or pd.isna(value) else str(value)
     return [
-        int(row["crop_code_canonical"]), reverse["crop_name"][text(row["crop_name"])], int(row["history_year_count"]),
+        int(row["crop_code_canonical"]), reverse["crop_name"][resolved_crop_name(row, CROP_TABLES, CROP_LOOKUP)], int(row["history_year_count"]),
         int(row["history_component_year_count"]), years(row["history_years"]), reverse["history_quality"][text(row["history_quality"])],
         reverse["sko_id"][text(row["sko_id"])], scalar(row["sko_share"]), scalar(row["official_sko_norm_t_ha"]),
         scalar(row["akerscore_value"]), scalar(row["sko_crop_reference_score"]),
@@ -115,11 +154,26 @@ def compare_deep(payload: dict[str, Any], source_dir: Path) -> None:
     dictionaries = payload.get("dictionaries") or {}
     reverse = {name: {str(value): index for index, value in enumerate(values)} for name, values in dictionaries.items()}
     expected: dict[str, list[list[Any]]] = {field: [] for field in payload["fields"]}
+    expected_annual: dict[str, dict[str, str]] = {}
     for field_id, rows in source.groupby(source["current_field_id"].astype(str), sort=True):
         ordered = sorted((row for _, row in rows.iterrows()), key=sort_key)
         expected[str(field_id)] = [source_array(row, reverse) for row in ordered]
+        for row in ordered:
+            code = str(int(row["crop_code_canonical"]))
+            for year, label in annual_crop_labels(row, CROP_TABLES, CROP_LOOKUP):
+                values = expected_annual.setdefault(str(year), {})
+                old = values.get(code)
+                if old is not None and old != label:
+                    raise RuntimeError(f"{payload['municipality']}: conflicting source annual label for {year}/{code}")
+                values[code] = label
+    expected_annual = {
+        year: {code: values[code] for code in sorted(values, key=int)}
+        for year, values in sorted(expected_annual.items(), key=lambda item: int(item[0]))
+    }
     if expected != payload["fields"]:
         raise RuntimeError(f"{payload['municipality']}: deep field/crop payload differs from STOPPUNKT C")
+    if expected_annual != payload.get("annual_crop_labels"):
+        raise RuntimeError(f"{payload['municipality']}: annual crop-label map differs from official dictionaries")
 
 
 def verify_html(path: Path, entries: list[dict[str, Any]]) -> None:
@@ -129,6 +183,7 @@ def verify_html(path: Path, entries: list[dict[str, Any]]) -> None:
         "Normal produktionsnivå – inte prognos för nästa skördeår",
         "Skiftesanpassad ÅkerNorm", "Officiell normskörd i området",
         "Skiftesanpassad ÅkerNorm: ej tillgänglig ännu", "ÅkerNorm ej tillgänglig ännu",
+        "Officiell normskörd saknas i SKO", "Årsberoende grödkod", "Årsvisa grödnamn",
         "Högre osäkerhet", "Svag skiftesjustering", "akernormToggle(this)",
         "data/akernorm/1290_kristianstad.json", "${akerminneSection(p)}", "${akernormSection(p)}",
         "Historisk jordbruksklass — referensdata", "Skördeområde (SKO)",
@@ -159,6 +214,8 @@ def write_reports(output_root: Path, manifest: dict[str, Any], index: dict[str, 
         "# ÅkerNorm V1 – web QA / STOPPUNKT D", "", "- Status: `PASS`",
         f"- Kommuner: `{index['municipality_count']}`", f"- Skiften: `{index['field_count']}`",
         f"- Skifte/gröda-rader: `{index['field_crop_rows']}`", f"- Sidecar-bytes: `{index['sidecar_bytes']}`",
+        f"- Rader med korrigerat officiellt grödnamn: `{index['official_crop_labels_resolved']}`",
+        f"- Rader med varierande årsbenämning: `{index['year_sensitive_crop_rows']}`",
         "- Kommunvis lazy load: `PASS`", "- Kristianstad + Skurup + Lomma djupjämförda mot STOPPUNKT C: `PASS`",
         "- ÅkerScore/ÅkerVärde/ÅkerDrift/ÅkerMinne-filer byte-identiska: `PASS`",
         "- Desktop/mobil markup och direktlänkens gemensamma fältpanel: `PASS`",
@@ -177,6 +234,8 @@ def write_reports(output_root: Path, manifest: dict[str, Any], index: dict[str, 
         "full_manifest_id": manifest["full_manifest_id"], "municipality_count": index["municipality_count"],
         "field_count": index["field_count"], "field_crop_rows": index["field_crop_rows"],
         "sidecar_bytes": index["sidecar_bytes"], "deep_verified_municipality_codes": sorted(DEEP_CODES),
+        "official_crop_labels_resolved": index["official_crop_labels_resolved"],
+        "year_sensitive_crop_rows": index["year_sensitive_crop_rows"],
         "protected_products_unchanged": True, "lazy_load": True,
         "scope": {"full_skane_run": True, "web_changed": True, "deployment": False, "sentinel2_changed": False},
     }
@@ -222,6 +281,11 @@ def main() -> int:
         index = read_json(dist / "data/akernorm/skane_index.json")
         if index.get("schema_version") != "akernorm-web-index-v1" or index.get("status") != "PASS":
             raise RuntimeError("ÅkerNorm web index is not PASS")
+        official_manifest = ROOT / "data/reference/akerminne_crop_codes_official/manifest.json"
+        if index.get("official_crop_dictionary_manifest_sha256") != sha256_file(official_manifest):
+            raise RuntimeError("Official annual crop-code dictionary hash differs")
+        if int(index.get("official_crop_labels_resolved", 0)) <= 0:
+            raise RuntimeError("No official crop-label corrections were documented")
         if (int(index.get("municipality_count", -1)), int(index.get("field_count", -1)), int(index.get("field_crop_rows", -1))) != (EXPECTED_MUNICIPALITIES, EXPECTED_FIELDS, EXPECTED_ROWS):
             raise RuntimeError("ÅkerNorm web index totals differ")
         entries = index.get("municipalities") or []
@@ -246,7 +310,7 @@ def main() -> int:
             if not all(token in direct for token in ("kommun=", "block=", "skifte=", "lager=score")):
                 raise RuntimeError(f"Web test case lacks direct field URL: {case['category']}")
 
-        total_fields = total_rows = total_bytes = 0
+        total_fields = total_rows = total_bytes = year_sensitive_rows = 0
         statuses: Counter[str] = Counter()
         sizes = []
         for entry in entries:
@@ -255,6 +319,7 @@ def main() -> int:
                 raise RuntimeError(f"Municipality sidecar mismatch: {path}")
             data = read_json(path)
             dictionaries = data.get("dictionaries") or {}
+            annual_lookup = data.get("annual_crop_labels") or {}
             if data.get("schema_version") != "akernorm-web-v1" or data.get("columns") != ROW_COLUMNS or set(dictionaries) != {"crop_name", "history_quality", "sko_id", "model_status", "reason_flags", "score_support_status"}:
                 raise RuntimeError(f"{path.name}: schema/columns differ")
             if str(data.get("municipality_code")) != str(entry["municipality_code"]) or data.get("municipality") != entry["municipality"]:
@@ -273,7 +338,23 @@ def main() -> int:
                     for name, dictionary in dictionaries.items():
                         item[name] = dictionary[item[name]]
                     objects.append(item)
-                keys = [(group(str(row["model_status"])), -(max(row["history_years"] or [0])), -int(row["history_year_count"]), int(row["crop_code"]), str(row["crop_name"])) for row in objects]
+                    if str(item["crop_name"]).startswith("Grödkod "):
+                        raise RuntimeError(f"{path.name}: unresolved raw crop-code label remains")
+                    annual = []
+                    for year in item["history_years"]:
+                        label = (annual_lookup.get(str(year)) or {}).get(str(item["crop_code"]))
+                        if not label:
+                            raise RuntimeError(f"{path.name}: annual crop label missing for {year}/code {item['crop_code']}")
+                        annual.append([int(year), str(label)])
+                    unique = {label for _, label in annual}
+                    if len(unique) > 1:
+                        expected_name = f"{annual[-1][1]} (kod {int(item['crop_code'])}; årsnamn varierar)"
+                        if item["crop_name"] != expected_name:
+                            raise RuntimeError(f"{path.name}: year-sensitive crop display label differs")
+                        year_sensitive_rows += 1
+                    elif unique and item["crop_name"] != annual[-1][1]:
+                        raise RuntimeError(f"{path.name}: stable official crop display label differs")
+                keys = [(group(str(row["model_status"])), 0 if not str(row["model_status"]).startswith("UNAVAILABLE") or int(row["crop_code"]) in V1_CROP_CODES else 1, -(max(row["history_years"] or [0])), -int(row["history_year_count"]), int(row["crop_code"]), str(row["crop_name"])) for row in objects]
                 if keys != sorted(keys):
                     raise RuntimeError(f"{path.name}: deterministic display sorting differs")
             code = str(entry["municipality_code"])
@@ -289,6 +370,8 @@ def main() -> int:
             raise RuntimeError("Aggregated web totals differ")
         if dict(sorted(statuses.items())) != index.get("status_counts"):
             raise RuntimeError("All-Skåne web status reconciliation differs")
+        if year_sensitive_rows != int(index.get("year_sensitive_crop_rows", -1)):
+            raise RuntimeError("Year-sensitive crop row reconciliation differs")
         write_reports(output_root, manifest, index, sizes)
         (output_root / "qa/web_test_cases.json").write_text(
             json.dumps({"schema_version": "akernorm-web-test-cases-v1", "status": "PASS", "test_cases": cases}, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
