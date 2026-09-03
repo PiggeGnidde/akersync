@@ -25,8 +25,11 @@ from typing import Any, Iterable
 import numpy as np
 import pandas as pd
 
-from rapskartan_blind_prediction_core import SAFE_GEOMETRY_COLUMNS, sha256_file
-from rapskartan_model_core import SPECTRAL_NAMES
+from rapskartan_blind_prediction_core import (
+    SAFE_GEOMETRY_COLUMNS, current_field_id, sha256_file,
+    validate_safe_projection_columns,
+)
+from rapskartan_model_core import SPECTRAL_NAMES, stable_rank
 from rapskartan_s2_pilot_core import artifact_records, stable_json, utc_now, write_json
 
 
@@ -37,6 +40,105 @@ FORBIDDEN_PRODUCT_COLUMNS = {
     "is_winter_rapeseed", "crop_group", "official_crop_name", "crop_code_raw",
     "crop_subcategory_raw", "dominant_crop_name", "grdkod_mar", "grdkod_und",
 }
+
+
+def read_full_safe_2025_geometry(path: Path, contract: dict[str, Any]) -> Any:
+    """Read identity/municipality/geometry only, retaining all 2025 fields."""
+    import geopandas as gpd
+
+    if not path.is_file() or sha256_file(path) != contract["geometry"]["expected_sha256"]:
+        raise RuntimeError("Frozen 2025 geometry file/hash mismatch")
+    frame = gpd.read_file(path, columns=list(SAFE_GEOMETRY_COLUMNS))
+    validate_safe_projection_columns(frame.columns)
+    if len(frame) != int(contract["geometry"]["expected_total_fields"]):
+        raise RuntimeError(f"2025 geometry rows {len(frame)}, expected {contract['geometry']['expected_total_fields']}")
+    if frame.crs is None or set(pd.to_numeric(frame["arslager"], errors="raise").astype(int)) != {2025}:
+        raise RuntimeError("2025 safe geometry CRS/year is invalid")
+    frame = frame.to_crs(int(contract["geometry"]["crs_epsg"])).copy()
+    good = frame.geometry.notna() & ~frame.geometry.is_empty & frame.geometry.is_valid
+    if not good.all():
+        raise RuntimeError(f"2025 source contains {int((~good).sum())} invalid geometries")
+    frame["area_ha"] = frame.geometry.area / 10_000.0
+    frame["municipality_code"] = frame["region_kod"].astype(str).str[:4]
+    frame["current_field_id"] = [current_field_id(a, b) for a, b in zip(frame["blockid"], frame["skiftesbeteckning"])]
+    if frame["current_field_id"].duplicated().any():
+        raise RuntimeError("2025 geometry contains duplicate field identities")
+    frame["target_year"] = 2025
+    frame["development_field_id"] = [
+        f"2025-{code}-{identity.replace('|', '-')}"
+        for code, identity in zip(frame["municipality_code"], frame["current_field_id"])
+    ]
+    frame["geographic_fold"] = [int(stable_rank("geo", code)[:8], 16) % 5 for code in frame["municipality_code"]]
+    frame["model_scope_status"] = np.where(
+        frame["area_ha"].between(
+            float(contract["geometry"]["minimum_area_ha"]),
+            float(contract["geometry"]["maximum_area_ha"]), inclusive="both",
+        ),
+        "MODEL_ELIGIBLE", "OUTSIDE_AREA_SCOPE",
+    )
+    return gpd.GeoDataFrame(
+        frame.sort_values(["municipality_code", "current_field_id"], kind="mergesort").reset_index(drop=True),
+        geometry="geometry", crs=frame.crs,
+    )
+
+
+def full_model_selection(fields: Any) -> pd.DataFrame:
+    selected = fields[fields["model_scope_status"] == "MODEL_ELIGIBLE"].copy()
+    selected["area_stratum"] = -1
+    selected["population_weight"] = 1.0
+    keep = [
+        "development_field_id", "current_field_id", "target_year", "municipality_code",
+        "area_ha", "area_stratum", "population_weight", "geographic_fold",
+    ]
+    return selected[keep].sort_values("development_field_id", kind="mergesort").reset_index(drop=True)
+
+
+def add_outside_scope_rows(
+    product: pd.DataFrame,
+    all_fields: Any,
+    contract: dict[str, Any],
+) -> pd.DataFrame:
+    """Add explicit NO_DATA rows so every source field appears at every cutoff."""
+    outside = all_fields[all_fields["model_scope_status"] != "MODEL_ELIGIBLE"].copy()
+    if outside.empty:
+        result = product.copy()
+        result["model_scope_status"] = "MODEL_ELIGIBLE"
+        return result
+    thresholds = product.groupby("cutoff_date")["frozen_p95_threshold"].first().to_dict()
+    rows = []
+    for cutoff in sorted(product["cutoff_date"].unique()):
+        part = pd.DataFrame({
+            "field_id": outside["current_field_id"].astype(str),
+            "current_field_id": outside["current_field_id"].astype(str),
+            "municipality_code": outside["municipality_code"].astype(str),
+            "target_year": 2025,
+            "area_ha": outside["area_ha"].astype(float),
+            "cutoff_date": str(cutoff),
+            "latest_used_acquisition": None,
+            "days_since_last_obs": np.nan,
+            "valid_obs_count": np.nan,
+            "valid_pixel_fraction": np.nan,
+            "data_quality_status": "OUTSIDE_MODEL_SCOPE",
+            "p_raps": np.nan,
+            "frozen_p95_threshold": float(thresholds[str(cutoff)]),
+            "current_high_confidence": False,
+            "remembered_high_confidence": False,
+            "first_high_confidence_date": None,
+            "confidence_status": "NO_DATA",
+            "model_arm": contract["product_rule"]["primary_model_arm"],
+            "model_version": contract["model_version"],
+            "feature_contract_version": contract["frozen_feature_contract_version"],
+            "source_manifest_id": contract["frozen_model_contract_id"],
+            "product_rule_id": contract["product_rule"]["rule_id"],
+            "product_rule_class": contract["product_rule"]["rule_class"],
+            "ground_truth_present": False,
+            "model_scope_status": "OUTSIDE_AREA_SCOPE",
+        })
+        rows.append(part)
+    eligible = product.copy()
+    eligible["model_scope_status"] = "MODEL_ELIGIBLE"
+    result = pd.concat([eligible, *rows], ignore_index=True)
+    return result.sort_values(["cutoff_date", "municipality_code", "field_id"], kind="mergesort").reset_index(drop=True)
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -368,6 +470,22 @@ def query_scene_inventory(
     return sorted(inventory, key=lambda item: (item["acquisition_date"], item["cloud_cover"], item["item_id"]))
 
 
+def filter_scenes_to_fields(scenes: list[dict[str, Any]], fields: Any) -> list[dict[str, Any]]:
+    """Discard rectangular-bbox STAC hits that intersect no 2025 field."""
+    from shapely.geometry import shape
+
+    wgs84 = fields.to_crs(4326)
+    index = wgs84.sindex
+    kept = []
+    for scene in scenes:
+        footprint = shape(scene["geometry"])
+        if len(index.query(footprint, predicate="intersects")):
+            kept.append(scene)
+    if not kept:
+        raise RuntimeError("No Sentinel-2 scenes intersect the exact 2025 field geometry")
+    return kept
+
+
 def _multihash_digest(path: Path, encoded: str | None) -> bool:
     if not encoded:
         return True
@@ -483,6 +601,12 @@ def field_grid(bounds: Iterable[float], resolution: int) -> tuple[Any, int, int]
     return transform, width, height
 
 
+def _bounds_intersect(left: Iterable[float], right: Iterable[float]) -> bool:
+    aminx, aminy, amaxx, amaxy = [float(value) for value in left]
+    bminx, bminy, bmaxx, bmaxy = [float(value) for value in right]
+    return not (amaxx <= bminx or bmaxx <= aminx or amaxy <= bminy or bmaxy <= aminy)
+
+
 def aggregate_local_scene_timeseries(
     fields: Any,
     scenes: list[dict[str, Any]],
@@ -496,7 +620,7 @@ def aggregate_local_scene_timeseries(
         import rasterio
         from rasterio.enums import Resampling
         from rasterio.features import rasterize
-        from rasterio.warp import reproject
+        from rasterio.warp import reproject, transform_bounds
     except ImportError as exc:
         raise RuntimeError("rasterio with JPEG2000 support is required for local scene aggregation") from exc
     if fields.empty:
@@ -512,12 +636,17 @@ def aggregate_local_scene_timeseries(
             key=lambda item: (float(item["cloud_cover"]), str(item["item_id"])),
         )
         with ExitStack() as stack:
-            sources: list[tuple[dict[str, Any], dict[str, Any]]] = []
+            sources: list[tuple[dict[str, Any], dict[str, Any], tuple[float, float, float, float]]] = []
             for scene in day_scenes:
                 opened: dict[str, Any] = {}
                 for band in scene["assets"]:
                     opened[band] = stack.enter_context(rasterio.open(local_asset_path(archive_root, scene, band)))
-                sources.append((scene, opened))
+                reference = opened["SCL"]
+                scene_bounds = transform_bounds(
+                    reference.crs, f"EPSG:{contract['scene_archive']['target_crs_epsg']}",
+                    *reference.bounds, densify_pts=21,
+                )
+                sources.append((scene, opened, scene_bounds))
             for _, field in projected.iterrows():
                 transform, width, height = field_grid(field.geometry.bounds, resolution)
                 shape = (height, width)
@@ -527,7 +656,10 @@ def aggregate_local_scene_timeseries(
                 ).astype(bool)
                 owner = np.full(shape, -1, dtype=np.int16)
                 scl = np.zeros(shape, dtype=np.int16)
-                for scene_index, (scene, opened) in enumerate(sources):
+                field_bounds = field.geometry.bounds
+                for scene_index, (scene, opened, scene_bounds) in enumerate(sources):
+                    if not _bounds_intersect(field_bounds, scene_bounds):
+                        continue
                     values = np.zeros(shape, dtype=np.int16)
                     source = opened["SCL"]
                     reproject(
@@ -555,7 +687,7 @@ def aggregate_local_scene_timeseries(
                 bands: dict[str, np.ndarray] = {}
                 for band in contract["scene_archive"]["reflectance_assets"]:
                     mosaic = np.full(shape, np.nan, dtype=np.float32)
-                    for scene_index, (scene, opened) in enumerate(sources):
+                    for scene_index, (scene, opened, scene_bounds) in enumerate(sources):
                         use = valid & (owner == scene_index)
                         if not np.any(use):
                             continue

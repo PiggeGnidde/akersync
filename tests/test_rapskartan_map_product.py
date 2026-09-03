@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,8 +16,9 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from rapskartan_map_product_core import (  # noqa: E402
-    apply_product_memory_rule, compare_parity_predictions, load_map_contract,
-    field_grid, select_parity_field_ids, validate_map_contract,
+    add_outside_scope_rows, aggregate_local_scene_timeseries, apply_product_memory_rule,
+    compare_parity_predictions, field_grid, load_map_contract, local_asset_path,
+    select_parity_field_ids, validate_map_contract,
 )
 
 
@@ -94,6 +96,29 @@ class RapskartanMapProductTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(set(result["model_arm"]), {"SATELLITE_ONLY"})
 
+    def test_full_product_keeps_outside_area_fields_as_explicit_no_data(self):
+        rows = [
+            prediction_row("a", "2025-04-20", 0.91, True),
+            prediction_row("a", "2025-04-30", 0.40, False),
+        ]
+        product = apply_product_memory_rule(pd.DataFrame(rows), self.contract)
+        fields = pd.DataFrame([
+            {"current_field_id": "a", "municipality_code": "1262", "area_ha": 2.0, "model_scope_status": "MODEL_ELIGIBLE"},
+            {"current_field_id": "tiny", "municipality_code": "1262", "area_ha": 0.1, "model_scope_status": "OUTSIDE_AREA_SCOPE"},
+        ])
+        contract = dict(self.contract)
+        contract.update({
+            "model_version": "frozen", "frozen_feature_contract_version": "frozen",
+            "frozen_model_contract_id": "frozen",
+        })
+        result = add_outside_scope_rows(product, fields, contract)
+        self.assertEqual(len(result), 4)
+        tiny = result[result["field_id"] == "tiny"]
+        self.assertEqual(set(tiny["confidence_status"]), {"NO_DATA"})
+        self.assertEqual(set(tiny["data_quality_status"]), {"OUTSIDE_MODEL_SCOPE"})
+        self.assertTrue(tiny["p_raps"].isna().all())
+        self.assertFalse(tiny["ground_truth_present"].any())
+
     def test_parity_gate_requires_every_frozen_p95_decision(self):
         locked = pd.DataFrame([
             prediction_row("a", "2025-04-20", 0.91, True),
@@ -143,6 +168,51 @@ class RapskartanMapProductTests(unittest.TestCase):
             self.assertEqual((width, height, width * height), (expected_width, expected_height, expected_count))
             self.assertAlmostEqual(transform.a * width, bounds[2] - bounds[0])
             self.assertAlmostEqual(-transform.e * height, bounds[3] - bounds[1])
+
+    def test_local_scene_aggregation_counts_full_bounds_and_masks_polygon(self):
+        import geopandas as gpd
+        import rasterio
+        from rasterio.transform import from_origin
+        from shapely.geometry import Polygon
+
+        contract = copy.deepcopy(self.contract)
+        contract["scene_archive"]["minimum_valid_pixels"] = 1
+        contract["scene_archive"]["minimum_valid_pixel_fraction"] = 0.1
+        assets = {
+            band: {
+                "s3_uri": f"s3://eodata/test/{band}.jp2", "bytes": 0,
+                "checksum": None, "scale": 0.0001 if band != "SCL" else 1.0,
+                "offset": -0.1 if band != "SCL" else 0.0, "nodata": 0,
+            }
+            for band in [*contract["scene_archive"]["reflectance_assets"], "SCL"]
+        }
+        scene = {
+            "item_id": "synthetic", "acquisition_date": "2025-04-20",
+            "cloud_cover": 0.0, "assets": assets,
+        }
+        field = gpd.GeoDataFrame([{
+            "development_field_id": "2025-1262-a-1", "municipality_code": "1262",
+            "area_ha": 0.02,
+            "geometry": Polygon([(0, 0), (20, 0), (0, 20)]),
+        }], crs=32633)
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary)
+            for band in assets:
+                path = local_asset_path(archive, scene, band)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                values = np.full((4, 4), 4 if band == "SCL" else 5000, dtype=np.uint16)
+                with rasterio.open(
+                    path, "w", driver="GTiff", width=4, height=4, count=1,
+                    dtype=values.dtype, crs="EPSG:32633", transform=from_origin(0, 40, 10, 10),
+                    nodata=0,
+                ) as destination:
+                    destination.write(values, 1)
+            result = aggregate_local_scene_timeseries(field, [scene], archive, contract)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(int(result.iloc[0]["sample_pixels"]), 4)
+        self.assertGreater(int(result.iloc[0]["valid_pixels"]), 0)
+        self.assertLess(int(result.iloc[0]["valid_pixels"]), 4)
+        self.assertEqual(result.iloc[0]["data_quality_status"], "VALID")
 
 
 if __name__ == "__main__":
