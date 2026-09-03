@@ -18,7 +18,7 @@ from rapskartan_model_core import (
     FORBIDDEN_YEAR, annual_geometry_path, build_temporal_features, classify_crop,
     collect_development_statistics, dataset_artifact_manifest, load_model_contract,
     model_contract_sha256, prior_from_overlap_records, select_development_year,
-    sha256_file, stable_rank, write_dataframe, write_json,
+    sha256_bytes, sha256_file, stable_rank, write_dataframe, write_json,
 )
 from rapskartan_s2_pilot_core import ApiCache, cache_inventory, oauth_token, utc_now
 from rapskartan_v1_discovery_core import (

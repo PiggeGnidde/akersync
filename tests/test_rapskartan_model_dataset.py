@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import json
+import runpy
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,6 +34,11 @@ class RapskartanModelDatasetTests(unittest.TestCase):
         self.assertNotIn(2025, self.contract["development_years"])
         self.assertEqual(self.contract["resource_guards"]["expected_selected_field_years"], 1680)
         self.assertTrue(all(self.contract["forbidden_scope"].values()))
+
+    def test_dataset_runner_imports_every_hash_helper_it_uses(self):
+        namespace = runpy.run_path(str(SRC / "94_build_rapskartan_model_dataset.py"))
+        self.assertTrue(callable(namespace["sha256_bytes"]))
+        self.assertTrue(callable(namespace["sha256_file"]))
 
     def test_target_period_and_geometry_path_reject_blind_year(self):
         self.assertEqual(target_period(2024, self.contract), ("2024-03-01T00:00:00Z", "2024-06-11T00:00:00Z"))
