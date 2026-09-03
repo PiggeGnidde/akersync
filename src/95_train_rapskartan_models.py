@@ -124,6 +124,10 @@ def main() -> int:
     (out / "models").mkdir(parents=True, exist_ok=True)
     (out / "qa").mkdir(parents=True, exist_ok=True)
     (out / "logs" / "model_traceback.log").unlink(missing_ok=True)
+    for stale in (out / "models").glob("*.joblib"):
+        stale.unlink()
+    for stale in (out / "qa").glob("reliability_*.png"):
+        stale.unlink()
 
     try:
         print("[MODEL] Verifying leakage-safe development dataset...", flush=True)

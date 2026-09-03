@@ -295,6 +295,10 @@ def build_temporal_features(timeseries: pd.DataFrame, selection: pd.DataFrame, c
             if column not in ts:
                 raise RuntimeError(f"Timeseries lacks required metric {column}")
             ts[column] = pd.to_numeric(ts[column], errors="coerce")
+    metric_columns = [f"{name}_p{percentile}" for name in SPECTRAL_NAMES for percentile in (10, 50, 90)]
+    declared_usable = ts["data_quality_status"].isin(["VALID", "LOW_COVERAGE"])
+    if ts.loc[declared_usable, metric_columns].isna().to_numpy().any():
+        raise RuntimeError("Sentinel-2 rows declared usable contain missing spectral measurements")
     ts["valid_pixel_fraction"] = pd.to_numeric(ts["valid_pixel_fraction"], errors="coerce")
     selection_index = selection.set_index("development_field_id", drop=False)
     rows: list[dict[str, Any]] = []
