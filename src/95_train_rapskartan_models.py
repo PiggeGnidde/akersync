@@ -15,8 +15,9 @@ import pandas as pd
 
 from rapskartan_model_core import (
     FORBIDDEN_YEAR, artifact_records, load_model_contract, model_contract_sha256,
-    sha256_file, temporal_feature_columns, utc_now, write_dataframe, write_json,
+    sha256_file, temporal_feature_columns, write_dataframe, write_json,
 )
+from rapskartan_s2_pilot_core import utc_now
 from rapskartan_model_training import (
     arm_families, arm_feature_columns, crossfit_calibration, fit_calibrator,
     fit_estimator, group_oof_predictions, make_estimator, probability_metrics,
