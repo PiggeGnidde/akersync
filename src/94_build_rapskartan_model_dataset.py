@@ -203,37 +203,46 @@ def build_priors(selected: Any, raw_root: Path, contract: dict[str, Any], source
     lags = int(contract["history_lags"])
     rows: list[dict[str, Any]] = []
     seen = {row["path"] for row in source_rows}
-    for (year, code), targets in selected.groupby(["target_year", "municipality_code"], sort=True):
-        year, code = int(year), str(code)
-        histories: dict[int, Any | None] = {}
-        for lag in range(1, lags + 1):
-            history_year = year - lag
-            histories[history_year] = load_prior_layer(
+    for code, municipality_targets in selected.groupby("municipality_code", sort=True):
+        code = str(code)
+        needed_years = sorted({
+            int(target_year) - lag
+            for target_year in municipality_targets["target_year"].astype(int).unique()
+            for lag in range(1, lags + 1)
+            if int(target_year) - lag >= 2015
+        })
+        layer_cache = {
+            history_year: load_prior_layer(
                 raw_root, history_year, municipality_by_code[code], official, source_rows, seen,
             )
-        for target in targets.itertuples(index=False):
-            target_geometry = target.geometry
-            overlap_records: list[dict[str, Any]] = []
-            for history_year, history in histories.items():
-                if history is None or history.empty:
-                    continue
-                indexes = list(history.sindex.query(target_geometry, predicate="intersects"))
-                if not indexes:
-                    continue
-                candidates = history.iloc[indexes].copy()
-                candidates["_overlap"] = candidates.geometry.intersection(target_geometry).area
-                best = candidates.sort_values(["_overlap", "official_crop_name"], ascending=[False, True], kind="mergesort").iloc[0]
-                fraction = float(best["_overlap"]) / float(target_geometry.area)
-                overlap_records.append({
-                    "history_year": int(history_year),
-                    "official_crop_name": best["official_crop_name"] if fraction >= minimum_overlap else None,
-                    "overlap_fraction": fraction,
+            for history_year in needed_years
+        }
+        for year, targets in municipality_targets.groupby("target_year", sort=True):
+            year = int(year)
+            histories = {year - lag: layer_cache.get(year - lag) for lag in range(1, lags + 1)}
+            for target in targets.itertuples(index=False):
+                target_geometry = target.geometry
+                overlap_records: list[dict[str, Any]] = []
+                for history_year, history in histories.items():
+                    if history is None or history.empty:
+                        continue
+                    indexes = list(history.sindex.query(target_geometry, predicate="intersects"))
+                    if not indexes:
+                        continue
+                    candidates = history.iloc[indexes].copy()
+                    candidates["_overlap"] = candidates.geometry.intersection(target_geometry).area
+                    best = candidates.sort_values(["_overlap", "official_crop_name"], ascending=[False, True], kind="mergesort").iloc[0]
+                    fraction = float(best["_overlap"]) / float(target_geometry.area)
+                    overlap_records.append({
+                        "history_year": int(history_year),
+                        "official_crop_name": best["official_crop_name"] if fraction >= minimum_overlap else None,
+                        "overlap_fraction": fraction,
+                    })
+                features = prior_from_overlap_records(year, overlap_records, history_lags=lags)
+                rows.append({
+                    "development_field_id": str(target.development_field_id), "target_year": year,
+                    "municipality_code": code, **features,
                 })
-            features = prior_from_overlap_records(year, overlap_records, history_lags=lags)
-            rows.append({
-                "development_field_id": str(target.development_field_id), "target_year": year,
-                "municipality_code": code, **features,
-            })
     result = pd.DataFrame(rows).sort_values(["target_year", "development_field_id"], kind="mergesort").reset_index(drop=True)
     if len(result) != len(selected) or result["development_field_id"].duplicated().any():
         raise RuntimeError("Prior features do not cover the selected development fields exactly once")
