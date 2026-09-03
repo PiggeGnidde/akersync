@@ -71,6 +71,14 @@ def main() -> int:
             raise RuntimeError("Model manifest is not bound to the repository contract")
         if model_manifest["feature_head"] != snapshot["head"] or model_manifest["feature_tree"] != snapshot["head_tree"]:
             raise RuntimeError("Model manifest repository snapshot mismatch")
+        for record in model_contract.get("code_hashes", []):
+            path = ROOT / record["path"]
+            if not path.is_file() or sha256_file(path) != record["sha256"]:
+                raise RuntimeError(f"Frozen code hash mismatch: {record['path']}")
+        for relative, expected_sha in model_contract.get("input_hashes", {}).items():
+            path = out / relative
+            if not path.is_file() or sha256_file(path) != expected_sha:
+                raise RuntimeError(f"Frozen model input hash mismatch: {relative}")
 
         selection = pd.read_csv(out / "development_field_selection.csv", dtype={"development_field_id": str, "municipality_code": str})
         labels = pd.read_csv(out / "development_labels.csv", dtype={"development_field_id": str})
@@ -129,6 +137,16 @@ def main() -> int:
             raise RuntimeError("Expected 27 frozen arm/cutoff model selections")
         if threshold_contract.get("blind_year_used") is not False or calibration_contract.get("blind_year_used") is not False:
             raise RuntimeError("Threshold or calibration contract used the blind year")
+        for record in threshold_contract["records"]:
+            if record.get("source") != "cross-fitted whole-year OOF development predictions":
+                raise RuntimeError("Threshold source is not pre-blind whole-year OOF")
+            for key in ("precision_95", "precision_90"):
+                threshold = float(record[key]["threshold"])
+                if not 0 <= threshold <= 1:
+                    raise RuntimeError("Frozen probability threshold is outside [0,1]")
+        for record in calibration_contract["records"]:
+            if record.get("selection_source") != "cross-fitted calibration by held-out development year":
+                raise RuntimeError("Calibration source is not pre-blind held-out-year data")
         if feature_contract.get("target_label_excluded_from_features") is not True:
             raise RuntimeError("Feature contract does not exclude target labels")
         model_files = sorted((out / "models").glob("*.joblib"))
