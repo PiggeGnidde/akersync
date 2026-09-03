@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import time
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -19,7 +20,7 @@ import pandas as pd
 
 from rapskartan_s2_pilot_core import (
     CRS_UTM33, ApiCache, STATS_URL, artifact_records, geometry_mapping,
-    parse_stat_response, raw_text, sha256_bytes, sha256_file, stable_json,
+    parse_stat_response, raw_text, request_key, sha256_bytes, sha256_file, stable_json,
     stat_evalscript, write_dataframe, write_json,
 )
 from rapskartan_v1_discovery_core import load_official_tables, official_lookup
@@ -33,6 +34,48 @@ SPECTRAL_NAMES = [
     "NDVI", "NDRE", "EVI2", "GNDVI", "LSWI", "NIRV", "YELLOWNESS",
 ]
 TREND_NAMES = ["B03", "B04", "B08", "NDVI", "NDRE", "EVI2", "GNDVI", "LSWI", "NIRV", "YELLOWNESS"]
+PARTIAL_RESPONSE_ATTEMPTS = 4
+
+
+def fetch_complete_statistics(
+    cache: ApiCache,
+    payload: dict[str, Any],
+    *,
+    field_id: str,
+    retry_delay_seconds: float = 2.0,
+) -> Any:
+    """Reject and evict transient HTTP-200 PARTIAL responses before parsing.
+
+    Sentinel Hub can return a syntactically valid statistics response with an
+    overall PARTIAL status. ApiCache intentionally caches byte responses before
+    product-specific validation, so an old PARTIAL entry must also be removed.
+    Complete cached responses remain untouched.
+    """
+    key = request_key(STATS_URL, payload)
+    paths = cache._paths(key, ".json")
+    for attempt in range(1, PARTIAL_RESPONSE_ATTEMPTS + 1):
+        result = cache.fetch(STATS_URL, payload, response_suffix=".json", accept="application/json")
+        try:
+            status = json.loads(result.body.decode("utf-8")).get("status")
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Statistics API returned invalid JSON for field {field_id}") from exc
+        if status in (None, "OK"):
+            return result
+        if status != "PARTIAL" or cache.offline:
+            raise RuntimeError(f"Statistics API status is not OK for field {field_id}: {status}")
+        for path in paths:
+            path.unlink(missing_ok=True)
+        if attempt == PARTIAL_RESPONSE_ATTEMPTS:
+            raise RuntimeError(
+                f"Statistics API remained PARTIAL for field {field_id} after {PARTIAL_RESPONSE_ATTEMPTS} attempts"
+            )
+        print(
+            f"WARN_PARTIAL_STATISTICS_RETRY: field {field_id} · attempt {attempt}/{PARTIAL_RESPONSE_ATTEMPTS}; "
+            "discarded only this cache entry",
+            flush=True,
+        )
+        if retry_delay_seconds > 0:
+            time.sleep(retry_delay_seconds * attempt)
 
 
 def load_model_contract(root: Path) -> dict[str, Any]:
@@ -372,7 +415,7 @@ def collect_development_statistics(selected: Any, contract: dict[str, Any], cach
     for number, row in enumerate(projected.itertuples(index=False), start=1):
         meta = development_field_meta(row)
         payload = build_development_stat_request(geometry_mapping(row.geometry), int(row.target_year), contract)
-        result = cache.fetch(STATS_URL, payload, response_suffix=".json", accept="application/json")
+        result = fetch_complete_statistics(cache, payload, field_id=meta["development_field_id"])
         parsed = parse_stat_response(result.body, contract, field_meta=meta, edge_rule="ORIGINAL")
         for item in parsed:
             item["development_field_id"] = item.pop("development_field_id")

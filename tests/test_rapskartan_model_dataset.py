@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import sys
+import json
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -15,7 +18,7 @@ if str(SRC) not in sys.path:
 
 from rapskartan_model_core import (  # noqa: E402
     SPECTRAL_NAMES, annual_geometry_path, build_development_stat_request,
-    build_temporal_features, load_model_contract, prior_from_overlap_records,
+    build_temporal_features, fetch_complete_statistics, load_model_contract, prior_from_overlap_records,
     select_development_year, target_period,
 )
 
@@ -117,6 +120,30 @@ class RapskartanModelDatasetTests(unittest.TestCase):
         first = features.iloc[0]
         self.assertEqual(first["data_quality_status"], "NO_DATA")
         self.assertTrue(pd.isna(first["NDVI_last"]))
+
+    def test_partial_statistics_response_is_evicted_and_retried(self):
+        class FakeCache:
+            offline = False
+
+            def __init__(self, root):
+                self.root = root
+                self.calls = 0
+
+            def _paths(self, key, suffix):
+                endings = (".request.json", f".response{suffix}", ".meta.json")
+                return tuple(self.root / f"{key}{ending}" for ending in endings)
+
+            def fetch(self, endpoint, payload, *, response_suffix, accept):
+                self.calls += 1
+                status = "PARTIAL" if self.calls == 1 else "OK"
+                body = (json.dumps({"status": status, "data": []}) + "\n").encode("utf-8")
+                return SimpleNamespace(body=body)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = FakeCache(Path(temporary))
+            result = fetch_complete_statistics(cache, {"test": True}, field_id="f1", retry_delay_seconds=0)
+        self.assertEqual(json.loads(result.body)["status"], "OK")
+        self.assertEqual(cache.calls, 2)
 
 
 if __name__ == "__main__":
