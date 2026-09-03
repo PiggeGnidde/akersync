@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+.pytest_cache/
+solutions/best_partial_*.txt
+solutions/k*_FOUND.txt
