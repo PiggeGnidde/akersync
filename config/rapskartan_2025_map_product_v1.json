@@ -1,0 +1,106 @@
+{
+  "schema_version": "rapskartan-2025-map-product-contract-v1",
+  "phase": "FULL_HISTORICAL_2025_MAP_PRODUCT",
+  "target_year": 2025,
+  "accepted_stopd_manifest_sha256": "706bd14a67453175bc9f449ced91e4cbf813c1f1ec27f127595483c1a162ca76",
+  "accepted_stopd": {
+    "prediction_lock_manifest_sha256": "e194c3f6e76275e1c0b60c9696c8d2453df244593a2d5473a4e74a9b240e2a27",
+    "blind_evaluation_manifest_sha256": "5fa16ec83a64d531577246a1178aea441e7287922cc0e53314af0d74bc9450d4",
+    "critical_prediction_sha256": "1412a1c34b1884b1ad69cb226fadd24a0a169a76297979496699561e96e097af"
+  },
+  "geometry": {
+    "relative_path": "jv_skane_2025/arslager_skifte_skane_2025.gpkg",
+    "expected_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706",
+    "expected_total_fields": 128636,
+    "expected_eligible_fields": 111863,
+    "safe_attribute_columns": ["arslager", "blockid", "skiftesbeteckning", "region_kod"],
+    "crs_epsg": 3006,
+    "minimum_area_ha": 0.3,
+    "maximum_area_ha": 150.0
+  },
+  "scene_archive": {
+    "engine": "LOCAL_STAC_S3_SENTINEL2_L2A_SCENE_ARCHIVE",
+    "stac_search_url": "https://stac.dataspace.copernicus.eu/v1/search",
+    "collection": "sentinel-2-l2a",
+    "s3_endpoint_url": "https://eodata.dataspace.copernicus.eu",
+    "s3_bucket": "eodata",
+    "time_from": "2025-03-01T00:00:00Z",
+    "time_to": "2025-06-11T00:00:00Z",
+    "mosaicking": "SIMPLE",
+    "mosaicking_order": "leastCC",
+    "maximum_scene_cloud_cover_percent": 100,
+    "resolution_m": 10,
+    "target_crs_epsg": 32633,
+    "reflectance_assets": {
+      "B02": "B02_10m",
+      "B03": "B03_10m",
+      "B04": "B04_10m",
+      "B05": "B05_20m",
+      "B06": "B06_20m",
+      "B07": "B07_20m",
+      "B08": "B08_10m",
+      "B8A": "B8A_20m",
+      "B11": "B11_20m",
+      "B12": "B12_20m"
+    },
+    "quality_asset": "SCL_20m",
+    "reflectance_resampling": "bilinear",
+    "quality_resampling": "nearest",
+    "harmonize_from_stac_scale_offset": true,
+    "valid_scl_codes": [2, 4, 5],
+    "minimum_valid_pixels": 4,
+    "minimum_valid_pixel_fraction": 0.2,
+    "percentiles": [10, 50, 90]
+  },
+  "parity_gate": {
+    "source": "accepted STOPPUNKT D blind fields and locked predictions; no ground-truth columns",
+    "minimum_fields": 132,
+    "maximum_fields": 400,
+    "per_municipality_background_fields": 4,
+    "near_threshold_fields": 100,
+    "high_confidence_fields": 100,
+    "no_data_fields": 34,
+    "primary_model_arm": "SATELLITE_ONLY",
+    "required_frozen_p95_decision_agreement": 1.0,
+    "minimum_data_quality_agreement": 0.98,
+    "maximum_median_absolute_probability_delta": 0.01,
+    "maximum_p95_absolute_probability_delta": 0.03
+  },
+  "product_rule": {
+    "rule_id": "rapskartan-post-blind-memory-v1",
+    "rule_class": "POST_BLIND_PRODUCT_RULE",
+    "primary_model_arm": "SATELLITE_ONLY",
+    "entry_decision": "predicted_at_frozen_p95",
+    "memory": "Once entry_decision is true at a cutoff, HIGH_CONFIDENCE persists at every later cutoff.",
+    "possible_decision": "current calibrated_probability >= 0.5 before any high-confidence detection",
+    "status_order": ["NO_DATA", "LOW", "POSSIBLE", "HIGH_CONFIDENCE"],
+    "blind_benchmark_is_immutable": true,
+    "model_retuning": false,
+    "threshold_retuning": false
+  },
+  "resource_guards": {
+    "maximum_stac_pages": 100,
+    "maximum_scene_items": 500,
+    "maximum_scene_assets": 5500,
+    "maximum_archive_bytes": 214748364800,
+    "minimum_free_disk_bytes_before_download": 268435456000,
+    "processing_window_pixels": 1024,
+    "maximum_fields_per_municipality": 20000
+  },
+  "outputs": {
+    "relative_product_root": "data/derived/rapskartan_v1/2025",
+    "cutoff_file_pattern": "{cutoff}.parquet",
+    "municipality_shard_pattern": "checkpoints/{municipality_code}.parquet"
+  },
+  "scope": {
+    "full_historical_2025_map_product": true,
+    "ground_truth_in_product": false,
+    "post_blind_model_retuning": false,
+    "threshold_retuning": false,
+    "sentinel1": false,
+    "web": false,
+    "deployment": false,
+    "tag": false,
+    "merge": false
+  }
+}
