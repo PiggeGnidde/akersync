@@ -398,6 +398,8 @@ def frozen_runtime_contract(stop_c: Path, base_contract: dict[str, Any]) -> dict
     if feature.get("target_label_excluded_from_features") is not True or feature.get("forbidden_target_year") != TARGET_YEAR:
         raise RuntimeError("Frozen feature contract does not preserve the blind label gate")
     base_contract = dict(base_contract)
+    base_contract["frozen_feature_contract_version"] = feature["schema_version"]
+    base_contract["frozen_model_contract_id"] = sha256_file(stop_c / "rapskartan_model_contract_v1.json")
     base_contract["frozen_feature_contract"] = {
         "temporal": model_development["temporal"], "sentinel2": feature["sentinel2"],
         "cloud_mask": feature["cloud_mask"], "statistics": model_development["statistics"],
@@ -444,6 +446,21 @@ def make_predictions(selection: pd.DataFrame, prior: pd.DataFrame, temporal: pd.
             output["calibration"] = bundle["calibration_method"]
             output["raw_probability"] = raw_probability
             output["calibrated_probability"] = probability
+            # Explicit product-contract aliases.  These are only copies of
+            # already-frozen inputs/outputs; no post-freeze feature is added.
+            output["field_id"] = output["current_field_id"]
+            output["valid_pixel_fraction"] = output["mean_valid_pixel_fraction"]
+            output["prior_raps_probability"] = pd.to_numeric(frame["raps_frequency"], errors="coerce")
+            output["satellite_score"] = raw_probability if arm != "PRIOR_ONLY" else np.nan
+            output["p_raps"] = probability
+            output["model_version"] = contract["model_version"]
+            output["feature_contract_version"] = contract["frozen_feature_contract_version"]
+            output["source_manifest_id"] = contract["frozen_model_contract_id"]
+            output["confidence_status"] = np.select(
+                [~usable, probability >= 0.9, probability >= 0.5],
+                ["NO_DATA", "HIGH", "MEDIUM"],
+                default="LOW",
+            )
             for label, key in (("p95", "precision_95"), ("p90", "precision_90")):
                 spec = threshold[key]
                 output[f"frozen_{label}_available"] = bool(spec["available"])

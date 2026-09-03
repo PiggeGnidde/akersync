@@ -37,6 +37,8 @@ def runtime_contract() -> dict:
         "satellite_features": temporal_feature_columns(development),
         "model_arms": development["model"]["arms"],
     }
+    blind["frozen_feature_contract_version"] = "rapskartan-feature-contract-v1"
+    blind["frozen_model_contract_id"] = "test-model-contract-sha256"
     return blind
 
 
@@ -164,6 +166,14 @@ class RapskartanBlindPredictionTests(unittest.TestCase):
         self.assertEqual(len(result), 27)
         self.assertTrue(result["predicted_at_frozen_p95"].all())
         self.assertFalse({"is_winter_rapeseed", "official_crop_name", "crop_code_raw"} & set(result.columns))
+        self.assertTrue({
+            "field_id", "valid_pixel_fraction", "prior_raps_probability", "satellite_score",
+            "p_raps", "confidence_status", "model_version", "feature_contract_version",
+            "source_manifest_id",
+        }.issubset(result.columns))
+        self.assertTrue((result["field_id"] == result["current_field_id"]).all())
+        self.assertTrue(np.allclose(result["p_raps"], result["calibrated_probability"]))
+        self.assertEqual(set(result["confidence_status"]), {"MEDIUM"})
 
     def test_prediction_module_has_no_ground_truth_csv_reader(self):
         source = (SRC / "rapskartan_blind_prediction_core.py").read_text(encoding="utf-8")
