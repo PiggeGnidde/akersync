@@ -104,6 +104,14 @@ def main() -> int:
     fractions = pd.to_numeric(metrics["valid_pixel_fraction"], errors="raise")
     if ((fractions < 0) | (fractions > 1)).any():
         raise RuntimeError("Valid-pixel fraction is outside [0,1]")
+    measured = contract["sentinel2"]["bands"] + list(contract["sentinel2"]["indices"]) + ["CLD"]
+    metric_columns = [f"{name}_p{percentile}" for name in measured for percentile in (10, 50, 90)]
+    no_data = metrics[metrics["data_quality_status"] == "NO_DATA_TOO_FEW_PIXELS"]
+    if no_data[metric_columns].notna().to_numpy().any():
+        raise RuntimeError("Too-few-pixel rows retain numeric measurements")
+    usable = metrics[metrics["data_quality_status"].isin(["VALID", "LOW_COVERAGE"])]
+    if usable.empty or usable[metric_columns].isna().to_numpy().any():
+        raise RuntimeError("Usable metric rows contain missing measurements")
 
     edges = pd.read_csv(out / "edge_rule_summary.csv")
     if len(edges) != expected * len(contract["edge_rules"]):

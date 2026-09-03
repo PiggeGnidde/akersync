@@ -130,6 +130,9 @@ class RapskartanS2PilotTests(unittest.TestCase):
             edge_rule="BUFFER_20M",
         )
         self.assertEqual(rows[0]["data_quality_status"], "NO_DATA_TOO_FEW_PIXELS")
+        self.assertIsNone(rows[0]["B02_p50"])
+        self.assertIsNone(rows[0]["NDVI_p50"])
+        self.assertIsNone(rows[0]["CLD_p50"])
 
     def test_scl_response_preserves_class_fractions(self):
         bands = {

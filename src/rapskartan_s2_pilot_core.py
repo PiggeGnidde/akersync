@@ -435,9 +435,14 @@ def parse_stat_response(
         for band in bands:
             stats = _band_stats(output, band)
             percentiles = stats.get("percentiles") or {}
-            row[f"{band}_p10"] = percentiles.get("10.0", percentiles.get("10"))
-            row[f"{band}_p50"] = percentiles.get("50.0", percentiles.get("50"))
-            row[f"{band}_p90"] = percentiles.get("90.0", percentiles.get("90"))
+            if status == "NO_DATA_TOO_FEW_PIXELS":
+                row[f"{band}_p10"] = None
+                row[f"{band}_p50"] = None
+                row[f"{band}_p90"] = None
+            else:
+                row[f"{band}_p10"] = percentiles.get("10.0", percentiles.get("10"))
+                row[f"{band}_p50"] = percentiles.get("50.0", percentiles.get("50"))
+                row[f"{band}_p90"] = percentiles.get("90.0", percentiles.get("90"))
         rows.append(row)
     return rows
 
