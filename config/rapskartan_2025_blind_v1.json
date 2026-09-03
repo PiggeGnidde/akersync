@@ -1,0 +1,51 @@
+{
+  "schema_version": "rapskartan-2025-blind-contract-v1",
+  "phase": "BOUNDED_2025_BLIND_BENCHMARK",
+  "stop_point": "D_BLIND_BENCHMARK",
+  "target_year": 2025,
+  "model_version": "rapskartan-model-v1-preblind-rc1",
+  "geometry": {
+    "relative_path": "jv_skane_2025/arslager_skifte_skane_2025.gpkg",
+    "expected_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706",
+    "expected_total_fields": 128636,
+    "safe_attribute_columns": ["arslager", "blockid", "skiftesbeteckning", "region_kod"],
+    "crs_epsg": 3006
+  },
+  "selection": {
+    "rule": "Deterministic hash sample within municipality and four equal-count field-area strata; no crop attribute is read or used.",
+    "minimum_area_ha": 0.3,
+    "maximum_area_ha": 150.0,
+    "area_strata": 4,
+    "maximum_fields_per_municipality": 100,
+    "minimum_selected_fields": 3000,
+    "maximum_selected_fields": 3300,
+    "population_weight_rule": "Eligible municipality/area-stratum count divided by selected count in the same stratum."
+  },
+  "ground_truth": {
+    "relative_path": "akerminne_2015_2025_selected.csv.gz",
+    "expected_sha256": "05423236dc30544f86422d42ce5c9095376a9d5dac58e6ea110f6e6702cecdcf",
+    "expected_2025_fields": 128636,
+    "expected_2025_winter_rapeseed_fields": 3955,
+    "expected_2025_winter_rapeseed_area_ha": 40453.24273,
+    "positive_name": "Raps (höst)",
+    "gate": "This source may be opened only after prediction_lock_manifest.json has been written and independently reverified."
+  },
+  "resource_guards": {
+    "maximum_authenticated_api_requests": 3400,
+    "maximum_cache_bytes": 1073741824,
+    "minimum_joined_positive_sample_fields": 40,
+    "cache_root": "C:\\AkerSyncRaw\\rapskartan_v1\\sentinel2_l2a\\blind_2025_benchmark_v1"
+  },
+  "scope": {
+    "bounded_blind_benchmark_only": true,
+    "prediction_before_label_join": true,
+    "model_retuning": false,
+    "threshold_retuning": false,
+    "sentinel1": false,
+    "full_skane_prediction": false,
+    "web": false,
+    "deployment": false,
+    "tag": false,
+    "merge": false
+  }
+}
