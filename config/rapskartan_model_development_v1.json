@@ -1,0 +1,132 @@
+{
+  "schema_version": "rapskartan-model-development-contract-v1",
+  "phase": "PRE_2025_MODEL_DEVELOPMENT_ONLY",
+  "stop_point": "C_PRE_BLIND",
+  "development_years": [2018, 2019, 2020, 2021, 2022, 2023, 2024],
+  "history_lags": 4,
+  "selection": {
+    "minimum_area_ha": 0.3,
+    "maximum_area_ha": 150.0,
+    "per_year_per_group": 60,
+    "groups": [
+      "WINTER_RAPESEED",
+      "WINTER_CROP_CONTROL",
+      "SPRING_CROP_CONTROL",
+      "OTHER_CROP_CONTROL"
+    ],
+    "positive_crop": "Raps (höst)",
+    "winter_crop_controls": ["Vete (höst)", "Korn (höst)", "Rågvete (höst)", "Råg"],
+    "spring_crop_controls": ["Vete (vår)", "Korn (vår)", "Rågvete (vår)", "Havre"],
+    "sampling_rule": "Deterministic municipality-balanced area-rank sampling within target year and crop group.",
+    "population_weight_rule": "Eligible year/group count divided by selected year/group count."
+  },
+  "temporal": {
+    "start_month_day": "03-01",
+    "end_exclusive_month_day": "06-11",
+    "daily_aggregation_interval": "P1D",
+    "cutoff_month_days": [
+      "03-15", "03-31", "04-10", "04-20", "04-30",
+      "05-10", "05-20", "05-31", "06-10"
+    ],
+    "minimum_usable_observations": 2,
+    "trend_window_days": 30,
+    "causal_rule": "Every acquisition used by a feature row is on or before that row's cutoff date."
+  },
+  "sentinel2": {
+    "collection": "sentinel-2-l2a",
+    "resolution_m": 10,
+    "mosaicking": "SIMPLE",
+    "mosaicking_order": "leastCC",
+    "max_scene_cloud_coverage_percent": 100,
+    "harmonize_values": true,
+    "reflectance_units": "REFLECTANCE",
+    "edge_rule": "ORIGINAL",
+    "negative_buffer_m": 0,
+    "bands": ["B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B11", "B12"],
+    "quality_bands": ["SCL", "CLD", "dataMask"],
+    "indices": {
+      "NDVI": "(B08-B04)/(B08+B04)",
+      "NDRE": "(B8A-B05)/(B8A+B05)",
+      "EVI2": "2.5*(B08-B04)/(B08+2.4*B04+1)",
+      "GNDVI": "(B08-B03)/(B08+B03)",
+      "LSWI": "(B08-B11)/(B08+B11)",
+      "NIRV": "B08*NDVI",
+      "YELLOWNESS": "(B03-(B02+B04)/2)/(B03+(B02+B04)/2)"
+    }
+  },
+  "cloud_mask": {
+    "version": "s2l2a-scl-conservative-v1",
+    "valid_scl_codes": [2, 4, 5],
+    "excluded_scl_codes": {
+      "0": "NO_DATA",
+      "1": "SATURATED_OR_DEFECTIVE",
+      "3": "CLOUD_SHADOW",
+      "6": "WATER",
+      "7": "LOW_PROBABILITY_CLOUD_OR_UNCLASSIFIED",
+      "8": "MEDIUM_PROBABILITY_CLOUD",
+      "9": "HIGH_PROBABILITY_CLOUD",
+      "10": "CIRRUS",
+      "11": "SNOW_OR_ICE"
+    },
+    "cld_use": "DIAGNOSTIC_ONLY_NOT_A_THRESHOLD",
+    "minimum_valid_pixels": 4,
+    "minimum_valid_pixel_fraction": 0.2
+  },
+  "statistics": {
+    "percentiles": [10, 50, 90],
+    "primary_field_summary": "P50"
+  },
+  "prior": {
+    "minimum_overlap_fraction": 0.5,
+    "features": [
+      "prior_raps_lag1", "prior_raps_lag2", "prior_raps_lag3", "prior_raps_lag4",
+      "prior_known_lag1", "prior_known_lag2", "prior_known_lag3", "prior_known_lag4",
+      "years_since_raps", "raps_frequency", "known_history_years"
+    ]
+  },
+  "model": {
+    "arms": ["PRIOR_ONLY", "SATELLITE_ONLY", "PRIOR_PLUS_SATELLITE"],
+    "candidate_families": ["PRIOR_FREQUENCY_BASELINE", "LOGISTIC_REGRESSION", "RANDOM_FOREST"],
+    "calibration_candidates": ["PLATT", "ISOTONIC"],
+    "random_seed": 20260903,
+    "random_forest": {
+      "n_estimators": 160,
+      "max_depth": 9,
+      "min_samples_leaf": 5,
+      "max_features": "sqrt",
+      "n_jobs": 1
+    },
+    "selection_order": ["recall_at_95_precision", "pr_auc", "negative_brier"],
+    "probability_thresholds": [0.5, 0.8, 0.9, 0.95],
+    "precision_targets": [0.95, 0.9],
+    "calibration_bins": 10,
+    "geographic_folds": 5
+  },
+  "resource_guards": {
+    "expected_selected_field_years": 1680,
+    "maximum_selected_field_years": 1700,
+    "maximum_authenticated_api_requests": 1750,
+    "maximum_cache_bytes": 419430400,
+    "cache_root": "C:\\AkerSyncRaw\\rapskartan_v1\\sentinel2_l2a\\model_development_v1"
+  },
+  "blind_guard": {
+    "forbidden_target_year": 2025,
+    "row_level_2025_ids_allowed": false,
+    "row_level_2025_labels_allowed": false,
+    "blind_prediction_allowed": false,
+    "blind_evaluation_allowed": false,
+    "model_development_on_pre_2025_years_allowed": true
+  },
+  "forbidden_scope": {
+    "target_year_2025_feature_build": true,
+    "target_year_2025_label_access": true,
+    "blind_2025_prediction": true,
+    "blind_2025_evaluation": true,
+    "sentinel1": true,
+    "full_skane": true,
+    "web": true,
+    "deployment": true,
+    "tag": true,
+    "merge": true
+  }
+}
