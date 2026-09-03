@@ -34,7 +34,7 @@ for /f "delims=" %%S in ('git status --short') do (
 
 echo.
 echo VERIFY_RAPSKARTAN_MODEL_DEVELOPMENT: PASS
-echo STOPPUNKT C - do not open 2025 labels or create blind predictions without explicit GO 2025 BLIND TEST.
+echo STOPPUNKT C - do not generate or evaluate 2025 predictions without explicit GO 2025 BLIND TEST.
 echo.
 echo Return:
 echo   1. %OUT%\logs\model_tests.log
@@ -42,17 +42,18 @@ echo   2. %OUT%\logs\model_dataset.log
 echo   3. %OUT%\logs\model_training.log
 echo   4. %OUT%\logs\stopc_verify.log
 echo   5. %OUT%\development_dataset_manifest.json
-echo   6. %OUT%\rapskartan_model_contract_v1.json
-echo   7. %OUT%\feature_contract_v1.json
-echo   8. %OUT%\threshold_contract_v1.json
-echo   9. %OUT%\calibration_contract_v1.json
-echo  10. %OUT%\development_cv_results.json
-echo  11. %OUT%\development_cv_by_cutoff.csv
-echo  12. %OUT%\development_cv_by_year.csv
-echo  13. %OUT%\development_geographic_robustness.csv
-echo  14. %OUT%\development_reliability_bins.csv and %OUT%\qa\reliability_*.png
-echo  15. %OUT%\model_artifacts_manifest.json
-echo  16. Every WARN, ERROR, FAIL, MISMATCH, AMBIGUOUS and BLOCKED line under %OUT%\logs
+echo   6. %OUT%\development_dataset_qa.json and development_determinism.json
+echo   7. %OUT%\development_sampling_audit.csv
+echo   8. %OUT%\development_cv_results.json
+echo   9. %OUT%\development_cv_by_cutoff.csv and development_cv_by_year.csv
+echo  10. %OUT%\development_geographic_robustness.csv
+echo  11. %OUT%\development_reliability_bins.csv and %OUT%\qa\reliability_*.png
+echo  12. %OUT%\rapskartan_model_contract_v1.json
+echo  13. %OUT%\feature_contract_v1.json
+echo  14. %OUT%\threshold_contract_v1.json
+echo  15. %OUT%\calibration_contract_v1.json
+echo  16. %OUT%\model_artifacts_manifest.json
+echo  17. Every WARN, ERROR, FAIL, MISMATCH, AMBIGUOUS and BLOCKED line under %OUT%\logs
 exit /b 0
 
 :fail

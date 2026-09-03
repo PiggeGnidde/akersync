@@ -16,12 +16,12 @@ if not "%~3"=="" set "CACHE=%~3"
 if not "%~4"=="" set "STOP_B=%~4"
 
 echo ========================================================================================
-echo Rapskartan Skane V1 - PRE-2025 MODELLUTVECKLING - STOPPUNKT C
+echo Rapskartan Skane V1 - PRE-2025 MODEL DEVELOPMENT - STOPPUNKT C
 echo ========================================================================================
-echo Raw root:       %RAW_ROOT%
+echo Raw root:        %RAW_ROOT%
 echo Accepted StopB: %STOP_B%
-echo Output:         %OUT%
-echo Content cache:  %CACHE%
+echo Output:          %OUT%
+echo Content cache:   %CACHE%
 echo.
 
 for /f "delims=" %%S in ('git status --short') do (
@@ -59,21 +59,21 @@ if not exist "%STOP_B%\s2_pilot_manifest.json" (
 if not exist "%OUT%\logs" mkdir "%OUT%\logs"
 if errorlevel 1 exit /b 1
 
-echo [1/3] Leakage, dataset, model, calibration and earlier-phase regression tests...
+echo [1/3] Leakage, dataset, model, calibration and prior tests...
 py -3 -m unittest tests.test_rapskartan_v1_discovery tests.test_rapskartan_s2_pilot tests.test_rapskartan_model_dataset tests.test_rapskartan_model_training -v > "%OUT%\logs\model_tests.log" 2>&1
 set "RC=%ERRORLEVEL%"
 type "%OUT%\logs\model_tests.log"
 if not "%RC%"=="0" goto :fail
 
 echo.
-echo [2/3] Build deterministic 2018-2024 dataset and Sentinel-2 cache...
-echo This is the long step. Progress is printed every 50 fields and cached for safe reruns.
+echo [2/3] Build deterministic pre-2025 dataset and Sentinel-2 cache...
+echo Progress is shown every 50 fields. First run can take tens of minutes; reruns use cache.
 powershell -NoProfile -Command "& { py -3 -u src\94_build_rapskartan_model_dataset.py --raw-root '%RAW_ROOT%' --stop-b-dir '%STOP_B%' --output-dir '%OUT%' --cache-root '%CACHE%' 2>&1 | Tee-Object -FilePath '%OUT%\logs\model_dataset.log'; exit $LASTEXITCODE }"
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" goto :fail
 
 echo.
-echo [3/3] Whole-year CV, calibration, thresholds and pre-blind model package...
+echo [3/3] Whole-year CV, calibration, thresholds and pre-blind freeze candidate...
 powershell -NoProfile -Command "& { py -3 -u src\95_train_rapskartan_models.py --output-dir '%OUT%' 2>&1 | Tee-Object -FilePath '%OUT%\logs\model_training.log'; exit $LASTEXITCODE }"
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" goto :fail
@@ -101,7 +101,7 @@ echo.
 echo ========================================================================================
 echo RAPSKARTAN MODEL DEVELOPMENT RUNNER: PASS
 echo ========================================================================================
-echo 2025 row labels/predictions, Sentinel-1, full Skane, web and deployment did not run.
+echo No 2025 label/prediction, Sentinel-1, full Skane, web, deployment, tag or merge ran.
 echo Run next:
 echo   VERIFY_RAPSKARTAN_MODEL_DEVELOPMENT.bat "%OUT%"
 echo.
@@ -114,5 +114,5 @@ echo ===========================================================================
 echo RAPSKARTAN MODEL DEVELOPMENT RUNNER: FAIL OR BLOCKED
 echo ========================================================================================
 echo No 2025 blind prediction/evaluation or later phase ran.
-echo Return all files under: %OUT%\logs
+echo Return every file under: %OUT%\logs
 exit /b 1
