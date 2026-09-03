@@ -145,6 +145,12 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def sha256_lf_normalized_text(path: Path) -> str:
+    """Hash repository text identically after LF or CRLF checkout."""
+    value = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return sha256_bytes(value)
+
+
 def load_map_contract(root: Path) -> dict[str, Any]:
     contract = json.loads((root / CONTRACT_REL).read_text(encoding="utf-8"))
     validate_map_contract(contract)
@@ -207,7 +213,7 @@ def _git(root: Path, *args: str) -> str:
 
 def verify_stop_d(root: Path, stop_d: Path, contract: dict[str, Any]) -> dict[str, Any]:
     accepted_path = root / ACCEPTED_STOPD_REL
-    if sha256_file(accepted_path) != contract["accepted_stopd_manifest_sha256"]:
+    if sha256_lf_normalized_text(accepted_path) != contract["accepted_stopd_manifest_sha256"]:
         raise RuntimeError("Repository accepted STOPPUNKT D manifest changed")
     accepted = json.loads(accepted_path.read_text(encoding="utf-8"))
     if accepted.get("status") != "PASS" or accepted.get("authorization", {}).get("go_map_product_received") is not True:

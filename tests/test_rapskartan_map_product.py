@@ -18,7 +18,7 @@ if str(SRC) not in sys.path:
 from rapskartan_map_product_core import (  # noqa: E402
     add_outside_scope_rows, aggregate_local_scene_timeseries, apply_product_memory_rule,
     compare_parity_predictions, field_grid, load_map_contract, local_asset_path,
-    select_parity_field_ids, validate_map_contract,
+    select_parity_field_ids, sha256_lf_normalized_text, validate_map_contract,
 )
 
 
@@ -64,6 +64,19 @@ class RapskartanMapProductTests(unittest.TestCase):
         runner = (ROOT / "RUN_RAPSKARTAN_2025_MAP_PRODUCT.bat").read_text(encoding="utf-8")
         self.assertIn(" 2>&1 | Tee-Object ", runner)
         self.assertNotIn("2^>^&1 ^|", runner)
+
+    def test_accepted_manifest_hash_is_stable_across_windows_checkout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            lf = Path(temporary) / "lf.json"
+            crlf = Path(temporary) / "crlf.json"
+            lf.write_bytes(b'{\n  "status": "PASS"\n}\n')
+            crlf.write_bytes(b'{\r\n  "status": "PASS"\r\n}\r\n')
+            self.assertEqual(sha256_lf_normalized_text(lf), sha256_lf_normalized_text(crlf))
+        accepted = ROOT / "analysis" / "rapskartan_v1" / "accepted_stopD_manifest.json"
+        self.assertEqual(
+            sha256_lf_normalized_text(accepted),
+            self.contract["accepted_stopd_manifest_sha256"],
+        )
 
     def test_contract_rejects_changed_scl_or_threshold_scope(self):
         changed = copy.deepcopy(self.contract)

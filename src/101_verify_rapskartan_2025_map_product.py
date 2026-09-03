@@ -13,7 +13,7 @@ import pandas as pd
 from rapskartan_blind_prediction_core import sha256_file, verify_stop_c
 from rapskartan_map_product_core import (
     ACCEPTED_STOPD_REL, CONTRACT_REL, FEATURE_BRANCH, FORBIDDEN_PRODUCT_COLUMNS,
-    _multihash_digest, load_map_contract, verify_stop_d,
+    _multihash_digest, load_map_contract, sha256_lf_normalized_text, verify_stop_d,
 )
 from rapskartan_v1_discovery_core import repository_snapshot
 
@@ -69,7 +69,7 @@ def main() -> int:
             raise RuntimeError("Full map repository snapshot differs")
         if manifest.get("contract_sha256") != sha256_file(ROOT / CONTRACT_REL):
             raise RuntimeError("Full map contract hash differs")
-        if manifest.get("accepted_stopd_manifest_sha256") != sha256_file(ROOT / ACCEPTED_STOPD_REL):
+        if manifest.get("accepted_stopd_manifest_sha256") != sha256_lf_normalized_text(ROOT / ACCEPTED_STOPD_REL):
             raise RuntimeError("Full map accepted STOPPUNKT D hash differs")
         verify_artifacts(out, manifest)
 

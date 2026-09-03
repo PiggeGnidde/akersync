@@ -21,7 +21,8 @@ from rapskartan_map_product_core import (
     compare_parity_predictions, download_scene_archive, filter_scenes_to_fields,
     full_model_selection, load_map_contract, query_scene_inventory,
     read_full_safe_2025_geometry, select_parity_field_ids, sha256_bytes,
-    sha256_file, stable_json, verify_stop_d, write_product_manifest,
+    sha256_file, sha256_lf_normalized_text, stable_json, verify_stop_d,
+    write_product_manifest,
 )
 from rapskartan_s2_pilot_core import utc_now, write_dataframe, write_json
 from rapskartan_v1_discovery_core import repository_snapshot
@@ -56,7 +57,7 @@ def checkpoint_id(snapshot: dict, contract: dict, scenes: list[dict], stop_c: Pa
     identity = {
         "repository_tree": snapshot["head_tree"],
         "contract_sha256": sha256_file(ROOT / CONTRACT_REL),
-        "accepted_stopd_sha256": sha256_file(ROOT / ACCEPTED_STOPD_REL),
+        "accepted_stopd_sha256": sha256_lf_normalized_text(ROOT / ACCEPTED_STOPD_REL),
         "model_manifest_sha256": sha256_file(stop_c / "model_artifacts_manifest.json"),
         "scenes": [(item["item_id"], item["datetime"]) for item in scenes],
         "product_rule": contract["product_rule"],
@@ -232,7 +233,7 @@ def main() -> int:
         write_product_manifest(
             out, relatives, repository_head=snapshot["head"], repository_tree=snapshot["head_tree"],
             contract_sha256=sha256_file(ROOT / CONTRACT_REL),
-            accepted_stopd_sha256=sha256_file(ROOT / ACCEPTED_STOPD_REL), counts=counts,
+            accepted_stopd_sha256=sha256_lf_normalized_text(ROOT / ACCEPTED_STOPD_REL), counts=counts,
         )
         print("=" * 88)
         print("RAPSKARTAN SKANE V1 FULL HISTORICAL 2025 MAP PRODUCT: PASS")
