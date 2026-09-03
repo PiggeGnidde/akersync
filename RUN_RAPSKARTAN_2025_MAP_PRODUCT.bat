@@ -75,7 +75,7 @@ if not "%RC%"=="0" goto :fail
 echo.
 echo [2/2] Hash-verified scene archive, parity gate and restartable full-Skane product...
 echo First run downloads up to 200 GiB and can take many hours. Municipality checkpoints survive a later failure.
-powershell -NoProfile -Command "& { py -3 -u src\100_generate_rapskartan_2025_map_product.py --raw-root '%RAW_ROOT%' --stop-c-dir '%STOP_C%' --stop-d-dir '%STOP_D%' --output-dir '%OUT%' --scene-archive '%ARCHIVE%' 2^>^&1 ^| Tee-Object -FilePath '%OUT%\logs\map_product.log'; exit $LASTEXITCODE }"
+powershell -NoProfile -Command "& { py -3 -u src\100_generate_rapskartan_2025_map_product.py --raw-root '%RAW_ROOT%' --stop-c-dir '%STOP_C%' --stop-d-dir '%STOP_D%' --output-dir '%OUT%' --scene-archive '%ARCHIVE%' 2>&1 | Tee-Object -FilePath '%OUT%\logs\map_product.log'; exit $LASTEXITCODE }"
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" goto :fail
 if not exist "%OUT%\full_map_manifest.json" (

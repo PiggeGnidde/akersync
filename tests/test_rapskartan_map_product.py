@@ -60,6 +60,11 @@ class RapskartanMapProductTests(unittest.TestCase):
         self.assertEqual(self.contract["product_rule"]["rule_class"], "POST_BLIND_PRODUCT_RULE")
         self.assertTrue(self.contract["product_rule"]["blind_benchmark_is_immutable"])
 
+    def test_map_product_runner_passes_redirection_to_powershell_unescaped(self):
+        runner = (ROOT / "RUN_RAPSKARTAN_2025_MAP_PRODUCT.bat").read_text(encoding="utf-8")
+        self.assertIn(" 2>&1 | Tee-Object ", runner)
+        self.assertNotIn("2^>^&1 ^|", runner)
+
     def test_contract_rejects_changed_scl_or_threshold_scope(self):
         changed = copy.deepcopy(self.contract)
         changed["scene_archive"]["valid_scl_codes"] = [4, 5]
