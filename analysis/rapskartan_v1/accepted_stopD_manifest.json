@@ -1,0 +1,57 @@
+{
+  "schema_version": "rapskartan-skane-v1-stopd-acceptance-v1",
+  "accepted_at_utc": "2026-09-03T19:45:00Z",
+  "status": "PASS",
+  "source_archive": {
+    "name": "rapskartan_stopD_return_0dfcf4a.zip",
+    "sha256": "80468ae316a53ffe36e91334088204b1d3b8c0ed7bf92010904f3da06d56791f",
+    "prediction_lock_manifest_sha256": "e194c3f6e76275e1c0b60c9696c8d2453df244593a2d5473a4e74a9b240e2a27",
+    "blind_evaluation_manifest_sha256": "5fa16ec83a64d531577246a1178aea441e7287922cc0e53314af0d74bc9450d4",
+    "stopd_verifier_log_sha256": "b7100215c28a2c7aaed49c08a53c308646b44531cedfcab283a9d73dcff06ea3",
+    "prediction_head": "9f475e5cbed782406e4e9cb237bbc948c7d9e2a5",
+    "prediction_tree": "e3fafb61ce77cdfe54e6ce894071f7cd88b9071d",
+    "verified_feature_head": "0dfcf4ab7cfbba6482700cdc7bb5e5eebb778aca",
+    "verified_feature_tree": "767a02032b38c871b8a3bd66fb1be6e84fcbc624"
+  },
+  "review": {
+    "zip_integrity": "PASS",
+    "prediction_lock_artifacts": "13/13 PASS",
+    "evaluation_manifest_artifacts": "17/17 PASS",
+    "independent_verifier": "PASS",
+    "population_fields": 128636,
+    "eligible_geometry_fields": 111863,
+    "population_winter_rapeseed_fields": 3955,
+    "blind_sample_fields": 3291,
+    "blind_sample_winter_rapeseed_fields": 134,
+    "prediction_rows": 88857,
+    "model_arms": 3,
+    "cutoffs": 9,
+    "critical_prediction_sha256": "1412a1c34b1884b1ad69cb226fadd24a0a169a76297979496699561e96e097af",
+    "offline_hash_rerun": "PASS",
+    "model_feature_calibration_threshold_tuning_after_unblind": false
+  },
+  "accepted_observations": [
+    "The frozen 10 June SATELLITE_ONLY P95 decision achieved empirical blind precision 1.000 and recall 0.690.",
+    "The frozen 10 June PRIOR_PLUS_SATELLITE P95 decision achieved empirical blind precision 0.942 and recall 0.775.",
+    "A post-blind cumulative memory rule is authorized only as a transparently labelled product rule; it must not rewrite the blind benchmark or any frozen probability/threshold."
+  ],
+  "scope": {
+    "blind_2025_benchmark_passed": true,
+    "full_skane_map_created": false,
+    "post_blind_model_retuning": false,
+    "threshold_retuning": false,
+    "sentinel1_touched": false,
+    "web_touched": false,
+    "deployment": false,
+    "tag": false,
+    "merge": false
+  },
+  "authorization": {
+    "go_map_product_received": true,
+    "map_product_data_engine": "LOCAL_STAC_S3_SCENE_PIPELINE_WITH_BLIND_PARITY_GATE",
+    "post_blind_memory_rule_authorized": true,
+    "model_or_threshold_retuning_authorized": false,
+    "sentinel1_authorized": false,
+    "web_or_deployment_authorized": false
+  }
+}
