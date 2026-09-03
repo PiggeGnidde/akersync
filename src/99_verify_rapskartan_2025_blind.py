@@ -7,6 +7,7 @@ import json
 import traceback
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 
@@ -24,31 +25,85 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STOP_C = Path(r"C:\AkerSyncRepo\work\rapskartan_skane_v1_model_stopC")
 DEFAULT_OUT = Path(r"C:\AkerSyncRepo\work\rapskartan_skane_v1_blind_2025_stopD")
 DEFAULT_TRUTH = Path(r"C:\AkerSyncRepo\work\akerscore_validation_csv_upload")
-PROBABILITY_RECOMPUTATION_ATOL = 1e-6
+LOGISTIC_CSV_ROUNDTRIP_ATOL = 1e-6
+MAX_RF_AFFECTED_SHARE_PER_MODEL = 0.005
+MAX_CALIBRATED_RF_DELTA = 0.01
 
 
-def verify_probability_recomputation(recomputed: pd.DataFrame, locked: pd.DataFrame) -> float:
+def frozen_random_forest_tree_count(stop_c: Path, predictions: pd.DataFrame) -> int:
+    counts = set()
+    groups = predictions[predictions["model_family"] == "RANDOM_FOREST"][["model_arm", "cutoff_date"]].drop_duplicates()
+    for row in groups.itertuples(index=False):
+        cutoff = str(row.cutoff_date)[5:].replace("-", "")
+        bundle = joblib.load(stop_c / "models" / f"{str(row.model_arm).lower()}_{cutoff}.joblib")
+        values = {
+            int(value) for key, value in bundle["estimator"].get_params(deep=True).items()
+            if key == "n_estimators" or key.endswith("__n_estimators")
+        }
+        if len(values) != 1:
+            raise RuntimeError(f"Frozen Random Forest tree-count contract is ambiguous: {row.model_arm}/{row.cutoff_date}")
+        counts.update(values)
+    if len(counts) != 1:
+        raise RuntimeError(f"Frozen Random Forest tree counts differ: {sorted(counts)}")
+    return counts.pop()
+
+
+def verify_probability_recomputation(
+    recomputed: pd.DataFrame, locked: pd.DataFrame, random_forest_trees: int,
+) -> dict[str, float | int]:
     """Compare probabilities after the documented %.10g feature CSV round-trip.
 
     The prediction lock was produced from the in-memory feature frame, while
     the independent verifier necessarily reloads its decimal CSV projection.
-    Exact binary equality is therefore not a valid invariant.  Missingness and
-    all threshold decisions are checked separately and exactly.
+    Exact binary equality is therefore not a valid invariant, especially for
+    Random Forest split boundaries. Missingness and all threshold decisions
+    are checked separately and exactly.
     """
     columns = ["raw_probability", "calibrated_probability"]
     expected = recomputed[columns].to_numpy(dtype=float)
     actual = locked[columns].to_numpy(dtype=float)
     if not np.array_equal(np.isnan(expected), np.isnan(actual)):
         raise RuntimeError("Independent recomputation probability missingness differs")
-    finite = np.isfinite(expected) & np.isfinite(actual)
-    maximum = float(np.max(np.abs(expected[finite] - actual[finite]))) if finite.any() else 0.0
-    if not np.allclose(expected, actual, rtol=0, atol=PROBABILITY_RECOMPUTATION_ATOL, equal_nan=True):
+    audit = locked[["model_family", "model_arm", "cutoff_date"]].copy()
+    audit["raw_delta"] = np.abs(expected[:, 0] - actual[:, 0])
+    audit["calibrated_delta"] = np.abs(expected[:, 1] - actual[:, 1])
+    logistic = audit[audit["model_family"] != "RANDOM_FOREST"]
+    logistic_max = float(logistic[["raw_delta", "calibrated_delta"]].max().max())
+    if logistic_max > LOGISTIC_CSV_ROUNDTRIP_ATOL:
         raise RuntimeError(
-            "Independent frozen-model prediction recomputation exceeds the "
-            f"CSV round-trip tolerance: max_abs_delta={maximum:.12g}, "
-            f"allowed={PROBABILITY_RECOMPUTATION_ATOL:.12g}"
+            f"Logistic prediction recomputation exceeds decimal round-trip tolerance: {logistic_max:.12g}"
         )
-    return maximum
+
+    forest = audit[audit["model_family"] == "RANDOM_FOREST"]
+    vote_unit = 1.0 / float(random_forest_trees)
+    forest_raw_max = float(forest["raw_delta"].max())
+    forest_calibrated_max = float(forest["calibrated_delta"].max())
+    if forest_raw_max > vote_unit + LOGISTIC_CSV_ROUNDTRIP_ATOL:
+        raise RuntimeError(
+            "Random Forest recomputation exceeds one frozen-tree contribution: "
+            f"max_raw_delta={forest_raw_max:.12g}, one_tree={vote_unit:.12g}"
+        )
+    if forest_calibrated_max > MAX_CALIBRATED_RF_DELTA:
+        raise RuntimeError(
+            f"Random Forest calibrated recomputation delta is too large: {forest_calibrated_max:.12g}"
+        )
+    affected = forest["raw_delta"] > LOGISTIC_CSV_ROUNDTRIP_ATOL
+    grouped = forest.assign(affected=affected).groupby(["model_arm", "cutoff_date"])["affected"].agg(["sum", "size"])
+    maximum_share = float((grouped["sum"] / grouped["size"]).max())
+    if maximum_share > MAX_RF_AFFECTED_SHARE_PER_MODEL:
+        raise RuntimeError(
+            "Random Forest decimal round-trip affects too many rows in one frozen model: "
+            f"maximum_share={maximum_share:.6g}"
+        )
+    return {
+        "logistic_max_abs_delta": logistic_max,
+        "random_forest_trees": int(random_forest_trees),
+        "random_forest_affected_rows": int(affected.sum()),
+        "random_forest_rows": int(len(forest)),
+        "random_forest_max_affected_share_per_model": maximum_share,
+        "random_forest_max_raw_delta": forest_raw_max,
+        "random_forest_max_calibrated_delta": forest_calibrated_max,
+    }
 
 
 def compare_frames(expected: pd.DataFrame, actual: pd.DataFrame, keys: list[str]) -> None:
@@ -122,10 +177,13 @@ def main() -> int:
             raise RuntimeError("CAUSALITY_FAILURE: blind temporal features use future observations")
 
         recomputed_predictions = make_predictions(selection, prior, temporal, args.stop_c_dir.resolve(), contract)
-        maximum_probability_delta = verify_probability_recomputation(recomputed_predictions, predictions)
         for column in ["predicted_at_frozen_p95", "predicted_at_frozen_p90", "predicted_at_0_5", "predicted_at_0_8", "predicted_at_0_9", "predicted_at_0_95"]:
             if not recomputed_predictions[column].astype(bool).equals(predictions[column].astype(bool)):
                 raise RuntimeError(f"Independent decision recomputation differs: {column}")
+        random_forest_trees = frozen_random_forest_tree_count(args.stop_c_dir.resolve(), predictions)
+        probability_audit = verify_probability_recomputation(
+            recomputed_predictions, predictions, random_forest_trees,
+        )
 
         truth_path = args.ground_truth_dir.resolve() / contract["ground_truth"]["relative_path"]
         truth, inventory = load_ground_truth(truth_path, contract)
@@ -152,7 +210,14 @@ def main() -> int:
         print(f"Prediction lock: {lock['critical_prediction_sha256']}")
         print(f"Population: {inventory['fields']:,} fields / {inventory['winter_rapeseed_fields']:,} raps")
         print(f"Blind sample: {len(sample):,} fields / {int(sample['is_winter_rapeseed'].sum()):,} raps")
-        print(f"Frozen predictions independently recomputed: PASS · max abs probability delta {maximum_probability_delta:.3g}")
+        print(
+            "Frozen predictions independently recomputed: PASS · "
+            f"logistic max {probability_audit['logistic_max_abs_delta']:.3g} · "
+            f"RF {probability_audit['random_forest_affected_rows']}/{probability_audit['random_forest_rows']} rows · "
+            f"RF raw/cal max {probability_audit['random_forest_max_raw_delta']:.6g}/"
+            f"{probability_audit['random_forest_max_calibrated_delta']:.6g}"
+        )
+        print(f"All fixed and frozen threshold decisions unchanged: PASS · RF trees {random_forest_trees}")
         print("Ground truth independently reopened/joined: PASS")
         print("All 27 arm/cutoff benchmark rows and confusion matrices: PASS")
         final = stored_results[stored_results["cutoff_date"] == stored_results["cutoff_date"].max()]

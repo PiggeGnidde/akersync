@@ -70,19 +70,43 @@ def predictions() -> pd.DataFrame:
 class RapskartanBlindEvaluationTests(unittest.TestCase):
     def test_probability_recomputation_allows_only_decimal_roundtrip_noise(self):
         locked = pd.DataFrame({
+            "model_family": ["LOGISTIC_REGRESSION", "LOGISTIC_REGRESSION"],
+            "model_arm": ["A", "A"], "cutoff_date": ["2025-01-01", "2025-01-01"],
             "raw_probability": [0.123456789, np.nan],
             "calibrated_probability": [0.987654321, np.nan],
         })
         recomputed = locked.copy()
         recomputed.loc[0, "raw_probability"] += 5e-7
-        self.assertAlmostEqual(VERIFY.verify_probability_recomputation(recomputed, locked), 5e-7)
+        audit = VERIFY.verify_probability_recomputation(recomputed, locked, 160)
+        self.assertAlmostEqual(audit["logistic_max_abs_delta"], 5e-7)
         recomputed.loc[0, "raw_probability"] += 2e-6
-        with self.assertRaisesRegex(RuntimeError, "max_abs_delta"):
-            VERIFY.verify_probability_recomputation(recomputed, locked)
+        with self.assertRaisesRegex(RuntimeError, "Logistic"):
+            VERIFY.verify_probability_recomputation(recomputed, locked, 160)
         changed_missingness = locked.copy()
         changed_missingness.loc[1, "raw_probability"] = 0.1
         with self.assertRaisesRegex(RuntimeError, "missingness"):
-            VERIFY.verify_probability_recomputation(changed_missingness, locked)
+            VERIFY.verify_probability_recomputation(changed_missingness, locked, 160)
+
+    def test_random_forest_roundtrip_is_limited_to_one_tree_and_sparse_rows(self):
+        rows = 1000
+        locked = pd.DataFrame({
+            "model_family": ["RANDOM_FOREST"] * rows,
+            "model_arm": ["SATELLITE_ONLY"] * rows,
+            "cutoff_date": ["2025-04-30"] * rows,
+            "raw_probability": np.linspace(0.01, 0.99, rows),
+            "calibrated_probability": np.linspace(0.01, 0.99, rows),
+        })
+        recomputed = locked.copy()
+        recomputed.loc[:2, "raw_probability"] += 1 / 160
+        recomputed.loc[:2, "calibrated_probability"] += 0.007
+        audit = VERIFY.verify_probability_recomputation(recomputed, locked, 160)
+        self.assertEqual(audit["random_forest_affected_rows"], 3)
+        changed_vote = recomputed.copy(); changed_vote.loc[0, "raw_probability"] += 0.001
+        with self.assertRaisesRegex(RuntimeError, "one frozen-tree"):
+            VERIFY.verify_probability_recomputation(changed_vote, locked, 160)
+        broad = locked.copy(); broad.loc[:9, "raw_probability"] += 0.001; broad.loc[:9, "calibrated_probability"] += 0.001
+        with self.assertRaisesRegex(RuntimeError, "too many rows"):
+            VERIFY.verify_probability_recomputation(broad, locked, 160)
 
     def test_ground_truth_gate_requires_complete_untampered_prediction_lock(self):
         with tempfile.TemporaryDirectory() as tmp:
