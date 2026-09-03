@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import sys
 import tempfile
 import unittest
@@ -20,6 +21,12 @@ from rapskartan_blind_evaluation_core import (  # noqa: E402
     load_ground_truth, open_prediction_lock,
 )
 from rapskartan_s2_pilot_core import sha256_file  # noqa: E402
+
+VERIFY_SPEC = importlib.util.spec_from_file_location(
+    "verify_rapskartan_2025_blind", SRC / "99_verify_rapskartan_2025_blind.py"
+)
+VERIFY = importlib.util.module_from_spec(VERIFY_SPEC)
+VERIFY_SPEC.loader.exec_module(VERIFY)
 
 
 def selection() -> pd.DataFrame:
@@ -61,6 +68,22 @@ def predictions() -> pd.DataFrame:
 
 
 class RapskartanBlindEvaluationTests(unittest.TestCase):
+    def test_probability_recomputation_allows_only_decimal_roundtrip_noise(self):
+        locked = pd.DataFrame({
+            "raw_probability": [0.123456789, np.nan],
+            "calibrated_probability": [0.987654321, np.nan],
+        })
+        recomputed = locked.copy()
+        recomputed.loc[0, "raw_probability"] += 5e-7
+        self.assertAlmostEqual(VERIFY.verify_probability_recomputation(recomputed, locked), 5e-7)
+        recomputed.loc[0, "raw_probability"] += 2e-6
+        with self.assertRaisesRegex(RuntimeError, "max_abs_delta"):
+            VERIFY.verify_probability_recomputation(recomputed, locked)
+        changed_missingness = locked.copy()
+        changed_missingness.loc[1, "raw_probability"] = 0.1
+        with self.assertRaisesRegex(RuntimeError, "missingness"):
+            VERIFY.verify_probability_recomputation(changed_missingness, locked)
+
     def test_ground_truth_gate_requires_complete_untampered_prediction_lock(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
