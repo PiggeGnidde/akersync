@@ -1,0 +1,54 @@
+{
+  "schema_version": "rapskartan-skane-v1-stopc-acceptance-v1",
+  "accepted_at_utc": "2026-09-03T13:20:00Z",
+  "status": "PASS",
+  "source_archive": {
+    "name": "rapskartan_stopC_return_ac22992.zip",
+    "sha256": "7d147c5c3be215e0f0155fd5932e438fc46e162a1f75789cec4b42d0235dad1f",
+    "development_dataset_manifest_sha256": "e64dc753188a1856fd2dec16b2c022f816b0c6ac01e4d3ddff160e9ccb953bd1",
+    "model_artifacts_manifest_sha256": "d4120a28784000daf987cc47755213ef8d351b12f45d146a198eb4b83f0cf274",
+    "stopc_verifier_log_sha256": "3366f6d325c474349e8aa05b374964836296c48ec7e769260c111c4c42e71437",
+    "feature_head": "ac229921898a782d32400e623004b1316a2dd5c6",
+    "feature_tree": "04297466cecf7e4507458236afb4e298e7a3b630"
+  },
+  "review": {
+    "zip_integrity": "PASS",
+    "development_manifest_artifacts": "12/12 PASS",
+    "model_manifest_artifacts": "40/40 PASS",
+    "independent_verifier": "PASS",
+    "model_tests": "36/36 PASS",
+    "development_field_years": 1680,
+    "development_years": [2018, 2019, 2020, 2021, 2022, 2023, 2024],
+    "municipalities": 33,
+    "temporal_feature_rows": 15120,
+    "usable_feature_rows": 14026,
+    "explicit_no_data_rows": 1094,
+    "model_arms": 3,
+    "cutoffs": 9,
+    "frozen_model_bundles": 27,
+    "offline_hash_rerun": "PASS"
+  },
+  "accepted_observations": [
+    "Satellite signal strengthens materially through spring but is not monotone at every cutoff.",
+    "Development year 2024 and one geographic fold are weaker at some frozen thresholds.",
+    "Isotonic satellite calibration contains extreme probability bins; empirical blind calibration must be reported without V1 retuning."
+  ],
+  "scope": {
+    "pre_2025_model_development_only": true,
+    "row_level_2025_labels_accessed": false,
+    "blind_2025_predictions_created": false,
+    "sentinel1_touched": false,
+    "full_skane_run": false,
+    "web_touched": false,
+    "deployment": false,
+    "tag": false,
+    "merge": false
+  },
+  "authorization": {
+    "go_2025_blind_test_received": true,
+    "model_retuning_after_unblind_authorized": false,
+    "sentinel1_authorized": false,
+    "full_skane_map_authorized": false,
+    "web_or_deployment_authorized": false
+  }
+}
