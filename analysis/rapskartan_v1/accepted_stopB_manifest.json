@@ -1,0 +1,50 @@
+{
+  "schema_version": "rapskartan-skane-v1-stopb-acceptance-v1",
+  "accepted_at_utc": "2026-09-03T06:49:15Z",
+  "status": "PASS",
+  "source_archive": {
+    "name": "rapskartan_stopB_return_71e8954.zip",
+    "sha256": "053253bdac0ba217e45a2b08afed3ae317e67f2ec8145bf9ee63bc963648a2f5",
+    "execution_manifest_sha256": "df495f6a0eab01071e8b9ccdf5479f7305724ee73daf6507db9a561ef20f9241",
+    "stopb_verifier_log_sha256": "453ac55f40cac63c46425cec6dee1536616295eedae845e4eb7b97af57b6a4f8",
+    "feature_head": "71e89542807db4b015ecf26a2ca7f45576157d1a",
+    "feature_tree": "e75ce5a6c4777021b3cd17528114874ff35f557c"
+  },
+  "review": {
+    "zip_integrity": "PASS",
+    "execution_manifest_artifacts": "30/30 PASS",
+    "independent_verifier": "PASS",
+    "selected_development_fields": 24,
+    "development_years": [2020, 2024],
+    "field_edge_timeseries_rows": 2747,
+    "scl_rows": 984,
+    "timeseries_plots": 8,
+    "cloud_mask_images": 8,
+    "cache_bytes": 12062839,
+    "offline_hash_rerun": "PASS",
+    "no_data_rows_with_numeric_measurements": 0,
+    "usable_rows_with_missing_measurements": 0
+  },
+  "accepted_warnings": [
+    "WARN_EMPTY_INWARD_BUFFERS: 5 field/edge combinations",
+    "WARN_LOW_COVERAGE_INTERVALS: 176 rows",
+    "WARN_NO_DATA_INTERVALS: 1653 rows"
+  ],
+  "scope": {
+    "sentinel2_datapilot_only": true,
+    "row_level_2025_accessed": false,
+    "classifier_created": false,
+    "model_fitted": false,
+    "threshold_selected": false,
+    "sentinel1_touched": false,
+    "full_skane_run": false,
+    "web_touched": false,
+    "deployment": false
+  },
+  "authorization": {
+    "go_model_development_received": true,
+    "blind_2025_test_authorized": false,
+    "sentinel1_authorized": false,
+    "web_or_deployment_authorized": false
+  }
+}
