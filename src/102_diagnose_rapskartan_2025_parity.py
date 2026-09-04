@@ -57,6 +57,10 @@ def satellite_only(frame):
 
 def run(args, base: Path) -> Path:
     print("[DIAG] OFFLINE ONLY: no credentials, catalog queries or downloads.", flush=True)
+    engine_profile = getattr(args, "engine_profile", "original")
+    if engine_profile not in {"original", "reference_pixels_v2"}:
+        raise RuntimeError("Unknown diagnostic engine profile")
+    print(f"[DIAG] Engine profile: {engine_profile}; production runner remains unchanged.", flush=True)
     snapshot = repository_snapshot(ROOT)
     if snapshot["branch"] != FEATURE_BRANCH or not snapshot["working_tree_clean"]:
         raise RuntimeError(f"Diagnostic requires clean branch {FEATURE_BRANCH}")
@@ -100,6 +104,9 @@ def run(args, base: Path) -> Path:
         "model_manifest_sha256": sha256_file(args.stop_c_dir / "model_artifacts_manifest.json"),
         "runtime": versions,
     }
+    if engine_profile != "original":
+        identity_inputs["engine_profile"] = engine_profile
+        identity_inputs["candidate_code_sha256"] = sha256_file(ROOT / "src/rapskartan_local_candidate.py")
     identity = sha256_bytes(stable_json(identity_inputs).encode("utf-8"))
     out = base / f"run_{identity[:16]}"
     out.mkdir(parents=True, exist_ok=True)
@@ -131,7 +138,8 @@ def run(args, base: Path) -> Path:
         cached = read_day_checkpoint(out / "checkpoints", day, identity)
         if cached is None:
             with heartbeat(f"{day} local pixel processing"):
-                cached = aggregate_local_scene_timeseries(fields, day_scenes, args.scene_archive, contract, progress_prefix=f"DIAG-{day}")
+                profile_args = {} if engine_profile == "original" else {"engine_profile": engine_profile}
+                cached = aggregate_local_scene_timeseries(fields, day_scenes, args.scene_archive, contract, progress_prefix=f"DIAG-{day}", **profile_args)
             save_day_checkpoint(out / "checkpoints", day, identity, cached)
             mode = "computed"
         else:
@@ -200,6 +208,7 @@ def run(args, base: Path) -> Path:
                   "ground_truth_used_for_analysis": False, "full_map_generated": False,
                   "source_archive_modified": False},
         "interpretation": "Completion is not parity approval. All production thresholds remain unchanged.",
+        "engine_profile": engine_profile,
     }
     write_json(out / "diagnostic_summary.json", summary)
     end_snapshot = repository_snapshot(ROOT)
@@ -216,10 +225,12 @@ def main() -> int:
     parser.add_argument("--product-dir", type=Path, default=ROOT / "data/derived/rapskartan_v1/2025")
     parser.add_argument("--scene-archive", type=Path, default=Path(r"C:\AkerSyncRaw\rapskartan_v1\sentinel2_l2a\map_product_2025_scene_archive_v1"))
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data/derived/rapskartan_v1/2025_parity_diagnostic_v1")
+    parser.add_argument("--engine-profile", choices=["original", "reference_pixels_v2"], default="original")
     args = parser.parse_args()
     sys.addaudithook(offline_audit)
-    for name in vars(args):
-        setattr(args, name, local_path(getattr(args, name)))
+    for name,value in vars(args).items():
+        if isinstance(value, Path):
+            setattr(args, name, local_path(value))
     base = args.output_dir
     ensure_separate_output(base, [args.stop_c_dir, args.stop_d_dir, args.product_dir, args.scene_archive])
     base.mkdir(parents=True, exist_ok=True)

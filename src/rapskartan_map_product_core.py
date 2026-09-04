@@ -620,6 +620,7 @@ def aggregate_local_scene_timeseries(
     contract: dict[str, Any],
     *,
     progress_prefix: str = "LOCAL-S2",
+    engine_profile: str = "original",
 ) -> pd.DataFrame:
     """Aggregate cached L2A scenes into the frozen daily field-statistics schema."""
     try:
@@ -629,6 +630,11 @@ def aggregate_local_scene_timeseries(
         from rasterio.warp import reproject, transform_bounds
     except ImportError as exc:
         raise RuntimeError("rasterio with JPEG2000 support is required for local scene aggregation") from exc
+    if engine_profile not in {"original", "reference_pixels_v2"}:
+        raise RuntimeError("Unknown local engine profile")
+    candidate = engine_profile == "reference_pixels_v2"
+    if candidate:
+        from rapskartan_local_candidate import reference_polygon_mask, reference_reflectance, reference_percentiles, reference_metrics
     if fields.empty:
         return pd.DataFrame()
     projected = fields.to_crs(int(contract["scene_archive"]["target_crs_epsg"])).sort_values("development_field_id", kind="mergesort").reset_index(drop=True)
@@ -660,6 +666,8 @@ def aggregate_local_scene_timeseries(
                     [(field.geometry, 1)], out_shape=shape, transform=transform,
                     fill=0, dtype="uint8", all_touched=False,
                 ).astype(bool)
+                if candidate:
+                    polygon = reference_polygon_mask(field.geometry, transform, shape)
                 owner = np.full(shape, -1, dtype=np.int16)
                 scl = np.zeros(shape, dtype=np.int16)
                 field_bounds = field.geometry.bounds
@@ -697,7 +705,7 @@ def aggregate_local_scene_timeseries(
                         use = valid & (owner == scene_index)
                         if not np.any(use):
                             continue
-                        values = np.zeros(shape, dtype=np.float32)
+                        values = np.zeros(shape, dtype=np.float64 if candidate else np.float32)
                         source = opened[band]
                         reproject(
                             rasterio.band(source, 1), values,
@@ -707,9 +715,15 @@ def aggregate_local_scene_timeseries(
                             dst_nodata=0, resampling=Resampling.bilinear, init_dest_nodata=True,
                         )
                         asset = scene["assets"][band]
-                        mosaic[use] = values[use] * float(asset["scale"]) + float(asset["offset"])
+                        if candidate:
+                            mosaic[use] = reference_reflectance(values[use], float(asset["scale"]), float(asset["offset"]))
+                        else:
+                            mosaic[use] = values[use] * float(asset["scale"]) + float(asset["offset"])
                     bands[band] = mosaic
                 metrics = _metric_arrays(bands)
+                if candidate:
+                    # Evalscript arithmetic is double; returned samples FLOAT32.
+                    metrics = reference_metrics(bands)
                 next_day = (date.fromisoformat(acquisition) + timedelta(days=1)).isoformat()
                 row: dict[str, Any] = {
                     "development_field_id": str(field["development_field_id"]),
@@ -725,7 +739,7 @@ def aggregate_local_scene_timeseries(
                     if status == "NO_DATA_TOO_FEW_PIXELS" or not len(values):
                         row.update({f"{name}_p10": None, f"{name}_p50": None, f"{name}_p90": None})
                     else:
-                        p10, p50, p90 = np.percentile(values, [10, 50, 90])
+                        p10, p50, p90 = reference_percentiles(values) if candidate else np.percentile(values, [10, 50, 90])
                         row.update({f"{name}_p10": float(p10), f"{name}_p50": float(p50), f"{name}_p90": float(p90)})
                 rows.append(row)
         if date_number % 5 == 0 or date_number == len(dates):

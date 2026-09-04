@@ -103,7 +103,7 @@ class DiagnosticTests(unittest.TestCase):
                                     "build_blind_temporal_features": features}.items():
                     stack.enter_context(patch.object(runner, name, return_value=value))
                 aggregate = stack.enter_context(patch.object(runner, "aggregate_local_scene_timeseries", return_value=ts))
-                predict = stack.enter_context(patch.object(runner, "make_predictions", side_effect=[predictions, predictions, local_predictions] * 2))
+                predict = stack.enter_context(patch.object(runner, "make_predictions", side_effect=[predictions, predictions, local_predictions] * 4))
                 out = runner.run(args, base)
                 result = json.loads((out / "diagnostic_summary.json").read_text())
                 self.assertEqual(result["status"], "DIAGNOSTICS_COMPLETE")
@@ -116,6 +116,17 @@ class DiagnosticTests(unittest.TestCase):
                 self.assertEqual(aggregate.call_count, 1)
                 self.assertEqual(predict.call_count, 6)
                 self.assertEqual(read_table(out / "date_progress.csv").iloc[0]["mode"], "checkpoint")
+                args.engine_profile = "reference_pixels_v2"
+                candidate = runner.run(args, base)
+                self.assertNotEqual(candidate, out)
+                self.assertEqual(aggregate.call_count, 2)
+                self.assertEqual(aggregate.call_args.kwargs["engine_profile"], "reference_pixels_v2")
+                result = json.loads((candidate / "diagnostic_summary.json").read_text())
+                self.assertEqual(result["engine_profile"], "reference_pixels_v2")
+                self.assertEqual(result["local_engine_vs_locked"]["status"], "FAIL")
+                self.assertFalse(result["scope"]["full_map_generated"])
+                self.assertEqual(runner.run(args, base), candidate)
+                self.assertEqual(aggregate.call_count, 2)
 
     def test_network_operations_are_blocked_before_connection(self):
         for event in ("socket.connect", "socket.getaddrinfo", "socket.sendto", "urllib.Request"):
