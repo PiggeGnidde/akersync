@@ -36,6 +36,7 @@ from rapskartan_parity_diagnostic_core import (
 )
 from rapskartan_s2_pilot_core import artifact_records, write_json
 from rapskartan_v1_discovery_core import repository_snapshot
+from rapskartan_scene_order_candidate import PROFILE as SCENE_ORDER_PROFILE, ordered_metadata, prepare_reuse, reuse_day
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,8 +59,18 @@ def satellite_only(frame):
 def run(args, base: Path) -> Path:
     print("[DIAG] OFFLINE ONLY: no credentials, catalog queries or downloads.", flush=True)
     engine_profile = getattr(args, "engine_profile", "original")
-    if engine_profile not in {"original", "reference_pixels_v2"}:
+    if engine_profile not in {"original", "reference_pixels_v2", SCENE_ORDER_PROFILE}:
         raise RuntimeError("Unknown diagnostic engine profile")
+    reuse_source = getattr(args, "reuse_diagnostic_dir", None)
+    if engine_profile == SCENE_ORDER_PROFILE:
+        if reuse_source is None:
+            matches = sorted((ROOT / "data/derived/rapskartan_v1/2025_candidate_parity_v2").glob("run_*/diagnostic_manifest.json"))
+            if len(matches) != 1:
+                raise RuntimeError("Expected one V2 run; specify --reuse-diagnostic-dir")
+            reuse_source = local_path(matches[0].parent)
+        ensure_separate_output(base, [reuse_source])
+    elif reuse_source is not None:
+        raise RuntimeError("V2 checkpoint reuse is only available for the scene-order candidate")
     print(f"[DIAG] Engine profile: {engine_profile}; production runner remains unchanged.", flush=True)
     snapshot = repository_snapshot(ROOT)
     if snapshot["branch"] != FEATURE_BRANCH or not snapshot["working_tree_clean"]:
@@ -107,6 +118,11 @@ def run(args, base: Path) -> Path:
     if engine_profile != "original":
         identity_inputs["engine_profile"] = engine_profile
         identity_inputs["candidate_code_sha256"] = sha256_file(ROOT / "src/rapskartan_local_candidate.py")
+    reuse = None
+    if engine_profile == SCENE_ORDER_PROFILE:
+        with heartbeat("verifying V2 reuse manifest, runtime and unchanged pixel code"):
+            reuse = prepare_reuse(reuse_source, ROOT, identity_inputs, scenes)
+        identity_inputs["scene_order_candidate"] = reuse["provenance"]
     identity = sha256_bytes(stable_json(identity_inputs).encode("utf-8"))
     out = base / f"run_{identity[:16]}"
     out.mkdir(parents=True, exist_ok=True)
@@ -114,6 +130,10 @@ def run(args, base: Path) -> Path:
     save_table(out / "selected_fields.csv", selection)
     save_table(out / "reference_timeseries.csv", reference_ts)
     save_table(out / "reference_features.csv", reference_features)
+    if reuse is not None:
+        save_table(out / "scene_order_comparison.csv", reuse["report"])
+        write_json(out / "reuse_provenance.json", reuse["provenance"])
+        print(f"[DIAG] Scene ordering changes {len(reuse['changed_dates'])} dates: {reuse['changed_dates']}; other dates reuse verified V2 checkpoints.", flush=True)
     print(f"[DIAG] {len(ids)} locked fields; output: {out}", flush=True)
 
     print("[DIAG] Replaying reference features through the unchanged models...", flush=True)
@@ -126,6 +146,8 @@ def run(args, base: Path) -> Path:
     _, replay_gate = compare_parity_predictions(replay, locked, contract)
     _, rebuilt_gate = compare_parity_predictions(rebuilt, locked, contract)
     print(f"[DIAG] Reference feature replay: {replay_gate['status']}; decision agreement {replay_gate['decision_agreement']:.6f}", flush=True)
+    if reuse is not None and (replay_gate['status'] != 'PASS' or rebuilt_gate['status'] != 'PASS'):
+        raise RuntimeError('Reference replay failed; scene-order candidate cannot continue')
 
     dates = sorted({item["acquisition_date"] for item in scenes})
     parts, verified, modes = [], [], []
@@ -137,11 +159,17 @@ def run(args, base: Path) -> Path:
             verified.extend(verify_day_assets(day_scenes, args.scene_archive))
         cached = read_day_checkpoint(out / "checkpoints", day, identity)
         if cached is None:
-            with heartbeat(f"{day} local pixel processing"):
-                profile_args = {} if engine_profile == "original" else {"engine_profile": engine_profile}
-                cached = aggregate_local_scene_timeseries(fields, day_scenes, args.scene_archive, contract, progress_prefix=f"DIAG-{day}", **profile_args)
+            if reuse is not None and day not in reuse['changed_dates']:
+                cached = reuse_day(reuse, day)
+                mode = "reused_v2_verified"
+            else:
+                with heartbeat(f"{day} local pixel processing"):
+                    pixel_profile = "reference_pixels_v2" if reuse is not None else engine_profile
+                    profile_args = {} if pixel_profile == "original" else {"engine_profile": pixel_profile}
+                    pixel_scenes = ordered_metadata(day_scenes) if reuse is not None else day_scenes
+                    cached = aggregate_local_scene_timeseries(fields, pixel_scenes, args.scene_archive, contract, progress_prefix=f"DIAG-{day}", **profile_args)
+                mode = "computed"
             save_day_checkpoint(out / "checkpoints", day, identity, cached)
-            mode = "computed"
         else:
             mode = "checkpoint"
         parts.append(cached)
@@ -209,6 +237,7 @@ def run(args, base: Path) -> Path:
                   "source_archive_modified": False},
         "interpretation": "Completion is not parity approval. All production thresholds remain unchanged.",
         "engine_profile": engine_profile,
+        "scene_order_candidate": reuse["provenance"] if reuse is not None else None,
     }
     write_json(out / "diagnostic_summary.json", summary)
     end_snapshot = repository_snapshot(ROOT)
@@ -225,7 +254,8 @@ def main() -> int:
     parser.add_argument("--product-dir", type=Path, default=ROOT / "data/derived/rapskartan_v1/2025")
     parser.add_argument("--scene-archive", type=Path, default=Path(r"C:\AkerSyncRaw\rapskartan_v1\sentinel2_l2a\map_product_2025_scene_archive_v1"))
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data/derived/rapskartan_v1/2025_parity_diagnostic_v1")
-    parser.add_argument("--engine-profile", choices=["original", "reference_pixels_v2"], default="original")
+    parser.add_argument("--engine-profile", choices=["original", "reference_pixels_v2", SCENE_ORDER_PROFILE], default="original")
+    parser.add_argument("--reuse-diagnostic-dir", type=Path)
     args = parser.parse_args()
     sys.addaudithook(offline_audit)
     for name,value in vars(args).items():
@@ -233,6 +263,8 @@ def main() -> int:
             setattr(args, name, local_path(value))
     base = args.output_dir
     ensure_separate_output(base, [args.stop_c_dir, args.stop_d_dir, args.product_dir, args.scene_archive])
+    if args.engine_profile == SCENE_ORDER_PROFILE:
+        ensure_separate_output(base, [args.reuse_diagnostic_dir or ROOT / "data/derived/rapskartan_v1/2025_candidate_parity_v2"])
     base.mkdir(parents=True, exist_ok=True)
     if shutil.disk_usage(base).free < 2 * 2**30:
         raise RuntimeError("Diagnostic needs 2 GiB output headroom (no 250 GiB download guard).")
