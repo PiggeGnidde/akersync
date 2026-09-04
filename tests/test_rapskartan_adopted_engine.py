@@ -3,12 +3,13 @@ from __future__ import annotations
 import contextlib
 import copy
 import importlib.util
+import io
 import json
 import sys
 import tempfile
 import unittest
 from argparse import Namespace
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from unittest.mock import patch, Mock
 
 import pandas as pd
@@ -27,7 +28,17 @@ def load_script(name):
     return module
 
 
+def relative_manifest_path(path, root):
+    # Manifest keys use forward slashes on every OS, like the production writer.
+    return path.relative_to(root).as_posix()
+
+
 class AdoptedEngineTests(unittest.TestCase):
+    def test_manifest_fixture_paths_are_portable_to_windows(self):
+        root = PureWindowsPath(r'C:\test\out')
+        path = root / 'source' / 'scene_inventory.json'
+        self.assertEqual(relative_manifest_path(path, root), 'source/scene_inventory.json')
+        self.assertEqual(relative_manifest_path(Path('/test/out/qa/result.json'), Path('/test/out')), 'qa/result.json')
     def evidence_fixture(self, root):
         source, stop_c, stop_d = [root / n for n in ('source', 'stop_c', 'stop_d')]
         for folder in (source, stop_c, stop_d, root / 'analysis/rapskartan_v1', root / 'src'):
@@ -278,7 +289,7 @@ class AdoptedEngineTests(unittest.TestCase):
                 'accepted_diagnostic_manifest_sha256': 'accepted'})
             snapshot = {'branch': verifier.FEATURE_BRANCH, 'working_tree_clean': True, 'head': 'head', 'head_tree': 'tree'}
             def manifest():
-                names = sorted(str(p.relative_to(out)) for p in out.rglob('*') if p.is_file() and p.name != 'full_map_manifest.json')
+                names = sorted(relative_manifest_path(p, out) for p in out.rglob('*') if p.is_file() and p.name != 'full_map_manifest.json')
                 write_json(out / 'full_map_manifest.json', {'status': 'PASS', 'repository_head': 'head', 'repository_tree': 'tree',
                     'contract_sha256': sha256_file(root / verifier.CONTRACT_REL),
                     'accepted_stopd_manifest_sha256': sha256_lf_normalized_text(root / verifier.ACCEPTED_STOPD_REL),
@@ -290,11 +301,18 @@ class AdoptedEngineTests(unittest.TestCase):
                     'verify_stop_d': None, 'verify_evidence': None, 'verify_archive': None,
                     'select_parity_field_ids': sorted(predictions.development_field_id.unique())}.items():
                     stack.enter_context(patch.object(verifier, name, return_value=value))
-                self.assertEqual(verifier.verify(args, out), 0)
+                messages = io.StringIO()
+                with contextlib.redirect_stdout(messages), contextlib.redirect_stderr(messages):
+                    result = verifier.verify(args, out)
+                self.assertEqual(result, 0, messages.getvalue())
                 # Even with fresh artifact hashes and a claimed PASS summary, a changed decision fails.
                 parity_rows.loc[0, 'predicted_at_frozen_p95_local'] = False
                 save_table(out / 'qa/local_engine_parity_rows.csv', parity_rows); manifest()
-                self.assertEqual(verifier.verify(args, out), 1)
+                messages = io.StringIO()
+                with contextlib.redirect_stdout(messages), contextlib.redirect_stderr(messages):
+                    result = verifier.verify(args, out)
+                self.assertEqual(result, 1, messages.getvalue())
+                self.assertIn('Independent parity row check failed', messages.getvalue())
 
 
 if __name__ == '__main__': unittest.main()
