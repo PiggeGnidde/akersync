@@ -60,9 +60,11 @@ class RapskartanMapProductTests(unittest.TestCase):
         self.assertEqual(self.contract["product_rule"]["rule_class"], "POST_BLIND_PRODUCT_RULE")
         self.assertTrue(self.contract["product_rule"]["blind_benchmark_is_immutable"])
 
-    def test_map_product_runner_passes_redirection_to_powershell_unescaped(self):
+    def test_map_product_runner_uses_native_python_logging_without_powershell(self):
         runner = (ROOT / "RUN_RAPSKARTAN_2025_MAP_PRODUCT.bat").read_text(encoding="utf-8")
-        self.assertIn(" 2>&1 | Tee-Object ", runner)
+        self.assertNotIn("powershell", runner.lower())
+        self.assertIn("src\\100_generate_rapskartan_2025_map_product.py", runner)
+        self.assertIn("VERIFY_RAPSKARTAN_2025_MAP_PRODUCT.bat", runner)
         self.assertNotIn("2^>^&1 ^|", runner)
 
     def test_accepted_manifest_hash_is_stable_across_windows_checkout(self):

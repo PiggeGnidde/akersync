@@ -1,0 +1,17 @@
+{
+  "schema_version": "rapskartan-accepted-local-engine-v3",
+  "engine_profile": "reference_scene_order_v3",
+  "scene_order_policy": "cloud_percent_truncated_2dp_then_item_id",
+  "repository_head": "bb4353db692c3b602d9f6b6a1881a2f5f984558d",
+  "diagnostic_id": "19ac4e565e80e59828fe6ef8b87ecc192b7838249b024c9b63af1b1a874c72c5",
+  "diagnostic_manifest_sha256": "0bb4bc377f487e8dbd6ef2843efe72cba4327329186d1ee1f2b9ebe9cdd12fdc",
+  "fields": 265,
+  "decisions": 2385,
+  "acquisition_dates": 70,
+  "observations": 12945,
+  "qualification": "All frozen parity gates passed; not bitwise equality of every probability or observation quality flag.",
+  "remaining_observation_quality_differences": 7,
+  "maximum_calibrated_probability_delta": 0.08895745666941396,
+  "model_retuned": false,
+  "threshold_retuned": false
+}
