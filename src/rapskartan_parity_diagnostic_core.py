@@ -24,11 +24,13 @@ def offline_audit(event, args):
 
 
 def local_path(value: Path) -> Path:
-    text = str(value)
-    if text.startswith(("\\\\", "//", "/vsi")) or re.match(r"^(https?|s3|ftp):", text, re.IGNORECASE):
+    # WindowsPath changes /vsicurl/file into \\vsicurl\\file. Normalize only
+    # the strings used for validation; retain the original filesystem path.
+    text = str(value).replace("\\", "/")
+    if text.lower().startswith(("//", "/vsi")) or re.match(r"^(https?|s3|ftp):", text, re.IGNORECASE):
         raise RuntimeError("OFFLINE_ONLY: only local filesystem paths are allowed")
     resolved = value.resolve()
-    if str(resolved).startswith(("\\\\", "//", "/vsi")):
+    if str(resolved).replace("\\", "/").lower().startswith(("//", "/vsi")):
         raise RuntimeError("OFFLINE_ONLY: path resolves outside local storage")
     return resolved
 

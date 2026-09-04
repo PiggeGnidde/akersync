@@ -11,7 +11,7 @@ import tempfile
 import unittest
 import zipfile
 from argparse import Namespace
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from unittest.mock import patch
 
 import numpy as np
@@ -138,8 +138,9 @@ else:
 
     def test_local_paths_and_nonoverlapping_output(self):
         for value in (r"\\server\share", "/vsicurl/file", "s3://bucket/file", "https://example.com/file"):
-            with self.assertRaisesRegex(RuntimeError, "OFFLINE_ONLY"):
-                local_path(Path(value))
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(RuntimeError, "OFFLINE_ONLY"):
+                    local_path(Path(value))
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
             self.assertEqual(local_path(root), root)
@@ -147,6 +148,23 @@ else:
             for output, source in ((root, root), (root, root / "input"), (root / "out", root)):
                 with self.assertRaisesRegex(RuntimeError, "overlaps"):
                     ensure_separate_output(output, [source])
+
+    def test_windows_normalized_remote_paths_are_rejected_on_every_platform(self):
+        # PureWindowsPath reproduces Windows separator conversion on Linux too.
+        for value in ("/vsicurl/file", r"\vsicurl\file", "/VSICURL/file",
+                      r"\\server\share", "//server/share", "s3://bucket/file",
+                      "https://example.com/file", r"\\?\UNC\server\share"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(RuntimeError, "OFFLINE_ONLY"):
+                    local_path(PureWindowsPath(value))
+
+    def test_resolved_windows_network_path_is_also_rejected(self):
+        from unittest.mock import Mock
+        candidate = Mock(spec=Path)
+        candidate.__str__ = Mock(return_value="local-link")
+        candidate.resolve.return_value = PureWindowsPath(r"\\server\share")
+        with self.assertRaisesRegex(RuntimeError, "OFFLINE_ONLY"):
+            local_path(candidate)
 
     def test_comparison_preserves_signed_deltas_and_missing_rows(self):
         a = pd.DataFrame({"id": ["a", "b", "c"], "x": [2., np.nan, 4.]})
