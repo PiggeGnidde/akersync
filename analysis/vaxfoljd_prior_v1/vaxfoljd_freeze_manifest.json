@@ -1,0 +1,72 @@
+{
+  "schema_version": "vaxfoljd-prior-git-freeze-manifest-v1",
+  "freeze_name": "vaxfoljd-prior-m4-v1.0-rc1",
+  "status": "FROZEN_MODEL_CONTRACT_CANDIDATE",
+  "freeze_date": "2026-09-07",
+  "git": {
+    "repository": "PiggeGnidde/akersync",
+    "branch": "feature/akerpuls-vaxfoljd-prior-v1a",
+    "base_commit": "1ad5c77656bb93664d94254af298009a6620da4f",
+    "merge": false,
+    "tag": false
+  },
+  "selected_model": "M4-hard multiclass",
+  "selection_basis": "Full M4 paired comparison on 2021-2024; M4 improves log-loss every development year. 2025 full-M4 is post-holdout diagnostic only.",
+  "next_true_blind_year": 2026,
+  "local_freeze": {
+    "directory": "work/vaxtfoljd_prior_v1_freeze",
+    "zip": "work/vaxtfoljd_prior_v1_freeze/vaxfoljd_prior_v1_freeze.zip",
+    "bytes": 327664,
+    "sha256": "bb6be8437027573a525c8344c34ce372e49b867ec52a67f2466475d6cf60ce6e"
+  },
+  "local_zip_contents": {
+    "AkerPuls_Vaxtfoljdsprior_Technical_Note_V1.docx": {
+      "bytes": 323448,
+      "sha256": "6affc684ac76e334a7db5367cdee0c41f78c8d8420a5e303382d8e59af551311"
+    },
+    "vaxfoljd_data_contract.md": {
+      "bytes": 1866,
+      "sha256": "6bc319939aa64e87891fda225ecf8295f67895990da9312e3348c5e38b900e9d"
+    },
+    "vaxfoljd_model_card.md": {
+      "bytes": 2031,
+      "sha256": "9e13f9c50cb1a38a3bae1353adb0148acf0c8014b40813279efdce2b9884aded"
+    },
+    "vaxfoljd_prior_formulas.md": {
+      "bytes": 620,
+      "sha256": "2c802149fc1890304b2deb8f1c011af03d153c0d5ebb02dcb4981f5fd2570f69"
+    }
+  },
+  "source_inputs": {
+    "akerminne_2015_2025_selected.csv.gz": "05423236dc30544f86422d42ce5c9095376a9d5dac58e6ea110f6e6702cecdcf",
+    "field_static_context_selected.csv.gz": "31db31b79b53a4c0aa32621fb7bfa44165ea65b6b46371c32e4e19935f59feea",
+    "akerscore_soil_skiften_selected.csv.gz": "71dfd711a4243b3cbe465de7eaa013725b2d2f9be3a8890d213a89bc095427da",
+    "akerminne_sidecars_zip": "8e40c71dc05346951063783fc3475cc61a726df0fe4c23ffd74e8bd2f7368ee6"
+  },
+  "repository_lineage": {
+    "akerminne_tag": "akerminne-v1.0",
+    "akerminne_commit": "4b53ab24e9822f1c36c6cc31931dba3c1855fead",
+    "context_tag": "akerpass-akerminne-context-v1.0",
+    "context_commit": "1ad5c77656bb93664d94254af298009a6620da4f",
+    "validation_tag": "akerscore-akerminne-validation-v1.0",
+    "validation_commit": "9ca92418d6c100793dcaf3ae70705c97e556a9d5"
+  },
+  "model_contract": {
+    "learner": "LightGBM multiclass",
+    "hyperparameters": {
+      "n_estimators": 35,
+      "num_leaves": 31,
+      "learning_rate": 0.12,
+      "min_child_samples": 100,
+      "colsample_bytree": 0.7,
+      "reg_lambda": 5.0,
+      "random_state": 20260907
+    },
+    "selection_years": [2021, 2022, 2023, 2024],
+    "post_holdout_diagnostic_year": 2025
+  },
+  "not_selected": {
+    "M4-soft": "Raps-specific nested ablation showed real but small incremental soft-component information; no full multiclass evidence sufficient to replace M4-hard.",
+    "M5": "NO-GO; only +0.066% mean raps log-loss gain on 2022-2024 and unstable sign; fixed-budget recall did not improve."
+  }
+}
