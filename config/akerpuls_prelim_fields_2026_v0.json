@@ -1,0 +1,55 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-v0",
+  "phase": "STOPPUNKT_A0_PREFLIGHT",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "upstream_freeze": {
+    "tag": "akerpass-akerminne-context-v1.0",
+    "commit": "1ad5c77656bb93664d94254af298009a6620da4f",
+    "expected_2025_fields": 128636,
+    "expected_2025_geometry_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706"
+  },
+  "snapshots": {
+    "S2_2026_APRIL": ["2026-04-08", "2026-04-09"],
+    "S2_2026_MAY": ["2026-05-25"],
+    "S2_2026_JUNE": ["2026-06-26", "2026-06-27"],
+    "S2_2026_JULY": ["2026-07-09"]
+  },
+  "sentinel2": {
+    "collection": "sentinel-2-l2a",
+    "stac_search_url": "https://stac.dataspace.copernicus.eu/v1/search",
+    "token_url": "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
+    "process_url": "https://sh.dataspace.copernicus.eu/process/v1",
+    "resolution_m": 10,
+    "analysis_crs_epsg": 32633,
+    "bands_stopA": ["B02", "B03", "B04", "B08", "B11"],
+    "quality_bands": ["SCL", "CLD", "dataMask"],
+    "valid_scl_codes": [2, 4, 5],
+    "excluded_scl_codes": [0, 1, 3, 6, 7, 8, 9, 10, 11],
+    "pair_rule": "clear_pixel_first_then_lowest_CLD; never average across paired dates",
+    "indices_later": ["NDVI", "LSWI"]
+  },
+  "tiling": {
+    "tile_pixels": 1024,
+    "field_buffer_m": 30,
+    "grid_alignment_m": 10,
+    "request_only_tiles_intersecting_buffered_2025_fields": true
+  },
+  "resource_guard": {
+    "general_user_monthly_pu_reference": 10000,
+    "maximum_planned_pu": 8500,
+    "maximum_planned_requests": 9000,
+    "pu_estimate_note": "Planning estimate only; actual Sentinel Hub accounting can differ. dataMask is not counted as an input band when other bands are requested."
+  },
+  "outputs": {
+    "preflight_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopa0",
+    "raw_root": "C:\\AkerSyncRaw\\akerpuls_prelim_fields_2026_v0\\sentinel2_l2a"
+  },
+  "scope_guards": {
+    "modify_2025_geometry": false,
+    "modify_akerminne_freeze": false,
+    "crop_classification": false,
+    "production_deploy": false,
+    "automatic_merge": false,
+    "mass_download_in_preflight": false
+  }
+}
