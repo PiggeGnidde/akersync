@@ -1,0 +1,27 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-b3-qa-v1",
+  "phase": "STOPPUNKT_B3_VISUAL_AND_LOO_QA",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b1_rasters",
+  "baseline_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b2_baseline",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b3_qa",
+  "top_split_images": 12,
+  "top_merge_images": 12,
+  "split_loo": {
+    "snapshot_support_ratio": 1.25,
+    "minimum_supporting_remaining_snapshots": 2,
+    "minimum_remaining_median_ratio": 1.25
+  },
+  "merge_loo": {
+    "maximum_boundary_median_distance": 0.60,
+    "strong_edge_distance": 0.90,
+    "maximum_strong_edge_remaining_snapshots": 1,
+    "minimum_valid_remaining_snapshots": 2
+  },
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "geometry_commit": false,
+    "crop_classification": false
+  }
+}
