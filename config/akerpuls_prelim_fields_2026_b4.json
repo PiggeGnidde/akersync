@@ -1,0 +1,65 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-b4-diagnostic-v1",
+  "phase": "STOPPUNKT_B4_MORPHOLOGY_EDGE_SENSITIVITY",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b1_rasters",
+  "baseline_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b2_baseline",
+  "b3_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b3_qa",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b4_diagnostic",
+  "split": {
+    "edge_strip_pixels": 2,
+    "largest_component_fraction_grid": [0.75, 0.85],
+    "minimum_interface_pixels_grid": [4, 8],
+    "minimum_endpoint_components_grid": [0, 2],
+    "edge_ratio_threshold_grid": [0.6, 0.8, 1.0],
+    "minimum_edge_snapshots_grid": [2, 3],
+    "require_loo_all4_grid": [false, true]
+  },
+  "merge": {
+    "strong_edge_distance": 0.90,
+    "maximum_field_mean_distance_grid": [0.45, 0.50, 0.60],
+    "maximum_between_within_ratio_grid": [0.75, 0.90, 1.00],
+    "maximum_boundary_median_distance_grid": [0.40, 0.50, 0.60],
+    "maximum_single_snapshot_edge_grid": [0.60, 0.70, 0.80, 0.90],
+    "maximum_strong_edge_snapshots_grid": [0, 1],
+    "require_loo_all4_grid": [false, true]
+  },
+  "manual_visual_anchors": {
+    "split": {
+      "CLEAR": [
+        "2025|62013602526|16A",
+        "2025|62013612135|30A",
+        "2025|61963607277|8A",
+        "2025|61983609385|18A",
+        "2025|62003604626|14A"
+      ],
+      "FALSE": [
+        "2025|61963618273|9B",
+        "2025|61993563095|12A",
+        "2025|62013590756|3A"
+      ]
+    },
+    "merge": {
+      "CLEAR": [
+        "2025|62003596612|3A + 2025|62003596612|3B",
+        "2025|62003595860|12A + 2025|62003596756|13A",
+        "2025|61983612306|1A + 2025|61983612620|9A",
+        "2025|61963577343|157A + 2025|61963578080|155A"
+      ],
+      "FALSE": [
+        "2025|61963605596|9A + 2025|61963615707|10A",
+        "2025|61983620802|22A + 2025|61983623806|15A",
+        "2025|61973623611|19A + 2025|61973624710|22A",
+        "2025|62013590756|3A + 2025|62013592157|18A"
+      ]
+    }
+  },
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_freeze": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
