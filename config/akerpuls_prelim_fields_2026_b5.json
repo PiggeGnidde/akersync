@@ -1,0 +1,30 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-b5-holdout-v1",
+  "phase": "STOPPUNKT_B5_PROVISIONAL_SPLIT_RULE_HOLDOUT_QA",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b1_rasters",
+  "baseline_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b2_baseline",
+  "b3_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b3_qa",
+  "b4_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b4_diagnostic",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b5_holdout",
+  "provisional_split_rule": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "holdout_images_per_group": 8,
+  "merge_policy": {
+    "status": "MERGE_CANDIDATE_ONLY",
+    "reason": "Sentinel-2 spectral similarity cannot by itself distinguish a true 2026 merge from two adjacent administrative fields carrying spectrally similar crops.",
+    "automatic_merge": false
+  },
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_freeze": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
