@@ -1,0 +1,16 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-b1-v1",
+  "phase": "STOPPUNKT_B1_BOUNDED_RASTER_PILOT",
+  "pilot_selection_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b1_rasters",
+  "resolution_m": 10,
+  "buffer_m": 50,
+  "maximum_width_pixels": 2500,
+  "maximum_height_pixels": 2500,
+  "maximum_total_reported_pu": 100,
+  "source_bands": ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "dataMask"],
+  "snapshot_bands": ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "VALID", "NDVI", "LSWI", "SOURCE_DATE_INDEX"],
+  "clear_scl_codes": [2, 4, 5],
+  "pair_rule": "clear_pixel_first_then_lower_CLD; if both non-clear choose lower_CLD but VALID=0",
+  "no_scope": ["crop_classification", "full_skane", "split_merge_decision", "production_deploy"]
+}
