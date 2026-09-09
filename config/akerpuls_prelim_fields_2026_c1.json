@@ -1,0 +1,34 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c1-raster-v1",
+  "phase": "STOPPUNKT_C1_INDEPENDENT_BOUNDED_RASTER",
+  "c0_selection_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+  "b1_reference_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b1_rasters",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c1_rasters",
+  "pilot_filename": "c0_pilot_fields_2025.gpkg",
+  "expected_pilot_fields": 1000,
+  "resolution_m": 10,
+  "buffer_m": 50,
+  "maximum_width_pixels": 2500,
+  "maximum_height_pixels": 2500,
+  "maximum_total_reported_pu": 300,
+  "preprocessing_contract": "IDENTICAL_TO_B1",
+  "source_bands": ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "dataMask"],
+  "snapshot_bands": ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "VALID", "NDVI", "LSWI", "SOURCE_DATE_INDEX"],
+  "clear_scl_codes": [2, 4, 5],
+  "pair_rule": "clear_pixel_first_then_lower_CLD; if both non-clear choose lower_CLD but VALID=0",
+  "locked_split_rule": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "merge_policy": "MERGE_CANDIDATE_ONLY",
+  "guards": {
+    "threshold_tuning": false,
+    "threshold_freeze": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
