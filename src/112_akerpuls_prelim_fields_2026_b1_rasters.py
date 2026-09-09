@@ -29,7 +29,7 @@ def evalscript():
     return """//VERSION=3
 function setup(){
   return {
-    input:[{bands:["B02","B03","B04","B08","B11","SCL","CLD","dataMask"],units:"REFLECTANCE"}],
+    input:[{bands:["B02","B03","B04","B08","B11","SCL","CLD","dataMask"]}],
     output:{bands:8,sampleType:"FLOAT32"}
   };
 }
@@ -43,7 +43,7 @@ def payload(day,bbox,width,height):
       "input":{"bounds":{"bbox":[float(x) for x in bbox],"properties":{"crs":CRS_URI}},
                "data":[{"type":"sentinel-2-l2a",
                         "dataFilter":{"timeRange":{"from":f"{d}T00:00:00Z","to":f"{e}T00:00:00Z"},"maxCloudCoverage":100},
-                        "processing":{"upsampling":"BILINEAR","downsampling":"BILINEAR","harmonizeValues":True}}]},
+                        "processing":{"upsampling":"NEAREST","downsampling":"NEAREST","harmonizeValues":True}}]},
       "output":{"width":int(width),"height":int(height),
                 "responses":[{"identifier":"default","format":{"type":"image/tiff"}}]},
       "evalscript":evalscript()
@@ -174,12 +174,16 @@ def main():
     shapes=[(geom,i+1) for i,geom in enumerate(g.geometry)]
     labels=rasterize(shapes,out_shape=(height,width),transform=transform,fill=0,dtype="int32",all_touched=False)
     totals=np.bincount(labels.ravel(),minlength=len(g)+1).astype(float)
+    good_counts={
+        snap:np.bincount(labels.ravel(),weights=arr[7].ravel(),minlength=len(g)+1)
+        for snap,arr in snapshots.items()
+    }
     rows=[]
     ids=g["parent_field_id_2025"].astype(str).tolist()
     for i,fid in enumerate(ids,1):
         r={"parent_field_id_2025":fid,"pixels":int(totals[i])}
-        for snap,arr in snapshots.items():
-            good=np.bincount(labels.ravel(),weights=arr[7].ravel(),minlength=len(g)+1)
+        for snap in snapshots:
+            good=good_counts[snap]
             r[f"valid_{snap.lower()}"]=None if totals[i]==0 else round(float(good[i]/totals[i]),6)
         rows.append(r)
     pd.DataFrame(rows).to_csv(out/"field_snapshot_validity.csv",index=False)
