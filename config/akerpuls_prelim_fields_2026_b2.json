@@ -1,0 +1,36 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-b2-baseline-v1",
+  "phase": "STOPPUNKT_B2_SPLIT_MERGE_BASELINE",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b1_rasters",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_b2_baseline",
+  "feature_bands_per_snapshot": ["B02", "B03", "B04", "B08", "B11", "NDVI", "LSWI"],
+  "split": {
+    "interior_erosion_pixels": 1,
+    "minimum_valid_pixels": 24,
+    "minimum_child_pixels": 30,
+    "minimum_child_fraction": 0.20,
+    "minimum_spatial_coherence": 0.80,
+    "minimum_total_separation_ratio": 1.80,
+    "snapshot_support_ratio": 1.25,
+    "minimum_supporting_snapshots": 2
+  },
+  "merge": {
+    "boundary_dilation_pixels": 3,
+    "minimum_strip_pixels_per_side": 4,
+    "maximum_field_mean_distance": 0.60,
+    "maximum_between_within_ratio": 1.00,
+    "maximum_boundary_median_distance": 0.60,
+    "strong_edge_distance": 0.90,
+    "maximum_strong_edge_snapshots": 1,
+    "minimum_valid_boundary_snapshots": 3,
+    "minimum_confidence": 0.68
+  },
+  "guards": {
+    "crop_classification": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "full_skane": false,
+    "sentinel_api_calls": false
+  }
+}
