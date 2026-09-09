@@ -1,0 +1,32 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c0-independent-pilot-v1",
+  "phase": "STOPPUNKT_C0_INDEPENDENT_GEOGRAPHIC_SELECTION",
+  "b0_pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+  "selection": {
+    "grid_size_m": 20000,
+    "minimum_distance_from_b_pilot_m": 50000,
+    "minimum_area_ha": 1.0,
+    "maximum_area_ha": 80.0,
+    "minimum_four_snapshot_footprint_fraction": 0.995,
+    "target_fields": 1000,
+    "minimum_fields": 700,
+    "maximum_fields": 1200
+  },
+  "validation_rule_locked_for_c": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "merge_policy": "MERGE_CANDIDATE_ONLY",
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "threshold_freeze": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
