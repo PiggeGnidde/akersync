@@ -121,12 +121,12 @@ def main():
         raise RuntimeError("Too few below-threshold split-candidate controls for C5d")
 
     selected = pd.concat([
-        high.assign(_hidden_group="HIGH_CONFIDENCE_CENSUS"),
-        controls.assign(_hidden_group="NEAR_THRESHOLD_CANDIDATE_CONTROL"),
+        high.assign(hidden_group_internal="HIGH_CONFIDENCE_CENSUS"),
+        controls.assign(hidden_group_internal="NEAR_THRESHOLD_CANDIDATE_CONTROL"),
     ], ignore_index=True)
     salt = cfg["blind_visual_set"]["shuffle_salt"]
-    selected["_blind_hash"] = [blind_hash(salt, str(fid)) for fid in selected["parent_field_id_2025"]]
-    selected = selected.sort_values("_blind_hash").reset_index(drop=True)
+    selected["blind_hash_internal"] = [blind_hash(salt, str(fid)) for fid in selected["parent_field_id_2025"]]
+    selected = selected.sort_values("blind_hash_internal").reset_index(drop=True)
     selected["blind_index"] = np.arange(1, len(selected) + 1)
 
     pilot = gpd.read_file(pdir / cfg["pilot_filename"]).to_crs(32633)
@@ -149,7 +149,7 @@ def main():
         key_rows.append({
             "blind_index": bi,
             "parent_field_id_2025": fid,
-            "hidden_group": str(rec._hidden_group),
+            "hidden_group": str(rec.hidden_group_internal),
             "split_candidate_pass": bool(rec.split_candidate_pass),
             "high_confidence_split": bool(rec.high_confidence_split),
             "separation_ratio": float(rec.separation_ratio),
