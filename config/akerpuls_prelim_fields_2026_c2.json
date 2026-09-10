@@ -1,0 +1,25 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c2-locked-validation-v1",
+  "phase": "STOPPUNKT_C2_LOCKED_RULE_INDEPENDENT_VALIDATION",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c1_rasters",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c2_validation",
+  "expected_pilot_fields": 1000,
+  "candidate_discovery_contract": "IDENTICAL_TO_B2",
+  "locked_split_rule": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "merge_policy": "MERGE_CANDIDATE_ONLY",
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "threshold_freeze": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
