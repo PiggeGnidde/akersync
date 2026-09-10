@@ -1,0 +1,38 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c5a-third-holdout-v1",
+  "phase": "STOPPUNKT_C5A_THIRD_GEOGRAPHIC_HOLDOUT_SELECTION",
+  "b0_pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+  "c0_pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5a_selection",
+  "selection": {
+    "grid_size_m": 20000,
+    "minimum_distance_from_prior_pilot_geometry_m": 45000,
+    "minimum_area_ha": 1.0,
+    "maximum_area_ha": 80.0,
+    "minimum_four_snapshot_footprint_fraction": 0.995,
+    "target_fields": 1000,
+    "minimum_fields": 700,
+    "maximum_fields": 1200
+  },
+  "split_candidate_rule_frozen_for_test": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "high_confidence_rule_frozen_for_test": {
+    "requires_split_candidate": true,
+    "minimum_separation_ratio": 4.0,
+    "status": "TEST_ONLY_NOT_PRODUCT_FROZEN"
+  },
+  "merge_policy": "MERGE_CANDIDATE_ONLY",
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "threshold_freeze_for_product": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
