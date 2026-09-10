@@ -1,0 +1,34 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c3-blind-qa-v1",
+  "phase": "STOPPUNKT_C3_VALIDITY_STRATA_AND_BLIND_VISUAL_QA",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c1_rasters",
+  "c2_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c2_validation",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c3_qa",
+  "locked_split_rule": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "validity_strata": {
+    "high_july_min": 0.8,
+    "medium_july_min": 0.5
+  },
+  "blind_visual_set": {
+    "locked_pass_representative": 10,
+    "locked_reject_challenge": 10,
+    "shuffle_salt": "akerpuls-c3-blind-v1",
+    "filename_prefix": "C3"
+  },
+  "merge_policy": "MERGE_CANDIDATE_ONLY",
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "threshold_freeze": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
