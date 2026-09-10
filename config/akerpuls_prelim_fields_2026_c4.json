@@ -1,0 +1,68 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c4-high-confidence-diagnostic-v1",
+  "phase": "STOPPUNKT_C4_POST_REVEAL_HIGH_CONFIDENCE_DIAGNOSTIC",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c1_rasters",
+  "c2_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c2_validation",
+  "c3_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c3_qa",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c4_high_confidence",
+  "c3_blind_key_sha256": "79572b3c1ec2235504ae01002aca704c84943351f2fa98010cd8a811f67013e9",
+  "split_candidate_rule_unchanged": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "high_confidence_candidate": {
+    "requires_existing_locked_split_candidate": true,
+    "minimum_separation_ratio": 4.0,
+    "status": "POST_HOC_DEVELOPMENT_CANDIDATE_NOT_VALIDATED",
+    "rationale": "C3 post-reveal development signal only. All four visually TYDLIG locked-pass cases had total separation >4 while all four visually FALSK locked-pass cases were <4. This threshold must be tested unchanged on new geography before freeze."
+  },
+  "near_rejects": {
+    "minimum_lcf": 0.85,
+    "maximum_count": 80,
+    "require_loo_all4": true,
+    "require_original_edge_support": true
+  },
+  "diagnostic_grid": {
+    "minimum_separation_ratio": [3.5, 4.0, 4.5, 5.0],
+    "require_both_largest_children_touch_outer": [true, false],
+    "maximum_component_count_total": [2, 4, 6, 8],
+    "maximum_child_holes_total": [0, 1, 2, 4],
+    "maximum_interface_components": [1, 2, 4, 8],
+    "minimum_outer_contact_parent_fraction": [0.0, 0.03, 0.06, 0.1],
+    "minimum_edge_ratio_median": [1.8, 2.0, 2.2]
+  },
+  "c3_development_labels": [
+    {"blind_index": 1, "parent_field_id_2025": "2025|61524022845|6A", "visual_label": "FALSK"},
+    {"blind_index": 2, "parent_field_id_2025": "2025|61483971029|44A", "visual_label": "FALSK"},
+    {"blind_index": 3, "parent_field_id_2025": "2025|61524016147|8A", "visual_label": "TVEKSAM"},
+    {"blind_index": 4, "parent_field_id_2025": "2025|61564023062|22A", "visual_label": "FALSK"},
+    {"blind_index": 5, "parent_field_id_2025": "2025|61483957161|65C", "visual_label": "MÖJLIG"},
+    {"blind_index": 6, "parent_field_id_2025": "2025|61503954423|2A", "visual_label": "TYDLIG"},
+    {"blind_index": 7, "parent_field_id_2025": "2025|61543971717|12C", "visual_label": "TYDLIG"},
+    {"blind_index": 8, "parent_field_id_2025": "2025|61543996618|7A", "visual_label": "FALSK"},
+    {"blind_index": 9, "parent_field_id_2025": "2025|61514015168|14A", "visual_label": "FALSK"},
+    {"blind_index": 10, "parent_field_id_2025": "2025|61543972237|16A", "visual_label": "TYDLIG"},
+    {"blind_index": 11, "parent_field_id_2025": "2025|61514020299|1A", "visual_label": "TYDLIG"},
+    {"blind_index": 12, "parent_field_id_2025": "2025|61524013308|6A", "visual_label": "TYDLIG"},
+    {"blind_index": 13, "parent_field_id_2025": "2025|61534023314|2B", "visual_label": "MÖJLIG"},
+    {"blind_index": 14, "parent_field_id_2025": "2025|61503952967|1B", "visual_label": "MÖJLIG"},
+    {"blind_index": 15, "parent_field_id_2025": "2025|61514043034|25A", "visual_label": "MÖJLIG"},
+    {"blind_index": 16, "parent_field_id_2025": "2025|61514033926|7A", "visual_label": "FALSK"},
+    {"blind_index": 17, "parent_field_id_2025": "2025|61534034964|8A", "visual_label": "FALSK"},
+    {"blind_index": 18, "parent_field_id_2025": "2025|61494010198|11A", "visual_label": "FALSK"},
+    {"blind_index": 19, "parent_field_id_2025": "2025|61543969088|35A", "visual_label": "MÖJLIG"},
+    {"blind_index": 20, "parent_field_id_2025": "2025|61514000820|55C", "visual_label": "FALSK"}
+  ],
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning_of_split_candidate_rule": false,
+    "threshold_freeze": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
