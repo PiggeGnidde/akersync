@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""STOPPUNKT C3: validity strata + blinded visual QA, corrected before first run. Zero PU."""
+"""STOPPUNKT C3: validity strata + blinded visual QA, corrected before first successful run. Zero PU."""
 from __future__ import annotations
 import argparse, hashlib, importlib.util, json, math
 from pathlib import Path
@@ -64,8 +64,13 @@ def main():
     f=pd.read_csv(cdir/"c2_field_validation.csv",dtype={"parent_field_id_2025":str}); v=pd.read_csv(rdir/"field_snapshot_validity.csv",dtype={"parent_field_id_2025":str})
     g=gpd.read_file(pdir/"c0_pilot_fields_2025.gpkg").to_crs(32633).reset_index(drop=True)
     if len(f)!=1000 or len(g)!=1000: raise RuntimeError("C3 expected 1000 C fields")
-    x=f.merge(v,on="parent_field_id_2025",how="left",validate="one_to_one")
+    # C1 validity table also contains generic columns such as `pixels`.  Merge only the
+    # per-snapshot validity columns so C2's `pixels`/`analysis_pixels` keep their names.
+    vkeep=["parent_field_id_2025"]+[c for c in v.columns if c.startswith("valid_s2_2026_")]
+    if len(vkeep)<5: raise RuntimeError(f"C1 validity table missing snapshot columns: {vkeep}")
+    x=f.merge(v[vkeep],on="parent_field_id_2025",how="left",validate="one_to_one")
     jc="valid_s2_2026_july"; hi=float(cfg["validity_strata"]["high_july_min"]); mid=float(cfg["validity_strata"]["medium_july_min"])
+    if jc not in x.columns: raise RuntimeError(f"C1 validity missing {jc}")
     x["july_validity_stratum"]=np.where(x[jc]>=hi,"HIGH_GE80",np.where(x[jc]>=mid,"MED_50_80","LOW_LT50"))
     x["is_uncertain"]=x.discovery_type.eq("UNCERTAIN"); x["is_baseline_split"]=x.discovery_type.eq("SPLIT_CANDIDATE"); x["is_locked_split"]=x.locked_split_pass.fillna(False).astype(bool)
     x["analysis_fraction"]=pd.to_numeric(x.analysis_pixels,errors="coerce")/pd.to_numeric(x.pixels,errors="coerce").replace(0,np.nan)
