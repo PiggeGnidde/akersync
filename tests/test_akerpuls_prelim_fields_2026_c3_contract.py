@@ -13,4 +13,11 @@ class TestC3Contract(unittest.TestCase):
         self.assertFalse(c3['guards']['threshold_freeze'])
         self.assertEqual(c3['merge_policy'],'MERGE_CANDIDATE_ONLY')
 
+    def test_c3_validity_merge_does_not_suffix_c2_pixel_columns(self):
+        root=Path(__file__).resolve().parents[1]
+        src=(root/'src'/'123_akerpuls_prelim_fields_2026_c3_blind_qa_fixed.py').read_text(encoding='utf-8')
+        self.assertIn('vkeep=["parent_field_id_2025"]+[c for c in v.columns if c.startswith("valid_s2_2026_")]',src)
+        self.assertIn('x=f.merge(v[vkeep]',src)
+        self.assertNotIn('x=f.merge(v,on="parent_field_id_2025"',src)
+
 if __name__=='__main__': unittest.main()
