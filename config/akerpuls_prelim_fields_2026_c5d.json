@@ -1,0 +1,39 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c5d-blind-qa-v1",
+  "phase": "STOPPUNKT_C5D_THIRD_HOLDOUT_BLIND_QA",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5a_selection",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5b_rasters",
+  "c5c_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5c_validation",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5d_blind_qa",
+  "pilot_filename": "c5a_pilot_fields_2025.gpkg",
+  "candidate_children_filename": "c5c_split_children.gpkg",
+  "field_validation_filename": "c5c_field_validation.csv",
+  "blind_visual_set": {
+    "all_high_confidence": 6,
+    "near_threshold_candidate_controls": 6,
+    "control_selection": "highest_separation_ratio_below_frozen_threshold",
+    "shuffle_salt": "AKERPULS_C5D_2026_THIRD_HOLDOUT_BLIND_V1",
+    "filename_prefix": "C5D"
+  },
+  "split_candidate_rule_frozen_for_test": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "high_confidence_rule_frozen_for_test": {
+    "requires_split_candidate": true,
+    "minimum_separation_ratio": 4.0,
+    "status": "TEST_ONLY_NOT_PRODUCT_FROZEN"
+  },
+  "merge_policy": "MERGE_CANDIDATE_ONLY",
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "threshold_freeze_for_product": false,
+    "geometry_commit": false,
+    "automatic_merge": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
