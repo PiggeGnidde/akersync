@@ -2,7 +2,7 @@
   "schema_version": "akerpuls-geometry-persistence-study-v0",
   "phase": "GEOMETRY_PERSISTENCE_PRIOR_STUDY",
   "purpose": "Quantify whether the same 2025 fields are repeatedly geometry-stable across 2015-2024 and whether field-specific history can inform the 2026 unchanged/split/merge prior.",
-  "akerminne_root": "C:\\AkerSyncRepo\\data\\derived\\akerminne_v1a\\skane",
+  "akerminne_root": "C:\\AkerSync-Minne\\data\\derived\\akerminne_v1a\\skane",
   "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_persistence_study_v0",
   "reference_year": 2025,
   "history_years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
