@@ -24,8 +24,8 @@ py -3 -c "import numpy,pandas,geopandas,shapely" >nul 2>nul || (
   exit /b 1
 )
 
-if not exist "C:\AkerSyncRepo\work\akerpuls_true_loo_diagnostic_v0" (
-  echo FAIL: TRUE-LOO output directory missing.
+if not exist "C:\AkerSyncRepo\work\akerpuls_true_loo_diagnostic_v0\true_loo_candidates_all.csv" (
+  echo FAIL: combined TRUE-LOO candidate output missing.
   exit /b 1
 )
 if not exist "C:\AkerSyncRepo\work\akerpuls_geometry_rolling_backtest_v0\field_prior_2026_preview.csv" (
@@ -44,7 +44,7 @@ echo ===========================================================================
 py -3 -m unittest tests.test_akerpuls_fusion_freeze_c7a -v
 if errorlevel 1 exit /b 1
 
-py -3 src\134_akerpuls_fusion_freeze_c7a.py --output-dir "%OUT%"
+py -3 src\135_akerpuls_fusion_freeze_c7a_runner.py --output-dir "%OUT%"
 if errorlevel 1 exit /b 1
 
 endlocal
