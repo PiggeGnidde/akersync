@@ -1,0 +1,30 @@
+{
+  "schema_version": "akerpuls-geometry-prior-sentinel-fusion-v0",
+  "phase": "ZERO_PU_PRIOR_SENTINEL_DIAGNOSTIC",
+  "rolling_dir": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_rolling_backtest_v0",
+  "c3_key": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c3_qa\\c3_BLIND_KEY_DO_NOT_OPEN_BEFORE_REVIEW.csv",
+  "c5d_key": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5d_blind_qa\\c5d_BLIND_KEY_DO_NOT_OPEN_BEFORE_REVIEW.csv",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_prior_sentinel_fusion_v0",
+  "prior_file": "field_prior_2026_preview.csv",
+  "labels": {
+    "C3": ["FALSK","FALSK","TVEKSAM","FALSK","MÖJLIG","TYDLIG","TYDLIG","FALSK","FALSK","TYDLIG","TYDLIG","TYDLIG","MÖJLIG","MÖJLIG","MÖJLIG","FALSK","FALSK","FALSK","MÖJLIG","FALSK"],
+    "C5D": ["MÖJLIG","TYDLIG","FALSK","TVEKSAM","FALSK","TYDLIG","TYDLIG","TYDLIG","TVEKSAM","FALSK","TYDLIG","FALSK"]
+  },
+  "visual_ordinal": {"FALSK":0,"TVEKSAM":1,"MÖJLIG":2,"TYDLIG":3},
+  "analysis_sets": ["ALL_32","C3_ALL","C3_LOCKED_PASS","C5D_ALL","C5D_HIGH_CONFIDENCE_CENSUS"],
+  "primary_history_score": "prototype_p_splitmerge_2026",
+  "secondary_history_score": "one_minus_prototype_p_strict_same_2026",
+  "satellite_score": "separation_ratio",
+  "binary_views": {
+    "strict": ["TYDLIG"],
+    "liberal": ["TYDLIG","MÖJLIG"]
+  },
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "new_split_rule": false,
+    "automatic_geometry_change": false,
+    "product_prior_freeze": false
+  },
+  "interpretation": "Challenge-set diagnostic only. Compare rank separation of frozen visual labels by independent geometry-history prior versus existing Sentinel separation; do not infer population precision/recall and do not tune a threshold on these cases."
+}
