@@ -1,0 +1,55 @@
+{
+  "schema_version": "akerpuls-fusion-freeze-c7a-v1",
+  "phase": "STOPPUNKT_C7A_FUSION_FREEZE_AND_FOURTH_HOLDOUT_SELECTION",
+  "development_inputs": {
+    "c2_validation": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c2_validation\\c2_field_validation.csv",
+    "c5c_validation": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5c_validation\\c5c_field_validation.csv",
+    "true_loo_dir": "C:\\AkerSyncRepo\\work\\akerpuls_true_loo_diagnostic_v0",
+    "rolling_prior": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_rolling_backtest_v0\\field_prior_2026_preview.csv"
+  },
+  "prior_pilot_dirs": {
+    "B": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopb0_selection",
+    "C": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+    "C5": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5a_selection"
+  },
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_fusion_freeze_c7a_v0",
+  "fusion_contract": {
+    "development_population": "ALL_C_AND_C5_BASELINE_SPLIT_CANDIDATES",
+    "required_development_candidates": 367,
+    "signals": [
+      "prototype_p_splitmerge_2026",
+      "separation_ratio",
+      "true_loo_min_child_dice"
+    ],
+    "transform": "EMPIRICAL_MIDRANK_CDF_AGAINST_FROZEN_DEVELOPMENT_POPULATION",
+    "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333],
+    "fusion_score": "WEIGHTED_MEAN_OF_THREE_EMPIRICAL_CDF_SCORES",
+    "evaluation_tiers": {
+      "FUSION_GE_DEV_P90": "development fusion-score 90th percentile",
+      "FUSION_GE_DEV_P95": "development fusion-score 95th percentile"
+    },
+    "uses_visual_labels": false,
+    "uses_c3_or_c5d_labels": false,
+    "status": "FROZEN_FOR_C7_INDEPENDENT_TEST_NOT_PRODUCT_RULE"
+  },
+  "holdout_selection": {
+    "grid_size_m": 20000,
+    "minimum_distance_from_each_prior_pilot_geometry_m": 45000,
+    "minimum_area_ha": 1.0,
+    "maximum_area_ha": 80.0,
+    "minimum_four_snapshot_footprint_fraction": 0.995,
+    "target_fields": 1000,
+    "minimum_fields": 700,
+    "maximum_fields": 1200
+  },
+  "guards": {
+    "visual_labels_used_for_fusion_freeze": false,
+    "threshold_tuning_on_c7": false,
+    "product_threshold_freeze": false,
+    "automatic_geometry_change": false,
+    "sentinel_process_api_calls": false,
+    "sentinel_hub_pu": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
