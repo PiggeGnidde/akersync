@@ -1,0 +1,39 @@
+{
+  "schema_version": "akerpuls-geometry-rolling-backtest-v0",
+  "phase": "TRUE_ROLLING_GEOMETRY_PRIOR_BACKTEST",
+  "purpose": "Test whether field-specific geometry persistence available at year t predicts the actual t-to-t+1 field-geometry transition, without using future geometry in the features.",
+  "workspace_default": "C:\\AkerSync-Minne",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_rolling_backtest_v0",
+  "years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+  "expected_municipalities": 33,
+  "expected_2025_fields": 128636,
+  "matching": {
+    "strict_min_fraction": 0.9,
+    "relaxed_max_fraction": 0.5,
+    "tie_relative_fraction": 0.02
+  },
+  "identity_classes": {
+    "strict_same": ["direct_id", "one_to_one_strict"],
+    "practical_same": ["direct_id", "one_to_one_strict", "one_to_one_relaxed"],
+    "split_merge": ["split", "merge"]
+  },
+  "rolling_evaluation": {
+    "minimum_history_for_long_history_metrics": 5,
+    "probability_model_start_source_year": 2019,
+    "category_smoothing_strength": 50.0,
+    "strict_fraction_bins": [0.0, 0.5, 0.75, 0.9, 0.999999, 1.000001],
+    "streak_bins": [0, 1, 2, 3, 5]
+  },
+  "lineage": {
+    "method": "primary_predecessor_recursive",
+    "note": "At a non-1:1 transition the maximum-overlap predecessor carries earlier history forward, while the current split/merge/ambiguous/unmatched event is recorded explicitly. This uses only information available at or before the source year."
+  },
+  "guards": {
+    "download_data": false,
+    "modify_frozen_akerminne": false,
+    "sentinel_api_calls": false,
+    "sentinel_hub_pu": false,
+    "threshold_tuning": false,
+    "product_prior_freeze": false
+  }
+}
