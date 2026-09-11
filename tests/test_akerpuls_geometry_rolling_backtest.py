@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import sys
 import unittest
 from pathlib import Path
 
@@ -8,8 +9,15 @@ import pandas as pd
 from shapely.geometry import box
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "src" / "130_akerpuls_geometry_rolling_backtest.py"
+SRC = ROOT / "src"
+SCRIPT = SRC / "130_akerpuls_geometry_rolling_backtest.py"
 CONFIG = ROOT / "config" / "akerpuls_geometry_rolling_backtest_v0.json"
+
+# The production runner executes the script from src/, where sibling modules such
+# as akerminne_mapping_core are naturally importable. Reproduce that environment
+# for the dynamic unittest import rather than requiring package installation.
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 spec = importlib.util.spec_from_file_location("rolling_geometry_backtest", SCRIPT)
 mod = importlib.util.module_from_spec(spec)
