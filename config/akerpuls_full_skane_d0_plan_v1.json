@@ -1,0 +1,114 @@
+{
+  "schema_version": "akerpuls-full-skane-d0-plan-v1",
+  "phase": "STOPPUNKT_D0_FULL_SKANE_ZERO_PU_EXECUTION_PLAN",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "split_fusion_freeze": {
+    "tag": "akerpuls-split-fusion-qa-v1.0",
+    "commit": "bd8ef176ffdb1c29c2db42bcdbf83fb4bdca8899",
+    "config": "config/akerpuls_split_fusion_qa_v1.json",
+    "fusion_artifact": "C:\\AkerSyncRepo\\work\\akerpuls_fusion_freeze_c7a_v0\\FUSION_SCORE_FREEZE_BEFORE_C7.json",
+    "fusion_artifact_sha256": "3ab2fcdd06284c15cbcffb20fba8da7de9f6b10ca102bd4026fc73a9ee0a7316",
+    "development_p90": 0.781017,
+    "development_p95": 0.843688,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false
+  },
+  "frozen_geometry_2025": {
+    "local_paths_key": "skiften",
+    "expected_fields": 128636,
+    "expected_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706"
+  },
+  "frozen_snapshots": {
+    "S2_2026_APRIL": ["2026-04-08", "2026-04-09"],
+    "S2_2026_MAY": ["2026-05-25"],
+    "S2_2026_JUNE": ["2026-06-26", "2026-06-27"],
+    "S2_2026_JULY": ["2026-07-09"]
+  },
+  "sentinel_source": {
+    "collection": "sentinel-2-l2a",
+    "stac_search_url": "https://stac.dataspace.copernicus.eu/v1/search",
+    "process_url": "https://sh.dataspace.copernicus.eu/process/v1",
+    "analysis_crs_epsg": 32633,
+    "resolution_m": 10,
+    "source_bands": ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "dataMask"],
+    "processing_upsampling": "NEAREST",
+    "processing_downsampling": "NEAREST",
+    "harmonize_values": true,
+    "clear_scl_codes": [2, 4, 5],
+    "pair_rule": "clear_pixel_first_then_lower_CLD; if both non-clear choose lower_CLD but VALID=0",
+    "never_average_paired_dates": true
+  },
+  "raster_tiling": {
+    "tile_pixels": 1024,
+    "tile_side_m": 10240,
+    "field_buffer_m": 30,
+    "grid_origin_m": [0, 0],
+    "request_only_tiles_intersecting_daily_stac_footprint": true,
+    "snapshot_bands": ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "VALID", "NDVI", "LSWI", "SOURCE_DATE_INDEX"],
+    "snapshot_storage": "DEFLATE_FLOAT32_TILED_256",
+    "whole_skane_in_memory": false,
+    "cross_tile_field_access": "BUILD_ONE_VRT_PER_SNAPSHOT_AND_READ_FIELD_WINDOWS",
+    "retain_daily_sources_until_stage_d_freeze": true
+  },
+  "analysis_partition": {
+    "grid_size_m": 20000,
+    "grid_origin_m": [0, 0],
+    "owner_assignment": "FIELD_REPRESENTATIVE_POINT_TO_UNIQUE_20KM_CELL",
+    "normalization_population": "ALL_2025_FIELDS_INTERSECTING_OWNER_20KM_CELL",
+    "minimum_normalization_fields": 200,
+    "normalization": "ROBUST_MEDIAN_MAD_PER_ANALYSIS_CELL_USING_ALL_VALID_FIELD_PIXELS",
+    "true_loo_normalization": "RECOMPUTE_ROBUST_MEDIAN_MAD_PER_ANALYSIS_CELL_FOR_EACH_THREE_SNAPSHOT_OMISSION",
+    "reason": "C, C5 and C7 validation used geographically local pilot scaling; a deterministic 20 km local partition preserves that regime better than a new Skane-wide global scaling. Sparse cells are REVIEW, not silently pooled or retuned."
+  },
+  "model_application": {
+    "candidate_discovery": "IDENTICAL_TO_B2_BASELINE_SPLIT_CANDIDATE",
+    "b2_config": "config/akerpuls_prelim_fields_2026_b2.json",
+    "old_locked_morphology_gate_required": false,
+    "rejected_sep_ge_4_gate_required": false,
+    "true_loo": "CONTINUOUS_MIN_CHILD_DICE_USING_C6_REFIT_CONTRACT",
+    "true_loo_config": "config/akerpuls_true_loo_diagnostic_v0.json",
+    "history_prior": "prototype_p_splitmerge_2026_FROM_TRUE_ROLLING_BACKTEST",
+    "fusion": "FROZEN_QA_V1_EMPIRICAL_MIDRANK_CDF_EQUAL_WEIGHTS",
+    "qa_tiers": {
+      "HIGH_PRIORITY_SPLIT_CANDIDATE": "fusion_score >= 0.843688",
+      "SPLIT_CANDIDATE": "0.781017 <= fusion_score < 0.843688",
+      "EVIDENCE_ONLY": "fusion_score < 0.781017"
+    },
+    "default_geometry": "OFFICIAL_2025_GEOMETRY",
+    "automatic_geometry_mutation": false
+  },
+  "a0_reference": {
+    "manifest": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_stopa0\\preflight_manifest.json",
+    "expected_tiles": 142,
+    "expected_planned_requests": 593,
+    "expected_estimated_pu_upper": 5534.67,
+    "pu_tolerance": 0.02
+  },
+  "resource_guard": {
+    "maximum_planned_process_requests": 650,
+    "maximum_estimated_pu_upper": 6000.0,
+    "counted_input_bands_for_planning": 7,
+    "pu_formula": "requests * (tile_pixels/512)^2 * counted_input_bands/3",
+    "note": "Planning estimate only. D0 calls public STAC but never Sentinel Hub Process API and therefore uses zero PU."
+  },
+  "paths": {
+    "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1",
+    "raw_root": "C:\\AkerSyncRaw\\akerpuls_full_skane_split_fusion_qa_v1",
+    "daily_source_template": "source_daily/{date}/{tile_id}.tif",
+    "snapshot_tile_template": "snapshots/{snapshot}/{tile_id}.tif",
+    "snapshot_vrt_template": "snapshots/{snapshot}.vrt",
+    "stage_d_result_dir": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_split_fusion_qa_v1"
+  },
+  "guards": {
+    "sentinel_process_api_calls": false,
+    "sentinel_hub_pu": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false
+  }
+}
