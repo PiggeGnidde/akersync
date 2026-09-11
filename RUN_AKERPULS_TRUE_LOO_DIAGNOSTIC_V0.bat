@@ -45,10 +45,10 @@ echo ===========================================================================
 echo AkerPuls 2026 - C6 TRUE LEAVE-ONE-DATE-OUT SEGMENTATION DIAGNOSTIC - ZERO PU
 echo ========================================================================================
 
-py -3 -m unittest tests.test_akerpuls_true_loo_diagnostic -v
+py -3 -m unittest tests.test_akerpuls_true_loo_diagnostic tests.test_akerpuls_true_loo_runner -v
 if errorlevel 1 exit /b 1
 
-py -3 src\132_akerpuls_true_loo_diagnostic.py --output-dir "%OUT%"
+py -3 src\133_akerpuls_true_loo_diagnostic_runner.py --output-dir "%OUT%"
 if errorlevel 1 exit /b 1
 
 endlocal
