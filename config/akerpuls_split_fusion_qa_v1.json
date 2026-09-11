@@ -1,0 +1,99 @@
+{
+  "schema_version": "akerpuls-split-fusion-qa-v1",
+  "status": "FROZEN_QA_RANKING_NOT_AUTOMATIC_GEOMETRY",
+  "frozen_date": "2026-09-11",
+  "scope": "PRELIMINARY_2026_SPLIT_CANDIDATE_QA_RANKING",
+  "default_geometry": "OFFICIAL_2025_GEOMETRY",
+  "candidate_input": {
+    "source": "B2_BASELINE_SPLIT_CANDIDATE",
+    "requires_old_locked_split_gate": false,
+    "requires_rejected_sep_ge_4_gate": false,
+    "note": "The fusion is evaluated on baseline B2 split candidates. The older locked morphology/edge gate and separation_ratio>=4 rule are not product requirements."
+  },
+  "fusion": {
+    "development_population": "ALL_C_AND_C5_BASELINE_SPLIT_CANDIDATES",
+    "development_n": 367,
+    "signals": [
+      "prototype_p_splitmerge_2026",
+      "separation_ratio",
+      "true_loo_min_child_dice"
+    ],
+    "transform": "EMPIRICAL_MIDRANK_CDF_AGAINST_FROZEN_DEVELOPMENT_POPULATION",
+    "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333],
+    "score": "WEIGHTED_MEAN_OF_THREE_EMPIRICAL_CDF_SCORES",
+    "development_p90": 0.781017,
+    "development_p95": 0.843688,
+    "source_freeze_sha256": "3ab2fcdd06284c15cbcffb20fba8da7de9f6b10ca102bd4026fc73a9ee0a7316"
+  },
+  "qa_tiers": {
+    "HIGH_PRIORITY_SPLIT_CANDIDATE": {
+      "criterion": "fusion_score >= 0.843688",
+      "meaning": "Highest-priority split candidate for QA/review; not an automatically proven split."
+    },
+    "SPLIT_CANDIDATE": {
+      "criterion": "0.781017 <= fusion_score < 0.843688",
+      "meaning": "Strong split candidate for QA/review; not an automatically proven split."
+    },
+    "EVIDENCE_ONLY": {
+      "criterion": "fusion_score < 0.781017",
+      "meaning": "No frozen QA promotion from fusion v1; evidence may still be retained for diagnostics."
+    }
+  },
+  "independent_holdout_validation": {
+    "holdout": "C7",
+    "fields": 1000,
+    "baseline_split_candidates": 131,
+    "p90_census_n": 15,
+    "p95_census_n": 9,
+    "blind_key_sha256": "d2553241211545cb8c0ffdb110e3f063680024af3b17eef818e6fb4cf9a14879",
+    "p95": {
+      "strict_ty": "2/9",
+      "intermediate_ty_or_mty": "6/9",
+      "liberal_ty_mty_or_m": "9/9",
+      "tv": "0/9",
+      "f": "0/9"
+    },
+    "p90": {
+      "strict_ty": "4/15",
+      "intermediate_ty_or_mty": "10/15",
+      "liberal_ty_mty_or_m": "13/15",
+      "tv": "2/15",
+      "f": "0/15"
+    },
+    "near_p90_controls": {
+      "n": 5,
+      "selection": "TOP_FIVE_JUNE_GE80_BELOW_P90",
+      "strict_ty": "1/5",
+      "intermediate_ty_or_mty": "3/5",
+      "liberal_ty_mty_or_m": "4/5",
+      "f": "1/5",
+      "interpretation": "Deliberately difficult near-threshold challenge set; not a random negative sample."
+    },
+    "june_validity_observation": "All C7 P90 and P95 cases were in June >=80% validity. This is an observation from validation, not a newly tuned product threshold."
+  },
+  "policy": {
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "threshold_retuning_on_c7d": false,
+    "fusion_refit_on_c7": false,
+    "history_prior_alone_can_create_split": false,
+    "sentinel_separation_alone_can_create_split": false,
+    "true_loo_alone_can_create_split": false,
+    "merge_policy": "MERGE_CANDIDATE_ONLY_UNCHANGED",
+    "product_use": "QA_RANKING_AND_REVIEW_PRIORITY_ONLY"
+  },
+  "provenance": {
+    "c7d_reveal_doc": "docs/AKERPULS_PRELIM_FIELDS_2026_C7D_BLIND_REVEAL.md",
+    "true_loo_result_doc": "docs/AKERPULS_TRUE_LOO_DIAGNOSTIC_V0_RESULT.md",
+    "prior_sentinel_result_doc": "docs/AKERPULS_GEOMETRY_PRIOR_SENTINEL_FUSION_V0_RESULT.md",
+    "pre_reveal_fusion_config": "config/akerpuls_fusion_freeze_c7a.json"
+  },
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "automatic_geometry_change": false,
+    "full_skane_geometry_mutation": false
+  }
+}
