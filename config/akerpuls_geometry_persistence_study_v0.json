@@ -1,0 +1,34 @@
+{
+  "schema_version": "akerpuls-geometry-persistence-study-v0",
+  "phase": "GEOMETRY_PERSISTENCE_PRIOR_STUDY",
+  "purpose": "Quantify whether the same 2025 fields are repeatedly geometry-stable across 2015-2024 and whether field-specific history can inform the 2026 unchanged/split/merge prior.",
+  "akerminne_root": "C:\\AkerSyncRepo\\data\\derived\\akerminne_v1a\\skane",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_persistence_study_v0",
+  "reference_year": 2025,
+  "history_years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+  "expected_current_fields": 128636,
+  "expected_field_years_including_reference": 1414996,
+  "expected_municipalities": 33,
+  "identity_classes": {
+    "strict_same": ["direct_id", "one_to_one_strict"],
+    "practical_same": ["direct_id", "one_to_one_strict", "one_to_one_relaxed"],
+    "split_merge": ["split", "merge"],
+    "structural_or_unresolved_change": ["split", "merge", "ambiguous", "unmatched"]
+  },
+  "latest_year_pseudo_backtest": {
+    "target_year": 2024,
+    "feature_years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023],
+    "interpretation": "Descriptive calibration using 2025-reference identity history; not an out-of-time causal validation."
+  },
+  "independence_benchmark": {
+    "method": "poisson_binomial",
+    "note": "Uses the observed year-specific strict-same marginal rates for 2015-2024. This avoids assuming a common annual probability when comparing the observed per-field stability-count distribution with an independent-years benchmark."
+  },
+  "guards": {
+    "modify_frozen_akerminne": false,
+    "sentinel_api_calls": false,
+    "sentinel_hub_pu": false,
+    "threshold_tuning": false,
+    "product_prior_freeze": false
+  }
+}
