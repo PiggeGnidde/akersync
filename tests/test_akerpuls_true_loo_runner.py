@@ -25,13 +25,15 @@ class TestTrueLooRunner(unittest.TestCase):
     def test_blind_index_is_sorted_numerically(self):
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
-            rows = [{"blind_index": str(i), "parent_field_id_2025": f"F{i}"} for i in range(1, 21)]
+            rows20 = [{"blind_index": str(i), "parent_field_id_2025": f"F{i}"} for i in range(1, 21)]
+            rows12 = [{"blind_index": str(i), "parent_field_id_2025": f"G{i}"} for i in range(1, 13)]
             # Put 10 before 2, reproducing lexical CSV-order trouble explicitly.
-            rows = sorted(rows, key=lambda r: r["blind_index"])
+            rows20 = sorted(rows20, key=lambda r: r["blind_index"])
+            rows12 = sorted(rows12, key=lambda r: r["blind_index"])
             c3 = td / "c3.csv"
             c5 = td / "c5.csv"
-            pd.DataFrame(rows).to_csv(c3, index=False)
-            pd.DataFrame(rows[:12]).to_csv(c5, index=False)
+            pd.DataFrame(rows20).to_csv(c3, index=False)
+            pd.DataFrame(rows12).to_csv(c5, index=False)
             cfg = {
                 "blind_review": {
                     "c3_key": str(c3),
@@ -41,8 +43,10 @@ class TestTrueLooRunner(unittest.TestCase):
                 }
             }
             out = runner.build_blind_cases_numeric(base, cfg)
-            got = out[out["dataset"] == "C"]["blind_index"].tolist()
-            self.assertEqual(got, list(range(1, 21)))
+            got_c3 = out[out["dataset"] == "C"]["blind_index"].tolist()
+            got_c5 = out[out["dataset"] == "C5"]["blind_index"].tolist()
+            self.assertEqual(got_c3, list(range(1, 21)))
+            self.assertEqual(got_c5, list(range(1, 13)))
 
 
 if __name__ == "__main__":
