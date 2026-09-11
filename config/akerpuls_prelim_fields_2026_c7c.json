@@ -1,0 +1,38 @@
+{
+  "schema_version": "akerpuls-prelim-fields-2026-c7c-frozen-fusion-validation-v1",
+  "phase": "STOPPUNKT_C7C_FOURTH_HOLDOUT_FROZEN_FUSION_VALIDATION",
+  "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_fusion_freeze_c7a_v0",
+  "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c7b_rasters",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c7c_fusion_validation",
+  "pilot_filename": "c7a_pilot_fields_2025.gpkg",
+  "expected_pilot_fields": 1000,
+  "candidate_discovery_contract": "IDENTICAL_TO_B2",
+  "locked_split_rule": {
+    "minimum_largest_component_fraction_each_child": 0.95,
+    "edge_ratio_threshold": 1.8,
+    "minimum_supporting_edge_snapshots": 3,
+    "require_loo_all4": true
+  },
+  "fusion_freeze": "C:\\AkerSyncRepo\\work\\akerpuls_fusion_freeze_c7a_v0\\FUSION_SCORE_FREEZE_BEFORE_C7.json",
+  "expected_fusion_freeze_sha256": "3ab2fcdd06284c15cbcffb20fba8da7de9f6b10ca102bd4026fc73a9ee0a7316",
+  "rolling_prior": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_rolling_backtest_v0\\field_prior_2026_preview.csv",
+  "true_loo_config": "config/akerpuls_true_loo_diagnostic_v0.json",
+  "fusion_tiers": {
+    "development_p90": 0.781017,
+    "development_p95": 0.843688
+  },
+  "june_validity_strata": {
+    "high": 0.8,
+    "medium": 0.5
+  },
+  "guards": {
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "visual_labels": false,
+    "product_rule_freeze": false,
+    "automatic_geometry_change": false,
+    "sentinel_process_api_calls": false,
+    "crop_classification": false,
+    "full_skane": false
+  }
+}
