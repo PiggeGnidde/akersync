@@ -1,0 +1,49 @@
+{
+  "schema_version": "akerpuls-true-loo-diagnostic-v0",
+  "phase": "C6_TRUE_LEAVE_ONE_DATE_OUT_SEGMENTATION_DIAGNOSTIC",
+  "datasets": {
+    "C": {
+      "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c0_selection",
+      "pilot_filename": "c0_pilot_fields_2025.gpkg",
+      "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c1_rasters",
+      "validation_csv": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c2_validation\\c2_field_validation.csv"
+    },
+    "C5": {
+      "pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5a_selection",
+      "pilot_filename": "c5a_pilot_fields_2025.gpkg",
+      "raster_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5b_rasters",
+      "validation_csv": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5c_validation\\c5c_field_validation.csv"
+    }
+  },
+  "b2_config": "config/akerpuls_prelim_fields_2026_b2.json",
+  "b2_script": "src/113_akerpuls_prelim_fields_2026_b2_baseline.py",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_true_loo_diagnostic_v0",
+  "candidate_scope": "ALL_B2_SPLIT_CANDIDATES_IN_C_AND_C5",
+  "snapshot_order": ["APRIL", "MAY", "JUNE", "JULY"],
+  "true_loo_contract": {
+    "reference_fit": "REFIT_K2_FROM_ALL_FOUR_SNAPSHOTS_USING_B2_FEATURES",
+    "omission_fit": "REFIT_K2_FROM_ONLY_THE_THREE_REMAINING_SNAPSHOTS",
+    "scaling": "RECOMPUTE_ROBUST_PILOT_MEDIAN_MAD_SCALING_ON_THE_REMAINING_SNAPSHOT_VALIDITY_INTERSECTION",
+    "comparison_domain": "FULL_FOUR_DATE_ALL_VALID_INTERIOR_REFERENCE_PIXELS",
+    "label_matching": "OPTIMAL_BINARY_LABEL_PERMUTATION_MAXIMIZING_MEAN_CHILD_DICE",
+    "minimum_reference_comparison_pixels": 24,
+    "minimum_child_fraction_each_omission_on_comparison_domain": 0.20,
+    "minimum_each_child_dice_each_omission": 0.75,
+    "minimum_mean_matched_child_dice_across_all_omissions": 0.80,
+    "require_all_four_omission_refits": true
+  },
+  "blind_review": {
+    "c3_key": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c3_qa\\c3_BLIND_KEY_DO_NOT_OPEN_BEFORE_REVIEW.csv",
+    "c5d_key": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5d_blind_qa\\c5d_BLIND_KEY_DO_NOT_OPEN_BEFORE_REVIEW.csv",
+    "c3_labels": ["FALSK", "FALSK", "TVEKSAM", "FALSK", "MÖJLIG", "TYDLIG", "TYDLIG", "FALSK", "FALSK", "TYDLIG", "TYDLIG", "TYDLIG", "MÖJLIG", "MÖJLIG", "MÖJLIG", "FALSK", "FALSK", "FALSK", "MÖJLIG", "FALSK"],
+    "c5d_labels": ["MÖJLIG", "TYDLIG", "FALSK", "TVEKSAM", "FALSK", "TYDLIG", "TYDLIG", "TYDLIG", "TVEKSAM", "FALSK", "TYDLIG", "FALSK"]
+  },
+  "guards": {
+    "sentinel_api_calls": false,
+    "threshold_tuning": false,
+    "new_product_split_rule": false,
+    "product_threshold_freeze": false,
+    "geometry_commit": false,
+    "full_skane": false
+  }
+}
