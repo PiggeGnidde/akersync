@@ -12,8 +12,9 @@
   "expected_snapshot_tiles": 568,
   "expected_raster_tiles": 142,
   "estimated_pu_upper": 5534.67,
-  "maximum_new_reported_pu": 6000.0,
-  "minimum_free_gib_before_new_download": 50.0,
+  "maximum_total_reported_pu": 6000.0,
+  "disk_reserve_gib": 5.0,
+  "token_refresh_every_rows": 20,
   "max_request_retries": 4,
   "guards": {
     "threshold_tuning": false,
