@@ -17,6 +17,7 @@ echo AkerPuls split fusion QA v1 - FULL SKANE D1 SENTINEL ACQUISITION
 echo ========================================================================================
 echo IMPORTANT: this stage may spend approximately 5535 Sentinel Hub PU.
 echo It is resumable and does NOT alter field geometry.
+echo Remaining disk need is checked conservatively before the first API request.
 echo Output: %OUT%
 echo Raw:    %RAW%
 echo.
@@ -55,8 +56,9 @@ if errorlevel 1 goto :fail
 echo.
 echo D1 starts now. Expect hundreds of Process API requests; progress prints every 10 requests.
 echo Safe to rerun after interruption: verified daily tiles are reused from cache.
+echo OAuth is refreshed periodically during the long run.
 echo.
-py -3 -u src\140_akerpuls_full_skane_d1_acquisition_v1.py --output-dir "%OUT%" --raw-root "%RAW%"
+py -3 -u src\141_akerpuls_full_skane_d1_acquisition_v1_safe.py --output-dir "%OUT%" --raw-root "%RAW%"
 if errorlevel 1 goto :fail
 
 if not exist "%OUT%\d1_manifest.json" (echo FAIL: d1_manifest.json missing.& goto :fail)
