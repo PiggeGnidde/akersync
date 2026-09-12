@@ -45,6 +45,14 @@ if not exist "C:\AkerSyncRepo\work\akerpuls_prelim_fields_2026_v0_stopa0\preflig
   echo FAIL: frozen A0 preflight manifest missing.
   exit /b 1
 )
+if not exist "C:\AkerSyncRepo\work\akerpuls_prelim_fields_2026_v0_stopa0\tile_plan.csv" (
+  echo FAIL: frozen A0 tile plan missing.
+  exit /b 1
+)
+if not exist "C:\AkerSyncRepo\work\akerpuls_prelim_fields_2026_v0_stopa0\snapshot_coverage.csv" (
+  echo FAIL: frozen A0 snapshot coverage missing.
+  exit /b 1
+)
 if not exist "C:\AkerSyncRepo\work\akerpuls_fusion_freeze_c7a_v0\FUSION_SCORE_FREEZE_BEFORE_C7.json" (
   echo FAIL: frozen fusion artifact missing.
   exit /b 1
@@ -61,9 +69,11 @@ set "RC=%ERRORLEVEL%"
 type "%OUT%\logs\tests.log"
 if not "%RC%"=="0" goto :fail
 
-py -3 src\138_akerpuls_full_skane_d0_plan_v1.py --local-paths "%LOCAL_PATHS%" --output-dir "%OUT%" > "%OUT%\logs\d0_plan.log" 2>&1
+echo.
+echo D0 planner starts now. Progress is printed live; no Sentinel Hub PU is used.
+echo.
+py -3 src\138_akerpuls_full_skane_d0_plan_v1.py --local-paths "%LOCAL_PATHS%" --output-dir "%OUT%"
 set "RC=%ERRORLEVEL%"
-type "%OUT%\logs\d0_plan.log"
 if not "%RC%"=="0" goto :review
 
 for %%F in (
@@ -90,7 +100,7 @@ for /f "delims=" %%S in ('git status --short') do (
 echo.
 echo ========================================================================================
 echo STOPPUNKT D0: PASS - NO PROCESS API CALLS, ZERO PU
- echo ========================================================================================
+echo ========================================================================================
 echo Return the complete console summary to ChatGPT before D1 is implemented/run.
 echo.
 exit /b 0
@@ -99,14 +109,14 @@ exit /b 0
 echo.
 echo ========================================================================================
 echo STOPPUNKT D0: REVIEW REQUIRED - DO NOT START D1
- echo ========================================================================================
-echo D0 itself used zero PU. Return %OUT%\logs\d0_plan.log to ChatGPT.
+echo ========================================================================================
+echo D0 itself used zero PU. Return the console output to ChatGPT.
 exit /b %RC%
 
 :fail
 echo.
 echo ========================================================================================
 echo STOPPUNKT D0: FAIL - DO NOT START D1
- echo ========================================================================================
-echo Return %OUT%\logs\tests.log and %OUT%\logs\d0_plan.log if present.
+echo ========================================================================================
+echo Return the console output and %OUT%\logs\tests.log to ChatGPT.
 exit /b 1
