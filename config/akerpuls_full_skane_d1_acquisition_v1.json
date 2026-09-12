@@ -1,0 +1,27 @@
+{
+  "schema_version": "akerpuls-full-skane-d1-acquisition-v1",
+  "phase": "STOPPUNKT_D1_FULL_SKANE_SENTINEL_ACQUISITION",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "final_execution_contract": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0b_sparse_norm_v1\\D1_EXECUTION_CONTRACT_FINAL.json",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "d0_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1",
+  "raw_root": "C:\\AkerSyncRaw\\akerpuls_full_skane_split_fusion_qa_v1",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d1_acquisition_v1",
+  "token_url": "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
+  "expected_process_requests": 593,
+  "expected_snapshot_tiles": 568,
+  "expected_raster_tiles": 142,
+  "estimated_pu_upper": 5534.67,
+  "maximum_new_reported_pu": 6000.0,
+  "minimum_free_gib_before_new_download": 50.0,
+  "max_request_retries": 4,
+  "guards": {
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false
+  }
+}
