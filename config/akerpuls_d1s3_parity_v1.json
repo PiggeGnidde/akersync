@@ -1,0 +1,64 @@
+{
+  "schema_version": "akerpuls-d1s3-process-s3-parity-v1",
+  "phase": "STOPPUNKT_D1S3_BACKEND_PARITY_BEFORE_S3_FULL_SKANE",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "final_execution_contract": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0b_sparse_norm_v1\\D1_EXECUTION_CONTRACT_FINAL.json",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "d0_request_plan": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1\\d0_process_request_plan.csv",
+  "process_raw_root": "C:\\AkerSyncRaw\\akerpuls_full_skane_split_fusion_qa_v1",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3_parity_v1",
+  "s3_cache_root": "C:\\AkerSyncRaw\\akerpuls_d1s3_parity_v1",
+  "stac_search_url": "https://stac.dataspace.copernicus.eu/v1/search",
+  "collection": "sentinel-2-l2a",
+  "s3_endpoint_url": "https://eodata.dataspace.copernicus.eu",
+  "target_crs_epsg": 32633,
+  "selection": {
+    "strategy": "COMMON_CACHED_TILE_WITH_MAX_DATE_COVERAGE_THEN_CENTRAL",
+    "sample_tile_count": 1,
+    "maximum_cached_dates": 3,
+    "minimum_cached_dates": 2
+  },
+  "assets": {
+    "B02": "B02_10m",
+    "B03": "B03_10m",
+    "B04": "B04_10m",
+    "B08": "B08_10m",
+    "B11": "B11_20m",
+    "SCL": "SCL_20m",
+    "CLD": "CLD_20m"
+  },
+  "preprocessing": {
+    "reflectance_resampling": "NEAREST",
+    "quality_resampling": "NEAREST",
+    "harmonize_from_stac_scale_offset": true,
+    "mosaicking_order": "mostRecent",
+    "data_mask_from_nonzero_scl": true
+  },
+  "resource_guards": {
+    "maximum_stac_items_per_request": 20,
+    "maximum_unique_scene_assets": 100,
+    "maximum_download_gib": 12.0,
+    "minimum_free_gib_after_projected_download": 10.0
+  },
+  "parity_thresholds": {
+    "minimum_compared_pixels": 100000,
+    "minimum_datamask_agreement": 0.999,
+    "minimum_scl_agreement": 0.995,
+    "maximum_reflectance_median_abs_delta": 0.00005,
+    "maximum_reflectance_p99_abs_delta": 0.0002,
+    "maximum_cld_p99_abs_delta": 1.0,
+    "maximum_ndvi_p99_abs_delta": 0.002,
+    "maximum_lswi_p99_abs_delta": 0.002
+  },
+  "guards": {
+    "process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false
+  }
+}
