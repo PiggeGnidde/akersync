@@ -53,7 +53,7 @@ if not "%RC%"=="0" goto :fail
 echo.
 echo D0b resolver starts now. No STAC, no Process API, zero PU.
 echo.
-py -3 -u src\139_akerpuls_full_skane_d0b_sparse_norm_v1.py --local-paths "%LOCAL_PATHS%" --output-dir "%OUT%" 2>&1 | powershell -NoProfile -Command "$input | Tee-Object -FilePath '%OUT%\logs\d0b.log'"
+py -3 -u src\139_akerpuls_full_skane_d0b_sparse_norm_v1.py --local-paths "%LOCAL_PATHS%" --output-dir "%OUT%"
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" goto :review
 
@@ -84,7 +84,7 @@ echo.
 echo ========================================================================================
 echo STOPPUNKT D0B: REVIEW REQUIRED - DO NOT START D1
  echo ========================================================================================
-echo D0b used zero PU. Return %OUT%\logs\d0b.log to ChatGPT.
+echo D0b used zero PU. Return the console output to ChatGPT.
 exit /b %RC%
 
 :fail
