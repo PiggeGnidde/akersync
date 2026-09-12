@@ -1,1 +1,0 @@
-D1 implementation checkpoint before first full-Skåne Process API run. Final D0b contract SHA256: d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19. No D1 Process API run has been started by this commit.
