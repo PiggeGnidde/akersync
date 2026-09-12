@@ -1,0 +1,50 @@
+{
+  "schema_version": "akerpuls-full-skane-d0b-sparse-norm-v1",
+  "phase": "STOPPUNKT_D0B_RESOLVE_SPARSE_LOCAL_NORMALIZATION_ZERO_PU",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "base_d0": {
+    "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1",
+    "execution_contract": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1\\D1_EXECUTION_CONTRACT.json",
+    "expected_execution_contract_sha256": "4cf28a8cf43848f279d06917aadfb1eb0b54499e1acadf57f8296557dff940a1",
+    "expected_analysis_cells": 46,
+    "expected_sparse_cells": 6,
+    "expected_minimum_normalization_fields": 200,
+    "expected_planned_process_requests": 593,
+    "expected_estimated_pu_upper": 5534.67
+  },
+  "frozen_geometry_2025": {
+    "local_paths_key": "skiften",
+    "expected_fields": 128636,
+    "expected_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706"
+  },
+  "normalization_fallback": {
+    "base_grid_size_m": 20000,
+    "base_grid_origin_m": [0, 0],
+    "minimum_normalization_fields": 200,
+    "apply_only_when_base_cell_has_fewer_than_minimum": true,
+    "window_shape": "AXIS_ALIGNED_SQUARE_EXPANSION_OF_OWNER_20KM_CELL",
+    "expansion_steps_m": [10000, 20000],
+    "selection_rule": "USE_SMALLEST_PREDECLARED_EXPANSION_REACHING_AT_LEAST_200_INTERSECTING_2025_FIELDS",
+    "maximum_expansion_m": 20000,
+    "maximum_window_side_m": 60000,
+    "normalization_population": "ALL_2025_FIELDS_INTERSECTING_RESOLVED_WINDOW",
+    "no_nearest_n_selection": true,
+    "no_label_use": true,
+    "no_parameter_tuning": true,
+    "unresolved_policy": "REVIEW_DO_NOT_START_D1"
+  },
+  "paths": {
+    "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0b_sparse_norm_v1"
+  },
+  "guards": {
+    "sentinel_process_api_calls": false,
+    "sentinel_hub_pu": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false
+  }
+}
