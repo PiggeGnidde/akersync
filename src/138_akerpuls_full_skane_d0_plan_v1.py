@@ -4,11 +4,10 @@
 
 Public STAC only. No Sentinel Hub Process API calls and zero PU.
 
-The planner freezes the execution topology for applying the already-frozen
-split-fusion QA v1 across all 128,636 official 2025 fields without changing
-geometry. It validates lineage, rebuilds the exact raster request plan, checks
-resource estimates against A0, and creates a deterministic 20 km local
-normalization partition before any full-Skåne raster download is started.
+This version deliberately reuses the already frozen A0 tile topology instead of
+rebuilding a unary union of all 128,636 field polygons. The frozen geometry hash,
+field count and A0 manifest are re-verified first, so this is an execution-speed
+optimization only; it does not change the scientific/model contract.
 """
 from __future__ import annotations
 
@@ -16,9 +15,9 @@ import argparse
 import csv
 import hashlib
 import json
-import math
 import subprocess
 import urllib.request
+from collections import Counter
 from datetime import date, timedelta, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +30,10 @@ B2_CFG = ROOT / "config" / "akerpuls_prelim_fields_2026_b2.json"
 TRUE_LOO_CFG = ROOT / "config" / "akerpuls_true_loo_diagnostic_v0.json"
 
 
+def log(msg: str) -> None:
+    print(msg, flush=True)
+
+
 def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
@@ -41,10 +44,6 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def stable_json_bytes(obj: Any) -> bytes:
@@ -78,7 +77,6 @@ def stac_search(url: str, collection: str, bbox: list[float], day: str) -> list[
 
 def infer_ids(g):
     import pandas as pd
-
     cols = {c.lower(): c for c in g.columns}
     if "blockid" in cols and "skiftesbeteckning" in cols:
         s = "2025|" + g[cols["blockid"]].astype(str) + "|" + g[cols["skiftesbeteckning"]].astype(str)
@@ -168,6 +166,7 @@ def main() -> int:
     ap.add_argument("--output-dir")
     args = ap.parse_args()
 
+    log("D0_PROGRESS=LOAD_AND_VALIDATE_CONTRACT")
     cfg = read_json(Path(args.config))
     master = read_json(MASTER)
     freeze = read_json(FREEZE_CFG)
@@ -189,6 +188,7 @@ def main() -> int:
     if geom_hash != cfg["frozen_geometry_2025"]["expected_sha256"]:
         raise RuntimeError("Frozen 2025 geometry SHA256 mismatch")
 
+    log("D0_PROGRESS=READ_128636_FIELDS")
     g0 = gpd.read_file(geom_path)
     if len(g0) != int(cfg["frozen_geometry_2025"]["expected_fields"]):
         raise RuntimeError(f"Expected {cfg['frozen_geometry_2025']['expected_fields']} fields, got {len(g0)}")
@@ -204,60 +204,78 @@ def main() -> int:
     invalid_geometry = int((~valid_mask).sum())
     if invalid_geometry:
         raise RuntimeError(f"Frozen 2025 geometry contains {invalid_geometry} null/empty/invalid rows; D0 will not silently drop them")
+
+    log("D0_PROGRESS=REPROJECT_FIELDS_TO_EPSG32633")
     g = g0.to_crs(32633).reset_index(drop=True)
     g["area_ha_2025"] = g.geometry.area / 10000.0
-
     out = Path(args.output_dir or cfg["paths"]["output_dir"])
     out.mkdir(parents=True, exist_ok=True)
 
-    # Rebuild exact A0 raster tile topology from the frozen field union.
-    fu = g.geometry.union_all() if hasattr(g.geometry, "union_all") else g.geometry.unary_union
-    field_union_area_ha = float(fu.area / 10000.0)
+    # Reuse the exact A0 tile topology. Recomputing unary_union(128636 polygons) was
+    # unnecessarily expensive and can take hours on some GEOS/Windows builds.
+    log("D0_PROGRESS=VERIFY_AND_REUSE_FROZEN_A0_TILE_TOPOLOGY")
+    a0 = cfg["a0_reference"]
+    a0_manifest_path = Path(a0["manifest"])
+    if not a0_manifest_path.is_file():
+        raise FileNotFoundError(a0_manifest_path)
+    a0_manifest = read_json(a0_manifest_path)
+    a0_geom = a0_manifest.get("frozen_geometry", {})
+    if a0_geom.get("sha256") != geom_hash or int(a0_geom.get("rows", -1)) != len(g):
+        raise RuntimeError("A0 manifest is not tied to the same frozen 2025 geometry")
+    a0_dir = a0_manifest_path.parent
+    a0_tiles_path = a0_dir / "tile_plan.csv"
+    a0_cov_path = a0_dir / "snapshot_coverage.csv"
+    if not a0_tiles_path.is_file() or not a0_cov_path.is_file():
+        raise FileNotFoundError("A0 tile_plan.csv or snapshot_coverage.csv missing")
+
+    a0_tiles = pd.read_csv(a0_tiles_path, encoding="utf-8-sig")
+    required_tile_cols = ["tile_id", "minx", "miny", "maxx", "maxy"]
+    if any(c not in a0_tiles.columns for c in required_tile_cols):
+        raise RuntimeError("A0 tile plan columns changed")
+    if len(a0_tiles) != int(a0["expected_tiles"]):
+        raise RuntimeError(f"A0 tile plan has {len(a0_tiles)} tiles, expected {a0['expected_tiles']}")
     rt = cfg["raster_tiling"]
     tile_pixels = int(rt["tile_pixels"])
     res = int(cfg["sentinel_source"]["resolution_m"])
     side = tile_pixels * res
-    if side != int(rt["tile_side_m"]):
-        raise RuntimeError("Raster tile side contract inconsistent")
-    buffered = fu.buffer(float(rt["field_buffer_m"]))
-    minx, miny, maxx, maxy = buffered.bounds
-    xs = range(math.floor(minx / side) * side, math.ceil(maxx / side) * side, side)
-    ys = range(math.floor(miny / side) * side, math.ceil(maxy / side) * side, side)
     tile_rows: list[dict[str, Any]] = []
     tile_geoms = []
-    for y in ys:
-        for x in xs:
-            q = box(x, y, x + side, y + side)
-            if q.intersects(buffered):
-                tile_rows.append({
-                    "tile_id": raster_tile_id(x, y),
-                    "minx": float(x), "miny": float(y), "maxx": float(x + side), "maxy": float(y + side),
-                    "width": tile_pixels, "height": tile_pixels, "resolution_m": res,
-                })
-                tile_geoms.append(q)
-    tile_gdf = gpd.GeoDataFrame(tile_rows, geometry=tile_geoms, crs=32633)
-    tile_gdf.to_file(out / "d0_raster_tiles.gpkg", layer="raster_tiles", driver="GPKG")
+    for r in a0_tiles.to_dict("records"):
+        minx, miny, maxx, maxy = map(float, (r["minx"], r["miny"], r["maxx"], r["maxy"]))
+        if abs((maxx - minx) - side) > 1e-6 or abs((maxy - miny) - side) > 1e-6:
+            raise RuntimeError(f"A0 tile {r['tile_id']} side changed")
+        expected_id = raster_tile_id(minx, miny)
+        if str(r["tile_id"]) != expected_id:
+            raise RuntimeError(f"A0 tile ID mismatch: {r['tile_id']} vs {expected_id}")
+        tile_rows.append({
+            "tile_id": expected_id,
+            "minx": minx, "miny": miny, "maxx": maxx, "maxy": maxy,
+            "width": tile_pixels, "height": tile_pixels, "resolution_m": res,
+        })
+        tile_geoms.append(box(minx, miny, maxx, maxy))
     write_csv(out / "d0_raster_tiles.csv", tile_rows)
+    gpd.GeoDataFrame(tile_rows, geometry=tile_geoms, crs=32633).to_file(out / "d0_raster_tiles.gpkg", layer="raster_tiles", driver="GPKG")
 
-    # Public STAC only: inventory scene footprints and build one exact Process request row
-    # for each daily tile that can contain source pixels.
-    bbox4326 = [float(x) for x in g.to_crs(4326).total_bounds]
+    # A0 coverage is already the exact expensive union-based result for the same geometry
+    # and frozen dates. Preserve it as provenance instead of repeating the unary union.
+    a0_cov = pd.read_csv(a0_cov_path, encoding="utf-8-sig")
+    a0_cov.to_csv(out / "d0_snapshot_coverage.csv", index=False, encoding="utf-8-sig")
+    coverage_rows = a0_cov.to_dict("records")
+    field_union_area_ha = float(a0_geom.get("field_union_area_ha", float(g["area_ha_2025"].sum())))
+
+    log("D0_PROGRESS=QUERY_PUBLIC_STAC_6_FROZEN_DATES")
+    bbox4326 = [float(x) for x in g0.to_crs(4326).total_bounds]
     scene_rows: list[dict[str, Any]] = []
     daily_union_32633: dict[str, Any] = {}
-    snapshot_union_32633: dict[str, Any] = {}
-    coverage_rows: list[dict[str, Any]] = []
     src = cfg["sentinel_source"]
     for snapshot, days in cfg["frozen_snapshots"].items():
-        snap_geoms = []
         for day in days:
             items = stac_search(src["stac_search_url"], src["collection"], bbox4326, day)
             geoms4326 = [shape(item["geometry"]) for item in items if item.get("geometry")]
             if not geoms4326:
                 raise RuntimeError(f"No STAC footprint for frozen date {day}")
             u4326 = unary_union(geoms4326)
-            u32633 = gpd.GeoSeries([u4326], crs=4326).to_crs(32633).iloc[0]
-            daily_union_32633[day] = u32633
-            snap_geoms.append(u32633)
+            daily_union_32633[day] = gpd.GeoSeries([u4326], crs=4326).to_crs(32633).iloc[0]
             for item in items:
                 p = item.get("properties", {})
                 scene_rows.append({
@@ -267,17 +285,10 @@ def main() -> int:
                     "datetime": p.get("datetime", ""),
                     "eo_cloud_cover": p.get("eo:cloud_cover", ""),
                 })
-        su = unary_union(snap_geoms)
-        snapshot_union_32633[snapshot] = su
-        cov = float(fu.intersection(su).area / fu.area)
-        coverage_rows.append({
-            "snapshot": snapshot,
-            "dates": "+".join(days),
-            "field_union_coverage_percent": round(100.0 * cov, 4),
-        })
+            log(f"D0_STAC_DATE={day} ITEMS={len(items)}")
     write_csv(out / "d0_scene_inventory.csv", scene_rows)
-    write_csv(out / "d0_snapshot_coverage.csv", coverage_rows)
 
+    log("D0_PROGRESS=BUILD_593_REQUEST_PLAN")
     request_rows: list[dict[str, Any]] = []
     requests_by_date: dict[str, int] = {}
     requests_by_snapshot: dict[str, int] = {}
@@ -304,17 +315,13 @@ def main() -> int:
                 nday += 1
             requests_by_date[day] = nday
             requests_by_snapshot[snapshot] += nday
-    request_rows = sorted(request_rows, key=lambda r: (r["date"], r["tile_id"]))
+    request_rows.sort(key=lambda r: (r["date"], r["tile_id"]))
     req_path = out / "d0_process_request_plan.csv"
     write_csv(req_path, request_rows)
     request_plan_sha = sha256_file(req_path)
 
-    # Every raster tile gets one four-snapshot output set. A tile/snapshot can have zero,
-    # one or two daily source requests; missing source regions remain VALID=0.
     snapshot_tile_rows: list[dict[str, Any]] = []
-    req_lookup = {(r["snapshot"], r["tile_id"]): 0 for r in request_rows}
-    for r in request_rows:
-        req_lookup[(r["snapshot"], r["tile_id"])] = req_lookup.get((r["snapshot"], r["tile_id"]), 0) + 1
+    req_lookup: Counter[tuple[str, str]] = Counter((r["snapshot"], r["tile_id"]) for r in request_rows)
     for tile in tile_rows:
         for snapshot, days in cfg["frozen_snapshots"].items():
             nsrc = int(req_lookup.get((snapshot, tile["tile_id"]), 0))
@@ -328,22 +335,21 @@ def main() -> int:
             })
     write_csv(out / "d0_snapshot_tile_plan.csv", snapshot_tile_rows)
 
-    # Deterministic 20 km analysis partition. Owner assignment is unique by representative
-    # point; the normalization pool mirrors holdout selection more closely by including all
-    # fields intersecting the owner's 20 km cell.
+    log("D0_PROGRESS=BUILD_20KM_ANALYSIS_PARTITION")
     part = cfg["analysis_partition"]
     grid = float(part["grid_size_m"])
     reps = g.geometry.representative_point()
     owner_ix = np.floor(reps.x.to_numpy() / grid).astype(int)
     owner_iy = np.floor(reps.y.to_numpy() / grid).astype(int)
     owner_ids = [analysis_cell_id(int(ix), int(iy)) for ix, iy in zip(owner_ix, owner_iy)]
+    owner_counts = Counter(owner_ids)
     home_tile_x = np.floor(reps.x.to_numpy() / side).astype(int) * side
     home_tile_y = np.floor(reps.y.to_numpy() / side).astype(int) * side
     home_tile_ids = [raster_tile_id(float(x), float(y)) for x, y in zip(home_tile_x, home_tile_y)]
     known_tiles = {r["tile_id"] for r in tile_rows}
-    if any(t not in known_tiles for t in home_tile_ids):
-        bad = sorted({t for t in home_tile_ids if t not in known_tiles})[:10]
-        raise RuntimeError(f"Field owner raster tile missing from raster tile plan: {bad}")
+    bad_tiles = sorted({t for t in home_tile_ids if t not in known_tiles})
+    if bad_tiles:
+        raise RuntimeError(f"Field owner raster tile missing from raster plan: {bad_tiles[:10]}")
 
     field_partition = pd.DataFrame({
         "parent_field_id_2025": g["parent_field_id_2025"].astype(str),
@@ -351,221 +357,154 @@ def main() -> int:
         "home_raster_tile_id": home_tile_ids,
         "area_ha_2025": g["area_ha_2025"].round(6),
     })
-    field_partition.to_csv(out / "d0_field_partition.csv", index=False, encoding="utf-8-sig")
-    field_partition_sha = sha256_file(out / "d0_field_partition.csv")
+    field_partition_path = out / "d0_field_partition.csv"
+    field_partition.to_csv(field_partition_path, index=False, encoding="utf-8-sig")
+    field_partition_sha = sha256_file(field_partition_path)
 
-    unique_cells = sorted(set(owner_ids))
+    unique_cells = sorted(owner_counts)
     sidx = g.sindex
-    cell_rows: list[dict[str, Any]] = []
-    cell_geoms = []
-    sparse_cells = 0
     min_norm = int(part["minimum_normalization_fields"])
-    for cid in unique_cells:
-        # Parse indices from the deterministic ID instead of relying on row order.
+    cell_records: list[dict[str, Any]] = []
+    sparse_cells = 0
+    for k, cid in enumerate(unique_cells, 1):
         p = cid.replace("A_E", "").split("_N")
         ix, iy = int(p[0]), int(p[1])
         cell = box(ix * grid, iy * grid, (ix + 1) * grid, (iy + 1) * grid)
-        owner_n = int(sum(1 for x in owner_ids if x == cid))
         pos = list(sidx.query(cell, predicate="intersects"))
-        norm_n = int(len(pos))
+        norm_n = len(pos)
         norm_area = float(g.iloc[pos]["area_ha_2025"].sum()) if pos else 0.0
         status = "PASS" if norm_n >= min_norm else "REVIEW_SPARSE_NORMALIZATION_CELL"
         sparse_cells += int(status != "PASS")
-        cell_rows.append({
+        cell_records.append({
             "analysis_cell_id": cid,
             "ix": ix,
             "iy": iy,
-            "owner_fields": owner_n,
-            "normalization_fields_intersecting_cell": norm_n,
+            "owner_fields": int(owner_counts[cid]),
+            "normalization_fields_intersecting_cell": int(norm_n),
             "normalization_area_ha": round(norm_area, 3),
             "normalization_status": status,
+            "geometry": cell,
         })
-        cell_geoms.append(cell)
-    cell_df = pd.DataFrame(cell_rows).sort_values("analysis_cell_id").reset_index(drop=True)
-    cell_df.to_csv(out / "d0_analysis_cells.csv", index=False, encoding="utf-8-sig")
-    gpd.GeoDataFrame(cell_df.copy(), geometry=cell_geoms, crs=32633).to_file(
-        out / "d0_analysis_cells.gpkg", layer="analysis_cells", driver="GPKG"
-    )
+        if k % 10 == 0 or k == len(unique_cells):
+            log(f"D0_ANALYSIS_CELL_PROGRESS={k}/{len(unique_cells)}")
 
-    # Resource estimate and continuity check against the earlier A0 planning run.
+    cells_gdf = gpd.GeoDataFrame(cell_records, geometry="geometry", crs=32633).sort_values("analysis_cell_id").reset_index(drop=True)
+    cells_gdf.drop(columns="geometry").to_csv(out / "d0_analysis_cells.csv", index=False, encoding="utf-8-sig")
+    cells_gdf.to_file(out / "d0_analysis_cells.gpkg", layer="analysis_cells", driver="GPKG")
+    analysis_cells_sha = sha256_file(out / "d0_analysis_cells.csv")
+
+    log("D0_PROGRESS=VERIFY_A0_RESOURCE_CONTINUITY")
     guard = cfg["resource_guard"]
     requests = len(request_rows)
     pu_upper = float(resource_estimate(requests, tile_pixels, int(guard["counted_input_bands_for_planning"])))
-    a0 = cfg["a0_reference"]
-    a0_manifest_path = Path(a0["manifest"])
-    if not a0_manifest_path.is_file():
-        raise FileNotFoundError(a0_manifest_path)
-    a0_manifest = read_json(a0_manifest_path)
     a0_match = (
         int(a0_manifest["tile_plan"]["tiles"]) == int(a0["expected_tiles"]) == len(tile_rows)
         and int(a0_manifest["resource_estimate"]["requests"]) == int(a0["expected_planned_requests"]) == requests
         and abs(float(a0_manifest["resource_estimate"]["estimated_pu_upper"]) - float(a0["expected_estimated_pu_upper"])) <= float(a0["pu_tolerance"])
         and abs(pu_upper - float(a0["expected_estimated_pu_upper"])) <= float(a0["pu_tolerance"])
     )
-    resource_guard_pass = (
-        requests <= int(guard["maximum_planned_process_requests"])
-        and pu_upper <= float(guard["maximum_estimated_pu_upper"])
-    )
-
-    # Theoretical uncompressed sizes are deliberately pessimistic planning upper bounds.
-    raw_bytes = requests * tile_pixels * tile_pixels * len(src["source_bands"]) * 4
-    snapshot_bytes = len(tile_rows) * len(cfg["frozen_snapshots"]) * tile_pixels * tile_pixels * len(rt["snapshot_bands"]) * 4
+    resource_guard_pass = requests <= int(guard["maximum_planned_process_requests"]) and pu_upper <= float(guard["maximum_estimated_pu_upper"])
 
     repo_hashes = {
         "formal_split_fusion_config_sha256": sha256_file(FREEZE_CFG),
         "b2_config_sha256": sha256_file(B2_CFG),
         "true_loo_config_sha256": sha256_file(TRUE_LOO_CFG),
     }
-
     execution_contract = {
         "schema_version": "akerpuls-full-skane-d1-execution-contract-v1",
-        "status": "FROZEN_FOR_D1_EXECUTION_NOT_AUTOMATIC_GEOMETRY",
-        "split_fusion_freeze_tag": cfg["split_fusion_freeze"]["tag"],
-        "split_fusion_freeze_commit": tag_commit,
-        "fusion_artifact_sha256": fusion_hash,
-        "repo_contract_hashes": repo_hashes,
-        "geometry": {
-            "sha256": geom_hash,
-            "fields": int(len(g)),
-            "id_basis": id_basis,
-            "field_union_area_ha": round(field_union_area_ha, 3),
+        "source_d0_schema": cfg["schema_version"],
+        "split_fusion_freeze": {
+            "tag": cfg["split_fusion_freeze"]["tag"],
+            "commit": cfg["split_fusion_freeze"]["commit"],
+            "fusion_artifact_sha256": fusion_hash,
+            "development_p90": cfg["split_fusion_freeze"]["development_p90"],
+            "development_p95": cfg["split_fusion_freeze"]["development_p95"],
         },
-        "snapshots": cfg["frozen_snapshots"],
+        "frozen_geometry": {"sha256": geom_hash, "fields": len(g)},
+        "frozen_snapshots": cfg["frozen_snapshots"],
         "sentinel_source": cfg["sentinel_source"],
         "raster_tiling": cfg["raster_tiling"],
         "analysis_partition": cfg["analysis_partition"],
         "model_application": cfg["model_application"],
-        "request_plan": {
-            "path": str(req_path),
-            "sha256": request_plan_sha,
-            "rows": requests,
-            "requests_by_date": requests_by_date,
-            "requests_by_snapshot": requests_by_snapshot,
-            "estimated_pu_upper": round(pu_upper, 6),
-        },
-        "field_partition": {
-            "path": str(out / "d0_field_partition.csv"),
-            "sha256": field_partition_sha,
-            "rows": int(len(field_partition)),
-            "analysis_cells": int(len(cell_df)),
-            "sparse_normalization_cells": int(sparse_cells),
-        },
-        "paths": cfg["paths"],
-        "policy": {
-            "automatic_split": False,
-            "automatic_merge": False,
-            "automatic_geometry_replacement": False,
-            "product_use": "QA_RANKING_AND_REVIEW_PRIORITY_ONLY",
-        },
+        "request_plan": {"rows": requests, "sha256": request_plan_sha},
+        "field_partition": {"rows": len(field_partition), "sha256": field_partition_sha},
+        "analysis_cells": {"rows": len(cells_gdf), "sha256": analysis_cells_sha},
+        "automatic_split": False,
+        "automatic_merge": False,
+        "automatic_geometry_replacement": False,
+        "repo_hashes": repo_hashes,
     }
-    contract_bytes = stable_json_bytes(execution_contract)
     contract_path = out / "D1_EXECUTION_CONTRACT.json"
-    contract_path.write_bytes(contract_bytes)
-    contract_sha = sha256_bytes(contract_bytes)
+    contract_path.write_bytes(stable_json_bytes(execution_contract))
+    contract_sha = sha256_file(contract_path)
 
-    status = "PASS"
-    reasons: list[str] = []
-    if not a0_match:
-        status = "REVIEW"
-        reasons.append("FRESH_STAC_REQUEST_PLAN_DIFFERS_FROM_FROZEN_A0_REFERENCE")
-    if not resource_guard_pass:
-        status = "REVIEW"
-        reasons.append("RESOURCE_GUARD_FAILED")
-    if sparse_cells:
-        status = "REVIEW"
-        reasons.append("SPARSE_20KM_NORMALIZATION_CELLS_EXIST")
-
-    cell_owner = cell_df["owner_fields"]
-    cell_norm = cell_df["normalization_fields_intersecting_cell"]
+    status = "PASS" if a0_match and resource_guard_pass and sparse_cells == 0 else "REVIEW"
     manifest = {
-        "schema_version": cfg["schema_version"],
+        "schema_version": "akerpuls-full-skane-d0-result-v1",
         "status": status,
-        "review_reasons": reasons,
         "generated_utc": datetime.now(timezone.utc).isoformat(),
-        "git": {"branch": branch, "head": head, "freeze_tag": cfg["split_fusion_freeze"]["tag"], "freeze_commit": tag_commit},
-        "frozen_geometry": {"path": str(geom_path), "sha256": geom_hash, "fields": int(len(g)), "id_basis": id_basis, "field_union_area_ha": round(field_union_area_ha, 3)},
-        "raster_tiles": int(len(tile_rows)),
-        "snapshot_tiles": int(len(snapshot_tile_rows)),
+        "git": {"branch": branch, "head": head, "freeze_tag_commit": tag_commit},
+        "geometry": {"path": str(geom_path), "sha256": geom_hash, "fields": len(g), "id_basis": id_basis, "field_union_area_ha_from_a0": field_union_area_ha},
+        "a0_topology_reused": True,
+        "a0_manifest": str(a0_manifest_path),
+        "raster_tiles": len(tile_rows),
+        "snapshot_tiles": len(snapshot_tile_rows),
         "planned_process_requests": requests,
         "requests_by_date": requests_by_date,
         "requests_by_snapshot": requests_by_snapshot,
         "estimated_pu_upper": round(pu_upper, 6),
         "a0_reference_match": bool(a0_match),
-        "resource_guard_pass": bool(resource_guard_pass),
-        "snapshot_coverage": coverage_rows,
-        "analysis_partition": {
-            "cells": int(len(cell_df)),
-            "sparse_cells": int(sparse_cells),
-            "owner_fields_min": int(cell_owner.min()),
-            "owner_fields_p10": round(float(cell_owner.quantile(0.1)), 1),
-            "owner_fields_p50": round(float(cell_owner.median()), 1),
-            "owner_fields_max": int(cell_owner.max()),
-            "normalization_fields_min": int(cell_norm.min()),
-            "normalization_fields_p10": round(float(cell_norm.quantile(0.1)), 1),
-            "normalization_fields_p50": round(float(cell_norm.median()), 1),
-            "normalization_fields_max": int(cell_norm.max()),
-            "minimum_required": min_norm,
-        },
-        "storage_upper_bounds": {
-            "daily_source_uncompressed_gib": round(raw_bytes / (1024 ** 3), 2),
-            "snapshot_tiles_uncompressed_gib": round(snapshot_bytes / (1024 ** 3), 2),
-            "combined_uncompressed_gib": round((raw_bytes + snapshot_bytes) / (1024 ** 3), 2),
-            "note": "Actual DEFLATE GeoTIFF storage should be lower; these are not quota estimates.",
-        },
+        "resource_guard": bool(resource_guard_pass),
+        "analysis_cells": len(cells_gdf),
+        "sparse_normalization_cells": int(sparse_cells),
+        "minimum_normalization_fields": min_norm,
+        "fusion_freeze_sha256": fusion_hash,
         "d1_execution_contract_sha256": contract_sha,
         "sentinel_hub_pu_used": 0,
-        "process_api_called": False,
-        "thresholds_tuned": False,
-        "fusion_refit": False,
         "automatic_geometry_replacement": False,
     }
     (out / "d0_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     qa = [
-        "# ÅkerPuls full-Skåne — STOPPUNKT D0",
-        "",
+        "# ÅkerPuls full Skåne D0 plan v1",
         f"- Status: **{status}**",
-        f"- Frozen 2025 fields: {len(g):,}",
+        f"- Fields: {len(g):,}",
         f"- Raster tiles: {len(tile_rows)}",
-        f"- Planned Process API requests for D1: {requests}",
+        f"- Planned Process requests: {requests}",
         f"- Estimated PU upper: {pu_upper:.2f}",
-        f"- A0 continuity: {'PASS' if a0_match else 'REVIEW'}",
-        f"- 20 km analysis cells: {len(cell_df)}; sparse normalization cells: {sparse_cells}",
-        f"- D1 execution-contract SHA256: `{contract_sha}`",
+        f"- A0 reference match: **{'PASS' if a0_match else 'REVIEW'}**",
+        f"- Resource guard: **{'PASS' if resource_guard_pass else 'REVIEW'}**",
+        f"- Analysis cells: {len(cells_gdf)}",
+        f"- Sparse normalization cells: {sparse_cells}",
+        f"- D1 execution contract SHA256: `{contract_sha}`",
+        "- Sentinel Hub PU used: **0**",
+        "- Automatic geometry mutation: **FALSE**",
         "",
-        "D0 itself used public STAC only and zero Sentinel Hub PU.",
-        "No thresholds were changed, the fusion was not refit, and 2025 geometry remains the default.",
+        "Performance note: exact A0 tile topology and union-based coverage were reused after geometry SHA/count verification; no 128,636-polygon unary union was recomputed.",
     ]
-    if reasons:
-        qa += ["", "## Review reasons"] + [f"- {r}" for r in reasons]
     (out / "d0_qa.md").write_text("\n".join(qa) + "\n", encoding="utf-8")
 
-    print("AKERPULS FULL SKANE D0 - ZERO PU EXECUTION PLAN")
+    print("AKERPULS FULL SKANE D0 ZERO-PU EXECUTION PLAN", flush=True)
     print(f"STATUS={status}")
-    print(f"FIELDS_2025={len(g)} FIELD_UNION_AREA_HA={field_union_area_ha:.3f}")
-    print(f"SPLIT_FUSION_FREEZE_TAG={cfg['split_fusion_freeze']['tag']} COMMIT={tag_commit}")
-    print(f"FUSION_FREEZE_SHA256={fusion_hash}")
-    print(f"RASTER_TILES={len(tile_rows)} SNAPSHOT_TILES={len(snapshot_tile_rows)}")
+    print(f"FIELDS={len(g)}")
+    print(f"RASTER_TILES={len(tile_rows)}")
+    print(f"SNAPSHOT_TILES={len(snapshot_tile_rows)}")
     print(f"PLANNED_PROCESS_REQUESTS={requests}")
     for day in sorted(requests_by_date):
         print(f"REQUESTS_{day}={requests_by_date[day]}")
     print(f"ESTIMATED_PU_UPPER={pu_upper:.2f}")
     print(f"A0_REFERENCE_MATCH={'PASS' if a0_match else 'REVIEW'}")
     print(f"RESOURCE_GUARD={'PASS' if resource_guard_pass else 'REVIEW'}")
-    print(f"ANALYSIS_CELLS={len(cell_df)} SPARSE_NORMALIZATION_CELLS={sparse_cells} MIN_NORM_FIELDS={int(cell_norm.min())} P10_NORM_FIELDS={float(cell_norm.quantile(.1)):.1f} MEDIAN_NORM_FIELDS={float(cell_norm.median()):.1f}")
-    print(f"UNCOMPRESSED_DAILY_GIB={raw_bytes/(1024**3):.2f} SNAPSHOT_GIB={snapshot_bytes/(1024**3):.2f} COMBINED_GIB={(raw_bytes+snapshot_bytes)/(1024**3):.2f}")
+    print(f"ANALYSIS_CELLS={len(cells_gdf)}")
+    print(f"SPARSE_NORMALIZATION_CELLS={sparse_cells}")
+    print(f"MIN_NORM_FIELDS={min_norm}")
+    print(f"FUSION_FREEZE_SHA256={fusion_hash}")
     print(f"D1_EXECUTION_CONTRACT_SHA256={contract_sha}")
-    print("NORMALIZATION_CONTRACT=LOCAL_20KM_INTERSECTING_FIELDS")
-    print("WHOLE_SKANE_IN_MEMORY=FALSE")
-    print("AUTOMATIC_SPLIT=FALSE")
-    print("AUTOMATIC_MERGE=FALSE")
+    print("A0_TILE_TOPOLOGY_REUSED=TRUE")
     print("AUTOMATIC_GEOMETRY_REPLACEMENT=FALSE")
-    print("PROCESS_API_CALLED=FALSE")
     print("SENTINEL_HUB_PU_USED=0")
-    print("THRESHOLDS_TUNED=FALSE")
-    print("FUSION_REFIT=FALSE")
     print(f"D0_STATUS={status}")
-    print(f"OUTPUT={out}")
+    print("OUTPUT=" + str(out))
     return 0 if status == "PASS" else 2
 
 
