@@ -8,6 +8,14 @@
     "expected_execution_contract_sha256": "4cf28a8cf43848f279d06917aadfb1eb0b54499e1acadf57f8296557dff940a1",
     "expected_analysis_cells": 46,
     "expected_sparse_cells": 6,
+    "expected_sparse_base": {
+      "A_E0023_N0313": 2,
+      "A_E0018_N0313": 16,
+      "A_E0017_N0313": 46,
+      "A_E0021_N0306": 128,
+      "A_E0018_N0306": 157,
+      "A_E0017_N0309": 165
+    },
     "expected_minimum_normalization_fields": 200,
     "expected_planned_process_requests": 593,
     "expected_estimated_pu_upper": 5534.67
