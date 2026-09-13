@@ -23,6 +23,14 @@
     "interior_radius_pixels": 2,
     "frozen_before_holdout_results": true
   },
+  "stac_transport": {
+    "request_spacing_seconds": 2.0,
+    "max_attempts": 8,
+    "base_backoff_seconds": 5.0,
+    "max_backoff_seconds": 60.0,
+    "retry_status_codes": [429, 500, 502, 503, 504],
+    "cache_successful_scene_queries": true
+  },
   "resource_guards": {
     "maximum_unique_scene_assets": 300,
     "maximum_projected_download_gib": 20.0,
@@ -40,5 +48,5 @@
     "crop_classification": false,
     "full_skane_s3_authorized": false
   },
-  "interpretation": "Independent cached-Process holdout for the single backend semantics selected after D1-S3b diagnosis. This stage reports parity distributions only and cannot authorize full-Skane S3 or alter product/model rules."
+  "interpretation": "Independent cached-Process holdout for the single backend semantics selected after D1-S3b diagnosis. This stage reports parity distributions only and cannot authorize full-Skane S3 or alter product/model rules. STAC retry/backoff/cache settings are transport-only and do not alter scientific semantics."
 }
