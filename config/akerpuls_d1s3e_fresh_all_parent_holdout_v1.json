@@ -1,0 +1,68 @@
+{
+  "schema_version": "akerpuls-d1s3e-fresh-all-parent-holdout-v1",
+  "phase": "POST_D1S3D_FRESH_PREDECLARED_BACKEND_HOLDOUT",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "parent_parity_config": "config/akerpuls_d1s3_parity_v1.json",
+  "parent_diagnostic_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3b_diagnostic_v1",
+  "parent_holdout_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3c_independent_holdout_v1",
+  "parent_group_diagnostic_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3d_acquisition_group_diagnostic_v1",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3e_fresh_all_parent_holdout_v1",
+  "s3_cache_root": "C:\\AkerSyncRaw\\akerpuls_d1s3_parity_v1",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "selection": {
+    "exclude_all_prior_tile_ids": true,
+    "maximum_dates": 3,
+    "requests_per_date": 10,
+    "minimum_dates": 3,
+    "require_unique_tile_ids_across_dates": true,
+    "strategy": "DETERMINISTIC_CENTROID_PLUS_FARTHEST_POINT_SPREAD_AFTER_PRIOR_TILE_EXCLUSION"
+  },
+  "candidate_backend_semantics": {
+    "scene_scope": "ALL_ACQUISITIONS_RETURNED_BY_FROZEN_STAC_QUERY",
+    "scene_order": "PARENT",
+    "coverage": "SCL_NONZERO",
+    "reflectance": "SCALE_OFFSET",
+    "resampling": "NEAREST",
+    "clear_scl_codes": [2, 4, 5],
+    "interior_radius_pixels": 2,
+    "frozen_after_d1s3d_before_d1s3e_outcomes": true
+  },
+  "acceptance": {
+    "request_ndvi_p99_max": 0.002,
+    "request_lswi_p99_max": 0.002,
+    "minimum_request_pass_fraction": 0.90,
+    "aggregate_ndvi_p99_p90_max": 0.002,
+    "aggregate_lswi_p99_p90_max": 0.002,
+    "aggregate_ndvi_p99_max_max": 0.01,
+    "aggregate_lswi_p99_max_max": 0.01,
+    "valid_mask_agreement_p10_min": 0.95,
+    "scl_agreement_common_data_p10_min": 0.995,
+    "frozen_before_holdout_outcomes": true
+  },
+  "stac_transport": {
+    "request_spacing_seconds": 2.0,
+    "max_attempts": 8,
+    "base_backoff_seconds": 5.0,
+    "max_backoff_seconds": 60.0,
+    "retry_status_codes": [429, 500, 502, 503, 504],
+    "cache_successful_scene_queries": true
+  },
+  "resource_guards": {
+    "maximum_unique_scene_assets": 600,
+    "maximum_projected_download_gib": 40.0,
+    "minimum_free_gib_after_projected_download": 20.0
+  },
+  "guards": {
+    "process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "threshold_changes": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false,
+    "full_skane_s3_authorized": false
+  },
+  "interpretation": "Fresh holdout of one predeclared ALL_PARENT direct-S3 backend after D1-S3d showed ALL_PARENT best on 11/12 prior requests. Prior diagnostic/holdout tile IDs are excluded entirely. PASS permits only an end-to-end model-pipeline parity test, never full-Skane authorization by itself."
+}
