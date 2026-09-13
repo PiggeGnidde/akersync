@@ -1,0 +1,44 @@
+{
+  "schema_version": "akerpuls-d1s3c-independent-backend-holdout-v1",
+  "phase": "POST_DIAGNOSTIC_INDEPENDENT_BACKEND_HOLDOUT",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "parent_parity_config": "config/akerpuls_d1s3_parity_v1.json",
+  "parent_diagnostic_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3b_diagnostic_v1",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3c_independent_holdout_v1",
+  "s3_cache_root": "C:\\AkerSyncRaw\\akerpuls_d1s3_parity_v1",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "selection": {
+    "exclude_parent_diagnostic_tile": true,
+    "maximum_dates": 3,
+    "requests_per_date": 4,
+    "minimum_dates": 2,
+    "strategy": "DETERMINISTIC_CENTROID_PLUS_FARTHEST_POINT_SPREAD"
+  },
+  "candidate_backend_semantics": {
+    "scene_order": "REVERSED",
+    "coverage": "SCL_NONZERO",
+    "reflectance": "SCALE_OFFSET",
+    "resampling": "NEAREST",
+    "clear_scl_codes": [2, 4, 5],
+    "interior_radius_pixels": 2,
+    "frozen_before_holdout_results": true
+  },
+  "resource_guards": {
+    "maximum_unique_scene_assets": 300,
+    "maximum_projected_download_gib": 20.0,
+    "minimum_free_gib_after_projected_download": 20.0
+  },
+  "guards": {
+    "process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "threshold_changes": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false,
+    "full_skane_s3_authorized": false
+  },
+  "interpretation": "Independent cached-Process holdout for the single backend semantics selected after D1-S3b diagnosis. This stage reports parity distributions only and cannot authorize full-Skane S3 or alter product/model rules."
+}
