@@ -1,0 +1,30 @@
+{
+  "schema_version": "akerpuls-d1s3b-mismatch-diagnostic-v1",
+  "phase": "POST_REVIEW_ZERO_PU_BACKEND_DIAGNOSTIC",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "parent_parity_config": "config/akerpuls_d1s3_parity_v1.json",
+  "parent_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3_parity_v1",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3b_diagnostic_v1",
+  "s3_cache_root": "C:\\AkerSyncRaw\\akerpuls_d1s3_parity_v1",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "clear_scl_codes": [2, 4, 5],
+  "diagnostic_variants": {
+    "scene_order": ["PARENT", "REVERSED"],
+    "coverage": ["SCL_NONZERO", "SCL_DATASET_MASK"],
+    "reflectance": ["SCALE_OFFSET", "SCALE_OFFSET_CLIP0"]
+  },
+  "interior_radius_pixels": 2,
+  "guards": {
+    "process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "s3_downloads": false,
+    "threshold_changes": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false
+  },
+  "interpretation": "Exploratory diagnosis only after D1-S3 v1 REVIEW. No variant is authorized as a product rule by this stage."
+}
