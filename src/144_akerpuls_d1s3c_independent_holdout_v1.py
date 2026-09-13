@@ -6,6 +6,9 @@ Uses no Sentinel Hub Process API calls. The candidate backend semantics were
 frozen after D1-S3b diagnosis and before these holdout outcomes:
 REVERSED scene order, SCL_NONZERO coverage, SCALE_OFFSET reflectance, NEAREST.
 This stage is diagnostic/validation only and cannot authorize product changes.
+
+STAC retry/backoff/caching below is transport-only robustness. It does not alter
+scene selection, backend semantics, thresholds, model features, or geometry.
 """
 from __future__ import annotations
 
@@ -15,6 +18,8 @@ import json
 import math
 import os
 import shutil
+import time
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -41,6 +46,72 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def log(msg: str) -> None:
     print(msg, flush=True)
+
+
+def _retry_after_seconds(exc: urllib.error.HTTPError) -> float | None:
+    value = None
+    try:
+        value = exc.headers.get("Retry-After") if exc.headers is not None else None
+    except Exception:
+        value = None
+    if value is None:
+        return None
+    try:
+        seconds = float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, seconds)
+
+
+def query_stac_resilient(parent: Any, row: Any, parent_cfg: dict[str, Any], out: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """Query STAC with pacing, 429/5xx backoff, and successful-query cache.
+
+    The cached object is the parent's normalized scene list, so a rerun does not
+    need to hit public STAC again for requests that already completed. This is an
+    operational transport cache only; the scientific scene semantics are unchanged.
+    """
+    transport = cfg.get("stac_transport", {})
+    cache_enabled = bool(transport.get("cache_successful_scene_queries", True))
+    cache_dir = out / "stac_scene_cache"
+    cache_path = cache_dir / f"{row.date}_{row.tile_id}.json"
+    if cache_enabled and cache_path.is_file():
+        cached = read_json(cache_path)
+        if isinstance(cached, list) and cached:
+            log(f"D1S3C_STAC_CACHE_HIT date={row.date} tile={row.tile_id} items={len(cached)}")
+            return cached
+
+    max_attempts = max(1, int(transport.get("max_attempts", 8)))
+    base = max(0.1, float(transport.get("base_backoff_seconds", 5.0)))
+    max_delay = max(base, float(transport.get("max_backoff_seconds", 60.0)))
+    spacing = max(0.0, float(transport.get("request_spacing_seconds", 2.0)))
+    retry_codes = {int(x) for x in transport.get("retry_status_codes", [429, 500, 502, 503, 504])}
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            scenes = parent.query_stac_for_request(row, parent_cfg, out)
+        except urllib.error.HTTPError as exc:
+            if int(exc.code) not in retry_codes or attempt >= max_attempts:
+                raise
+            retry_after = _retry_after_seconds(exc)
+            exponential = min(max_delay, base * (2 ** (attempt - 1)))
+            delay = min(max_delay, max(exponential, retry_after or 0.0))
+            log(
+                f"D1S3C_STAC_RETRY attempt={attempt}/{max_attempts} code={exc.code} "
+                f"sleep_seconds={delay:.1f} date={row.date} tile={row.tile_id}"
+            )
+            time.sleep(delay)
+            continue
+
+        if cache_enabled:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            tmp = cache_path.with_suffix(cache_path.suffix + ".partial")
+            tmp.write_text(json.dumps(scenes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            tmp.replace(cache_path)
+        if spacing > 0.0:
+            time.sleep(spacing)
+        return scenes
+
+    raise RuntimeError(f"STAC retry loop exhausted for {row.date}/{row.tile_id}")
 
 
 def deterministic_spread(part: Any, n: int) -> Any:
@@ -134,10 +205,11 @@ def main() -> int:
     process_paths = []
     scene_rows = []
     log("D1S3C_PROGRESS=VERIFY_CACHE_AND_QUERY_STAC")
-    for _, row in selected.iterrows():
+    for query_index, (_, row) in enumerate(selected.iterrows(), 1):
         process_path = parent.verify_selected_process_tile(row)
         process_paths.append(process_path)
-        scenes = parent.query_stac_for_request(row, parent_cfg, out)
+        log(f"D1S3C_STAC_PROGRESS={query_index}/{len(selected)} date={row.date} tile={row.tile_id}")
+        scenes = query_stac_resilient(parent, row, parent_cfg, out, cfg)
         scene_sets.append(scenes)
         for rank, scene in enumerate(scenes):
             scene_rows.append({"date": row.date, "tile_id": row.tile_id, "parent_rank": rank, "item_id": scene["item_id"], "datetime": scene["datetime"]})
