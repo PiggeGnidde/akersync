@@ -1,0 +1,41 @@
+{
+  "schema_version": "akerpuls-d1s3d-acquisition-group-diagnostic-v1",
+  "phase": "POST_HOLDOUT_FAILURE_ZERO_PU_ACQUISITION_GROUP_DIAGNOSTIC",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "parent_holdout_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3c_independent_holdout_v1",
+  "parent_holdout_config": "config/akerpuls_d1s3c_independent_holdout_v1.json",
+  "parent_parity_config": "config/akerpuls_d1s3_parity_v1.json",
+  "s3_cache_root": "C:\\AkerSyncRaw\\akerpuls_d1s3_parity_v1",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3d_acquisition_group_diagnostic_v1",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "clear_scl_codes": [2, 4, 5],
+  "interior_radius_pixels": 2,
+  "diagnostic_variants": [
+    "ALL_PARENT",
+    "ALL_REVERSED",
+    "LATEST_ACQUISITION_PARENT",
+    "LATEST_ACQUISITION_REVERSED",
+    "EARLIEST_ACQUISITION_PARENT",
+    "EARLIEST_ACQUISITION_REVERSED"
+  ],
+  "acquisition_grouping": {
+    "primary": "S2_ITEM_ID_SENSING_TIMESTAMP",
+    "regex": "^S2[A-Z]_MSIL2A_(\\d{8}T\\d{6})_",
+    "fallback": "STAC_DATETIME_TO_SECOND"
+  },
+  "guards": {
+    "process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "s3_downloads": false,
+    "stac_queries": false,
+    "threshold_changes": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false,
+    "full_skane_s3_authorized": false
+  },
+  "interpretation": "Post-holdout diagnostic only. It tests whether failures are explained by mixing multiple same-day Sentinel acquisitions versus within-acquisition granule precedence. No variant becomes a product/backend rule from this stage alone."
+}
