@@ -6,6 +6,10 @@ Zero Sentinel Hub Process API calls. Reconstructs the exact C7B grid from direct
 CDSE S3 under the D1-S3e-passed ALL_PARENT semantics, rebuilds all four frozen
 snapshots, then reruns the frozen C7C split + TRUE-LOO + 3-signal fusion pipeline.
 Acceptance was frozen before any S3-C7 model outcome was observed.
+
+A frozen date for which the exact C7 grid has no STAC acquisition is represented
+as the Process-equivalent empty daily source: eight FLOAT32 zero bands with
+SCL=0 and dataMask=0. The date remains in its original paired-date position.
 """
 from __future__ import annotations
 
@@ -31,6 +35,7 @@ B1 = ROOT / "src" / "112_akerpuls_prelim_fields_2026_b1_rasters.py"
 C7C = ROOT / "src" / "135_akerpuls_c7c_frozen_fusion_validation.py"
 SNAPS = ["S2_2026_APRIL", "S2_2026_MAY", "S2_2026_JUNE", "S2_2026_JULY"]
 SOURCE_BANDS = ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "dataMask"]
+EMPTY_DATE_POLICY = "ZERO_FILLED_FLOAT32_SOURCE_WITH_DATAMASK_0"
 
 
 def load_module(path: Path, name: str):
@@ -64,6 +69,29 @@ def finite_max(values: Any) -> float:
 def jaccard(a: set[str], b: set[str]) -> float:
     u = a | b
     return 1.0 if not u else len(a & b) / len(u)
+
+
+def is_no_scene_error(exc: BaseException, row: Any) -> bool:
+    return str(exc).strip() == f"No STAC scenes for {row.date} / {row.tile_id}"
+
+
+def empty_daily_source(height: int, width: int) -> np.ndarray:
+    return np.zeros((8, int(height), int(width)), dtype=np.float32)
+
+
+def query_frozen_date_scenes(resilient: Any, parent: Any, row: Any,
+                             parent_cfg: dict[str, Any], out: Path,
+                             cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    try:
+        return resilient.query_stac_resilient(parent, row, parent_cfg, out, cfg)
+    except RuntimeError as exc:
+        if not is_no_scene_error(exc, row):
+            raise
+        log(
+            f"D1S3F_STAC_EMPTY date={row.date} tile={row.tile_id} "
+            f"policy={EMPTY_DATE_POLICY}"
+        )
+        return []
 
 
 def write_source(path: Path, arr: np.ndarray, transform: Any, crs: Any) -> None:
@@ -258,6 +286,8 @@ def main() -> int:
         raise RuntimeError("D1-S3f forbidden-scope guard unexpectedly enabled")
     if not bool(cfg["acceptance"]["frozen_before_s3_c7_outcomes"]):
         raise RuntimeError("D1-S3f acceptance not frozen")
+    if cfg.get("empty_frozen_date_policy") != EMPTY_DATE_POLICY:
+        raise RuntimeError("D1-S3f empty frozen-date policy changed")
     sem = cfg["candidate_backend_semantics"]
     expected = ("ALL_ACQUISITIONS_RETURNED_BY_FROZEN_STAC_QUERY", "PARENT", "SCL_NONZERO", "SCALE_OFFSET", "NEAREST")
     got = (sem["scene_scope"], sem["scene_order"], sem["coverage"], sem["reflectance"], sem["resampling"])
@@ -302,10 +332,13 @@ def main() -> int:
     log("D1S3F_PROGRESS=QUERY_FROZEN_DATES_FOR_EXACT_C7_GRID")
     scene_sets: dict[str, list[dict[str, Any]]] = {}
     all_sets = []
+    empty_dates: list[str] = []
     for snap, days in master["snapshots"].items():
         for day in days:
             row = SimpleNamespace(date=day, tile_id="C7_FULL", minx=bbox[0], miny=bbox[1], maxx=bbox[2], maxy=bbox[3])
-            scenes = resilient.query_stac_resilient(parent, row, parent_cfg, out, cfg)
+            scenes = query_frozen_date_scenes(resilient, parent, row, parent_cfg, out, cfg)
+            if not scenes:
+                empty_dates.append(day)
             scene_sets[day] = scenes; all_sets.append(scenes)
             log(f"D1S3F_STAC date={day} scenes={len(scenes)}")
 
@@ -327,9 +360,14 @@ def main() -> int:
     log("D1S3F_PROGRESS=REPROJECT_ALL_PARENT_DAILY_AND_BUILD_FROZEN_SNAPSHOTS")
     daily_arrays: dict[str, np.ndarray] = {}
     for day in sorted(scene_sets):
-        scene_data = [diag.reproject_scene(sc, Path(cfg["s3_cache_root"]), (height, width), transform, crs, parent)
-                      for sc in scene_sets[day]]
-        arr, _owner = diag.mosaic(scene_data, "PARENT", "SCL_NONZERO", "SCALE_OFFSET")
+        scenes = scene_sets[day]
+        if scenes:
+            scene_data = [diag.reproject_scene(sc, Path(cfg["s3_cache_root"]), (height, width), transform, crs, parent)
+                          for sc in scenes]
+            arr, _owner = diag.mosaic(scene_data, "PARENT", "SCL_NONZERO", "SCALE_OFFSET")
+        else:
+            scene_data = []
+            arr = empty_daily_source(height, width)
         daily_arrays[day] = arr
         write_source(s3_rdir / "source_daily" / f"s2_{day}.tif", arr, transform, crs)
         log(f"D1S3F_DAILY date={day} scenes={len(scene_data)} data_fraction={float((arr[7] > .5).mean()):.6f}")
@@ -346,6 +384,7 @@ def main() -> int:
         "schema_version": "akerpuls-d1s3f-c7b-direct-s3-raster-v1", "status": "PASS",
         "grid": grid, "pilot_fields": int(cfg["expected_c7_fields"]), "snapshot_dates": master["snapshots"],
         "preprocessing_contract": "IDENTICAL_TO_B1_C1_C5B", "pair_rule": "clear_pixel_first_then_lower_CLD; if both non-clear choose lower_CLD but VALID=0",
+        "empty_frozen_date_policy": EMPTY_DATE_POLICY, "empty_frozen_dates": empty_dates,
         "fusion_freeze_sha256": cfg["expected_fusion_freeze_sha256"], "new_reported_pu_total": 0.0,
         "snapshot_validity": validity_summary, "thresholds_tuned": False, "fusion_refit": False,
         "visual_labels_used": False, "product_rule_frozen": False,
@@ -373,7 +412,8 @@ def main() -> int:
     status = "PASS_TO_FULL_SKANE_S3_PLAN" if result["pass"] else "REVIEW"
     manifest = {
         "schema_version": "akerpuls-d1s3f-c7-end-to-end-parity-result-v1", "status": status,
-        "backend_semantics": sem, "acceptance_contract": cfg["acceptance"], "comparison": result,
+        "backend_semantics": sem, "empty_frozen_date_policy": EMPTY_DATE_POLICY,
+        "empty_frozen_dates": empty_dates, "acceptance_contract": cfg["acceptance"], "comparison": result,
         "s3_asset_downloads": int(downloads), "s3_asset_cache_hits": int(cache_hits),
         "s3_downloaded_bytes": int(downloaded_bytes), "process_api_calls": 0, "sentinel_hub_pu_used": 0,
         "thresholds_changed": False, "fusion_refit": False, "visual_labels_used": False,
@@ -384,6 +424,7 @@ def main() -> int:
 
     log("AKERPULS D1-S3F C7 END-TO-END BACKEND PARITY")
     log(f"STATUS={status}")
+    log(f"EMPTY_FROZEN_DATES={','.join(empty_dates) if empty_dates else 'NONE'} POLICY={EMPTY_DATE_POLICY}")
     log(f"FIELDS={result['fields_compared']} DISCOVERY_AGREE={result['field_discovery_exact_agreement']:.6f} UNCERTAIN_AGREE={result['uncertain_flag_exact_agreement']:.6f}")
     log(f"BASELINE_REF={result['reference_baseline_candidates']} S3={result['s3_baseline_candidates']} JACCARD={result['baseline_candidate_jaccard']:.6f}")
     log(f"LOCKED_REF={result['reference_locked_candidates']} S3={result['s3_locked_candidates']} SYMDIFF={result['locked_candidate_symmetric_difference']}")
