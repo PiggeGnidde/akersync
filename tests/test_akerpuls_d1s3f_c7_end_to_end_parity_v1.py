@@ -2,6 +2,9 @@ import importlib.util
 import json
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "src" / "147_akerpuls_d1s3f_c7_end_to_end_parity_v1.py"
@@ -49,6 +52,23 @@ class TestAkerPulsD1S3FC7EndToEndParityV1(unittest.TestCase):
     def test_jaccard_helper(self):
         self.assertEqual(self.m.jaccard(set(), set()), 1.0)
         self.assertAlmostEqual(self.m.jaccard({"a", "b"}, {"b", "c"}), 1/3)
+
+    def test_zero_scene_policy_is_explicit_and_empty_source_is_zero(self):
+        self.assertEqual(
+            self.cfg["empty_frozen_date_policy"],
+            "ZERO_FILLED_FLOAT32_SOURCE_WITH_DATAMASK_0",
+        )
+        arr = self.m.empty_daily_source(3, 4)
+        self.assertEqual(arr.shape, (8, 3, 4))
+        self.assertEqual(arr.dtype, np.float32)
+        self.assertTrue(np.all(arr == 0.0))
+        self.assertTrue(np.all(arr[7] == 0.0))
+
+    def test_only_exact_no_scene_error_is_treated_as_empty(self):
+        row = SimpleNamespace(date="2026-04-09", tile_id="C7_FULL")
+        self.assertTrue(self.m.is_no_scene_error(RuntimeError("No STAC scenes for 2026-04-09 / C7_FULL"), row))
+        self.assertFalse(self.m.is_no_scene_error(RuntimeError("HTTP 503"), row))
+        self.assertFalse(self.m.is_no_scene_error(RuntimeError("No STAC scenes for 2026-04-08 / C7_FULL"), row))
 
     def test_no_process_api_symbols_in_execution_path(self):
         text = SCRIPT.read_text(encoding="utf-8")
