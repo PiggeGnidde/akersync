@@ -60,16 +60,26 @@ class TestAkerPulsD1S3EFreshAllParentHoldoutV1(unittest.TestCase):
         self.assertEqual(a["aggregate_lswi_p99_max_max"], 0.01)
 
     def test_acceptance_helper(self):
+        # With the same per-request threshold and a >=90% pass-fraction rule,
+        # an interpolated P90 cannot be forced above that same threshold while
+        # still keeping >=90% of observations at/below threshold. The previous
+        # 10-row toy incorrectly assumed otherwise. Instead test an independent
+        # aggregate MAX guard: 10/11 requests pass (~90.9%), P90 remains good,
+        # but one extreme outlier above 0.01 must make the overall decision fail.
         df = pd.DataFrame({
-            "valid_ndvi_p99": [0.0001] * 9 + [0.003],
-            "valid_lswi_p99": [0.0001] * 9 + [0.003],
-            "valid_mask_agreement": [0.99] * 10,
-            "scl_agreement_common_data": [0.999] * 10,
+            "valid_ndvi_p99": [0.0001] * 10 + [0.0200],
+            "valid_lswi_p99": [0.0001] * 10 + [0.0200],
+            "valid_mask_agreement": [0.99] * 11,
+            "scl_agreement_common_data": [0.999] * 11,
         })
-        # 90% request pass, but p90 interpolates above 0.002 for this tiny toy frame;
-        # helper must therefore reject on the independent aggregate criterion.
         result = self.m.evaluate_acceptance(df, self.cfg)
-        self.assertEqual(result["request_pass_count"], 9)
+        self.assertEqual(result["request_pass_count"], 10)
+        self.assertGreaterEqual(result["request_pass_fraction"], 0.90)
+        self.assertTrue(result["checks"]["request_pass_fraction"])
+        self.assertTrue(result["checks"]["ndvi_p90"])
+        self.assertTrue(result["checks"]["lswi_p90"])
+        self.assertFalse(result["checks"]["ndvi_max"])
+        self.assertFalse(result["checks"]["lswi_max"])
         self.assertFalse(result["pass"])
 
 
