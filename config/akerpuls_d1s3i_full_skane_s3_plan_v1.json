@@ -1,0 +1,88 @@
+{
+  "schema_version": "akerpuls-d1s3i-full-skane-s3-plan-v1",
+  "phase": "POST_D1S3H_FULL_SKANE_DIRECT_S3_PLAN_ONLY",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "d1s3h_manifest": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3h_c5_independent_e2e_v1\\d1s3h_manifest.json",
+  "required_d1s3h_status": "PASS_TO_FULL_SKANE_S3_PLAN",
+  "d0b_final_execution_contract": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0b_sparse_norm_v1\\D1_EXECUTION_CONTRACT_FINAL.json",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "d0_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1",
+  "d0_request_plan": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1\\d0_process_request_plan.csv",
+  "d0_raster_tiles": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1\\d0_raster_tiles.csv",
+  "d0_snapshot_tile_plan": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1\\d0_snapshot_tile_plan.csv",
+  "expected": {
+    "fields": 128636,
+    "raster_tiles": 142,
+    "snapshot_tiles": 568,
+    "daily_tile_date_rows": 593,
+    "frozen_dates": ["2026-04-08", "2026-04-09", "2026-05-25", "2026-06-26", "2026-06-27", "2026-07-09"]
+  },
+  "direct_s3_backend": {
+    "stac_search_url": "https://stac.dataspace.copernicus.eu/v1/search",
+    "collection": "sentinel-2-l2a",
+    "target_crs_epsg": 32633,
+    "scene_scope_per_daily_tile": "ALL_STAC_ACQUISITIONS_WHOSE_ITEM_GEOMETRY_INTERSECTS_THE_EXACT_D0_TILE_ON_THE_FROZEN_DATE",
+    "scene_order": "PARENT",
+    "coverage": "SCL_NONZERO",
+    "reflectance": "SCALE_OFFSET",
+    "resampling": "NEAREST",
+    "clear_scl_codes": [2, 4, 5],
+    "pair_rule": "clear_pixel_first_then_lower_CLD; if both non-clear choose lower_CLD but VALID=0",
+    "empty_daily_tile_policy": "ZERO_FILLED_FLOAT32_SOURCE_WITH_DATAMASK_0",
+    "assets": {
+      "B02": "B02_10m",
+      "B03": "B03_10m",
+      "B04": "B04_10m",
+      "B08": "B08_10m",
+      "B11": "B11_20m",
+      "SCL": "SCL_20m",
+      "CLD": "CLD_20m"
+    },
+    "source_asset_cache_root": "C:\\AkerSyncRaw\\akerpuls_d1s3_parity_v1",
+    "derived_full_skane_root": "C:\\AkerSyncRaw\\akerpuls_full_skane_s3_v1",
+    "process_cache_policy": "NEVER_READ_AS_SOURCE_FOR_FULL_SKANE_S3_EXECUTION; PROCESS_CACHE_IS_VALIDATION_EVIDENCE_ONLY",
+    "frozen_from_d1s3e_and_confirmed_d1s3h": true
+  },
+  "planning": {
+    "query_strategy": "ONE_PUBLIC_STAC_BBOX_QUERY_PER_FROZEN_DATE_THEN_EXACT_ITEM_GEOMETRY_INTERSECTION_WITH_D0_TILES",
+    "freeze_exact_scene_ids_assets_and_tile_scene_mapping_for_execution": true,
+    "reuse_completed_stac_date_queries_on_retry": true,
+    "no_asset_downloads": true,
+    "no_s3_object_calls": true,
+    "no_process_api_calls": true
+  },
+  "stac_transport": {
+    "request_spacing_seconds": 1.0,
+    "max_attempts": 8,
+    "base_backoff_seconds": 4.0,
+    "max_backoff_seconds": 60.0,
+    "retry_status_codes": [429, 500, 502, 503, 504],
+    "maximum_pages_per_date": 10,
+    "maximum_items_per_date": 100
+  },
+  "resource_guards": {
+    "maximum_unique_scene_items": 100,
+    "maximum_unique_scene_assets": 700,
+    "maximum_source_archive_gib": 100.0,
+    "maximum_derived_uncompressed_gib": 80.0,
+    "minimum_free_gib_after_missing_source_plus_uncompressed_derived": 100.0,
+    "require_nonzero_stac_file_size_for_all_assets": true,
+    "require_no_corrupt_local_cache_assets": true
+  },
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3i_full_skane_s3_plan_v1",
+  "guards": {
+    "sentinel_process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "s3_asset_downloads": false,
+    "s3_object_network_calls": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false,
+    "full_skane_model_execution": false
+  },
+  "interpretation": "D1-S3i is planning and freezing only. D1-S3h established exact end-to-end backend equivalence on C5, while historical C7 D1-S3f remains REVIEW. This stage freezes the exact full-Skane scene/item/asset and tile-scene execution inventory without downloading any S3 object, spending Process PU, running the model, or changing geometry. A PASS authorizes a separate guarded direct-S3 acquisition stage only."
+}
