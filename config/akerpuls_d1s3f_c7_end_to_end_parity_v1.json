@@ -14,6 +14,7 @@
   "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
   "expected_fusion_freeze_sha256": "3ab2fcdd06284c15cbcffb20fba8da7de9f6b10ca102bd4026fc73a9ee0a7316",
   "expected_c7_fields": 1000,
+  "empty_frozen_date_policy": "ZERO_FILLED_FLOAT32_SOURCE_WITH_DATAMASK_0",
   "candidate_backend_semantics": {
     "scene_scope": "ALL_ACQUISITIONS_RETURNED_BY_FROZEN_STAC_QUERY",
     "scene_order": "PARENT",
@@ -66,5 +67,5 @@
     "crop_classification": false,
     "full_skane_s3_authorized": false
   },
-  "interpretation": "End-to-end backend parity on the already frozen C7 1000-field pipeline. The only intended change is Process-derived Sentinel rasters versus direct CDSE S3 rasters under the D1-S3e-passed ALL_PARENT semantics. PASS may authorize a separate full-Skane S3 acquisition plan; it does not itself mutate geometry."
+  "interpretation": "End-to-end backend parity on the already frozen C7 1000-field pipeline. The only intended change is Process-derived Sentinel rasters versus direct CDSE S3 rasters under the D1-S3e-passed ALL_PARENT semantics. A frozen date with no STAC acquisition intersecting the exact C7 grid is represented as the Process-equivalent empty daily source (all zero, dataMask=0) and remains in the paired-date position. PASS may authorize a separate full-Skane S3 acquisition plan; it does not itself mutate geometry."
 }
