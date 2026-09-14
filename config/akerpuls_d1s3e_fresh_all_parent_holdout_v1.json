@@ -17,6 +17,15 @@
     "require_unique_tile_ids_across_dates": true,
     "strategy": "DETERMINISTIC_CENTROID_PLUS_FARTHEST_POINT_SPREAD_AFTER_PRIOR_TILE_EXCLUSION"
   },
+  "source_eligibility": {
+    "minimum_stac_scenes": 1,
+    "on_zero_stac_scenes": "REPLACE_WITH_SAME_DATE_DETERMINISTIC_FARTHEST_FROM_CURRENT_SELECTION",
+    "replacement_may_use_parity_metrics": false,
+    "replacement_may_change_date": false,
+    "replacement_must_preserve_global_tile_uniqueness": true,
+    "frozen_after_zero_scene_block_before_any_d1s3e_parity_outcomes": true,
+    "rationale": "The first D1-S3e attempt stopped during STAC discovery before any parity result because one cached Process request had no intersecting STAC scene. Source availability is therefore treated as an eligibility condition, not a backend-performance outcome."
+  },
   "candidate_backend_semantics": {
     "scene_scope": "ALL_ACQUISITIONS_RETURNED_BY_FROZEN_STAC_QUERY",
     "scene_order": "PARENT",
@@ -64,5 +73,5 @@
     "crop_classification": false,
     "full_skane_s3_authorized": false
   },
-  "interpretation": "Fresh holdout of one predeclared ALL_PARENT direct-S3 backend after D1-S3d showed ALL_PARENT best on 11/12 prior requests. Prior diagnostic/holdout tile IDs are excluded entirely. PASS permits only an end-to-end model-pipeline parity test, never full-Skane authorization by itself."
+  "interpretation": "Fresh holdout of one predeclared ALL_PARENT direct-S3 backend after D1-S3d showed ALL_PARENT best on 11/12 prior requests. Prior diagnostic/holdout tile IDs are excluded entirely. A zero-scene STAC request is source-ineligible and replaced deterministically within the same date before any parity outcomes are computed. PASS permits only an end-to-end model-pipeline parity test, never full-Skane authorization by itself."
 }
