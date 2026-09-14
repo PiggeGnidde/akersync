@@ -48,6 +48,39 @@ class TestAkerPulsD1S3EFreshAllParentHoldoutV1(unittest.TestCase):
         self.assertTrue(sel["exclude_all_prior_tile_ids"])
         self.assertTrue(sel["require_unique_tile_ids_across_dates"])
 
+    def test_zero_scene_source_eligibility_is_pre_outcome_and_nonadaptive(self):
+        s = self.cfg["source_eligibility"]
+        self.assertEqual(s["minimum_stac_scenes"], 1)
+        self.assertEqual(
+            s["on_zero_stac_scenes"],
+            "REPLACE_WITH_SAME_DATE_DETERMINISTIC_FARTHEST_FROM_CURRENT_SELECTION",
+        )
+        self.assertFalse(s["replacement_may_use_parity_metrics"])
+        self.assertFalse(s["replacement_may_change_date"])
+        self.assertTrue(s["replacement_must_preserve_global_tile_uniqueness"])
+        self.assertTrue(s["frozen_after_zero_scene_block_before_any_d1s3e_parity_outcomes"])
+
+    def test_no_scene_error_detection_is_narrow(self):
+        self.assertTrue(self.m.is_no_stac_scene_error(RuntimeError("No STAC scenes for 2026-04-09 / T")))
+        self.assertFalse(self.m.is_no_stac_scene_error(RuntimeError("other error")))
+        self.assertFalse(self.m.is_no_stac_scene_error(ValueError("No STAC scenes for 2026-04-09 / T")))
+
+    def test_same_date_replacement_is_deterministic_and_respects_forbidden(self):
+        cached = pd.DataFrame([
+            {"date":"2026-04-09","tile_id":"A","minx":0,"maxx":10,"miny":0,"maxy":10},
+            {"date":"2026-04-09","tile_id":"B","minx":100,"maxx":110,"miny":0,"maxy":10},
+            {"date":"2026-04-09","tile_id":"C","minx":0,"maxx":10,"miny":100,"maxy":110},
+            {"date":"2026-04-09","tile_id":"D","minx":100,"maxx":110,"miny":100,"maxy":110},
+            {"date":"2026-05-25","tile_id":"Z","minx":1000,"maxx":1010,"miny":1000,"maxy":1010},
+        ])
+        current = pd.DataFrame([
+            {"date":"2026-04-09","tile_id":"A","minx":0,"maxx":10,"miny":0,"maxy":10},
+        ])
+        one = self.m.deterministic_same_date_replacement(cached, "2026-04-09", current, {"A","B"})
+        two = self.m.deterministic_same_date_replacement(cached.sample(frac=1, random_state=4), "2026-04-09", current, {"A","B"})
+        self.assertEqual(str(one.tile_id), "D")
+        self.assertEqual(str(two.tile_id), "D")
+
     def test_acceptance_is_predeclared(self):
         a = self.cfg["acceptance"]
         self.assertTrue(a["frozen_before_holdout_outcomes"])
@@ -62,10 +95,9 @@ class TestAkerPulsD1S3EFreshAllParentHoldoutV1(unittest.TestCase):
     def test_acceptance_helper(self):
         # With the same per-request threshold and a >=90% pass-fraction rule,
         # an interpolated P90 cannot be forced above that same threshold while
-        # still keeping >=90% of observations at/below threshold. The previous
-        # 10-row toy incorrectly assumed otherwise. Instead test an independent
-        # aggregate MAX guard: 10/11 requests pass (~90.9%), P90 remains good,
-        # but one extreme outlier above 0.01 must make the overall decision fail.
+        # still keeping >=90% of observations at/below threshold. Test an
+        # independent aggregate MAX guard instead: 10/11 requests pass (~90.9%),
+        # P90 remains good, but one extreme outlier above 0.01 must fail overall.
         df = pd.DataFrame({
             "valid_ndvi_p99": [0.0001] * 10 + [0.0200],
             "valid_lswi_p99": [0.0001] * 10 + [0.0200],
