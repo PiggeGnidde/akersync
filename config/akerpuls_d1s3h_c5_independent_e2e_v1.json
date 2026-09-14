@@ -1,0 +1,93 @@
+{
+  "schema_version": "akerpuls-d1s3h-c5-backend-confirmation-v1",
+  "phase": "POST_D1S3G_C5_GEOGRAPHIC_BACKEND_CONFIRMATION",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "parent_parity_config": "config/akerpuls_d1s3_parity_v1.json",
+  "d1s3f_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3f_c7_end_to_end_parity_v1",
+  "d1s3g_output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3g_review_diagnostic_v1",
+  "c5a_pilot_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5a_selection",
+  "c5a_pilot_filename": "c5a_pilot_fields_2025.gpkg",
+  "c5b_process_reference_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5b_rasters",
+  "c5c_legacy_validation_dir": "C:\\AkerSyncRepo\\work\\akerpuls_prelim_fields_2026_v0_c5c_validation",
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3h_c5_independent_e2e_v1",
+  "s3_cache_root": "C:\\AkerSyncRaw\\akerpuls_d1s3_parity_v1",
+  "fusion_freeze": "C:\\AkerSyncRepo\\work\\akerpuls_fusion_freeze_c7a_v0\\FUSION_SCORE_FREEZE_BEFORE_C7.json",
+  "rolling_prior": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_rolling_backtest_v0\\field_prior_2026_preview.csv",
+  "true_loo_config": "config/akerpuls_true_loo_diagnostic_v0.json",
+  "expected_final_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+  "expected_fusion_freeze_sha256": "3ab2fcdd06284c15cbcffb20fba8da7de9f6b10ca102bd4026fc73a9ee0a7316",
+  "expected_c5_fields": 1000,
+  "expected_legacy_c5": {
+    "baseline_split_candidates": 141,
+    "locked_split_candidates": 21,
+    "uncertain": 4
+  },
+  "empty_frozen_date_policy": "ZERO_FILLED_FLOAT32_SOURCE_WITH_DATAMASK_0",
+  "candidate_backend_semantics": {
+    "scene_scope": "ALL_ACQUISITIONS_RETURNED_BY_FROZEN_STAC_QUERY",
+    "scene_order": "PARENT",
+    "coverage": "SCL_NONZERO",
+    "reflectance": "SCALE_OFFSET",
+    "resampling": "NEAREST",
+    "clear_scl_codes": [2, 4, 5],
+    "paired_date_rule": "IDENTICAL_TO_B1_C5B_CLEAR_FIRST_THEN_LOWER_CLD",
+    "frozen_from_d1s3e": true
+  },
+  "frozen_fusion_pipeline": {
+    "candidate_discovery_contract": "IDENTICAL_TO_B2",
+    "locked_split_rule": {
+      "minimum_largest_component_fraction_each_child": 0.95,
+      "edge_ratio_threshold": 1.8,
+      "minimum_supporting_edge_snapshots": 3,
+      "require_loo_all4": true
+    },
+    "development_p90": 0.781017,
+    "development_p95": 0.843688,
+    "june_validity_high": 0.8,
+    "june_validity_medium": 0.5
+  },
+  "acceptance": {
+    "field_discovery_exact_agreement_min": 0.995,
+    "uncertain_flag_exact_agreement_min": 0.995,
+    "baseline_candidate_jaccard_min": 0.97,
+    "locked_candidate_symmetric_difference_max": 2,
+    "separation_ratio_abs_diff_p95_max": 0.02,
+    "separation_ratio_abs_diff_max": 0.10,
+    "true_loo_min_dice_abs_diff_p95_max": 0.02,
+    "true_loo_min_dice_abs_diff_max": 0.10,
+    "fusion_score_abs_diff_p95_max": 0.01,
+    "fusion_priority_union_abs_diff_max": 0.03,
+    "fusion_p90_symmetric_difference_max": 2,
+    "fusion_p95_symmetric_difference_max": 1,
+    "reference_p95_falling_below_s3_p90_max": 0,
+    "frozen_before_c5_s3_outcomes": true,
+    "global_low_tier_fusion_max_is_not_an_acceptance_metric": true
+  },
+  "stac_transport": {
+    "request_spacing_seconds": 2.0,
+    "max_attempts": 8,
+    "base_backoff_seconds": 5.0,
+    "max_backoff_seconds": 60.0,
+    "retry_status_codes": [429, 500, 502, 503, 504],
+    "cache_successful_scene_queries": true
+  },
+  "resource_guards": {
+    "maximum_unique_scene_assets": 300,
+    "maximum_projected_download_gib": 20.0,
+    "minimum_free_gib_after_projected_download": 30.0
+  },
+  "guards": {
+    "process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "visual_labels": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false,
+    "full_skane_s3_execution": false
+  },
+  "interpretation": "New post-C7 REVIEW confirmation contract, frozen before any direct-S3 C5 end-to-end outcome is observed. C5 is geographically separate from C7 but was part of the frozen fusion development/reference population, so this stage validates backend equivalence rather than model generalization. The C7 frozen result remains REVIEW. The revised outcome-relevant fusion maximum is evaluated only on the union of P90-or-higher candidates; the global low-tier maximum is still reported diagnostically but cannot pass or fail this C5 confirmation. PASS authorizes only a separately guarded full-Skane S3 acquisition plan, never automatic geometry replacement."
+}
