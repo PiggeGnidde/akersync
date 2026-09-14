@@ -7,6 +7,13 @@ This stage follows the post-holdout D1-S3d diagnostic, where ALL_PARENT won
 D1-S3c holdout, freezes one backend semantics before these outcomes, and tests
 it on fresh cached Process references. It never calls Sentinel Hub Process API.
 A PASS authorizes only a later end-to-end pipeline parity test, not full-Skåne.
+
+A first D1-S3e attempt stopped during STAC discovery, before any parity outcome,
+because one cached Process request had no intersecting public-STAC scene. The
+source-eligibility rule is therefore now frozen before outcomes: zero-scene rows
+are replaced within the same date by a deterministic geographically spread
+cached Process row. Replacement uses source availability and geometry only,
+never parity metrics.
 """
 from __future__ import annotations
 
@@ -62,22 +69,25 @@ def collect_prior_tile_ids(cfg: dict[str, Any], parent_cfg: dict[str, Any]) -> s
     return prior
 
 
-def select_fresh_rows(requests: Any, process_root: Path, prior_tiles: set[str], cfg: dict[str, Any], spread_fn: Any) -> Any:
-    import pandas as pd
-
+def prepare_fresh_cached_rows(requests: Any, process_root: Path, prior_tiles: set[str]) -> Any:
     rows = requests.copy()
     rows["process_path"] = [str(process_root / Path(str(rel).replace("/", os.sep))) for rel in rows["daily_output_relative"]]
     rows["cached"] = [Path(p).is_file() and Path(p + ".json").is_file() for p in rows["process_path"]]
     cached = rows[rows["cached"]].copy()
     cached = cached[~cached["tile_id"].astype(str).isin(prior_tiles)].copy()
+    return cached.reset_index(drop=True)
 
+
+def select_fresh_rows(requests: Any, process_root: Path, prior_tiles: set[str], cfg: dict[str, Any], spread_fn: Any) -> Any:
+    import pandas as pd
+
+    cached = prepare_fresh_cached_rows(requests, process_root, prior_tiles)
     sel_cfg = cfg["selection"]
     need = int(sel_cfg["requests_per_date"])
     max_dates = int(sel_cfg["maximum_dates"])
     min_dates = int(sel_cfg["minimum_dates"])
     used_tiles: set[str] = set()
     parts = []
-    chosen_dates: list[str] = []
 
     for day in sorted(cached["date"].astype(str).unique()):
         part = cached[cached["date"].astype(str) == day].copy()
@@ -89,7 +99,6 @@ def select_fresh_rows(requests: Any, process_root: Path, prior_tiles: set[str], 
         if len(chosen) != need:
             raise RuntimeError(f"Fresh holdout spread selection returned {len(chosen)} rows for {day}, expected {need}")
         parts.append(chosen)
-        chosen_dates.append(day)
         used_tiles.update(chosen["tile_id"].astype(str).tolist())
         if len(parts) >= max_dates:
             break
@@ -102,6 +111,39 @@ def select_fresh_rows(requests: Any, process_root: Path, prior_tiles: set[str], 
     if bool(sel_cfg["require_unique_tile_ids_across_dates"]) and selected["tile_id"].astype(str).duplicated().any():
         raise RuntimeError("D1-S3e global tile uniqueness violated")
     return selected.sort_values(["date", "tile_id"], kind="mergesort").reset_index(drop=True)
+
+
+def is_no_stac_scene_error(exc: Exception) -> bool:
+    return isinstance(exc, RuntimeError) and str(exc).startswith("No STAC scenes for ")
+
+
+def deterministic_same_date_replacement(cached: Any, day: str, current_selected: Any, forbidden_tiles: set[str]) -> Any:
+    """Pick a deterministic same-date reserve without using any parity outcome.
+
+    Candidate = row maximizing minimum squared centroid distance to the currently
+    selected rows of that same date; ties are broken by tile_id. If there are no
+    same-date anchors, choose the lexicographically first tile_id.
+    """
+    part = cached[cached["date"].astype(str) == str(day)].copy()
+    part = part[~part["tile_id"].astype(str).isin(forbidden_tiles)].copy()
+    if part.empty:
+        raise RuntimeError(f"No same-date reserve candidates remain for {day}")
+
+    part["cx"] = (part["minx"].astype(float) + part["maxx"].astype(float)) / 2.0
+    part["cy"] = (part["miny"].astype(float) + part["maxy"].astype(float)) / 2.0
+    anchors = current_selected[current_selected["date"].astype(str) == str(day)].copy()
+    if anchors.empty:
+        return part.sort_values("tile_id", kind="mergesort").iloc[0].drop(labels=["cx", "cy"])
+
+    anchors["cx"] = (anchors["minx"].astype(float) + anchors["maxx"].astype(float)) / 2.0
+    anchors["cy"] = (anchors["miny"].astype(float) + anchors["maxy"].astype(float)) / 2.0
+    scores = []
+    for idx, r in part.iterrows():
+        d2 = ((anchors["cx"] - float(r.cx)) ** 2 + (anchors["cy"] - float(r.cy)) ** 2).min()
+        scores.append((float(d2), str(r.tile_id), idx))
+    scores.sort(key=lambda x: (-x[0], x[1]))
+    chosen_idx = scores[0][2]
+    return part.loc[chosen_idx].drop(labels=["cx", "cy"])
 
 
 def evaluate_acceptance(frame: Any, cfg: dict[str, Any]) -> dict[str, Any]:
@@ -161,6 +203,11 @@ def main() -> int:
         raise RuntimeError("D1-S3e frozen backend semantics changed")
     if not bool(cfg["acceptance"]["frozen_before_holdout_outcomes"]):
         raise RuntimeError("D1-S3e acceptance was not frozen before outcomes")
+    src_elig = cfg.get("source_eligibility", {})
+    if not bool(src_elig.get("frozen_after_zero_scene_block_before_any_d1s3e_parity_outcomes", False)):
+        raise RuntimeError("D1-S3e source-eligibility replacement rule is not frozen")
+    if bool(src_elig.get("replacement_may_use_parity_metrics", True)):
+        raise RuntimeError("D1-S3e replacement must never use parity metrics")
 
     parent = load_module(PARENT_SCRIPT, "akerpuls_d1s3_parent")
     diag = load_module(DIAG_SCRIPT, "akerpuls_d1s3_diag")
@@ -182,31 +229,83 @@ def main() -> int:
     requests = pd.read_csv(parent_cfg["d0_request_plan"], encoding="utf-8-sig")
     process_root = Path(parent_cfg["process_raw_root"])
     prior_tiles = collect_prior_tile_ids(cfg, parent_cfg)
+    cached_fresh = prepare_fresh_cached_rows(requests, process_root, prior_tiles)
 
     log("D1S3E_PROGRESS=SELECT_FRESH_PRIOR_EXCLUDED_HOLDOUT")
     selected = select_fresh_rows(requests, process_root, prior_tiles, cfg, prev.deterministic_spread)
-    selected.to_csv(out / "d1s3e_selected_holdout_requests.csv", index=False, encoding="utf-8-sig")
+    selected.to_csv(out / "d1s3e_initial_selected_holdout_requests.csv", index=False, encoding="utf-8-sig")
     dates = sorted(selected["date"].astype(str).unique())
     log(f"D1S3E_PRIOR_TILE_IDS_EXCLUDED={len(prior_tiles)}")
     log(f"D1S3E_SELECTED_DATES={','.join(dates)}")
     log(f"D1S3E_REQUESTS={len(selected)} UNIQUE_TILES={selected['tile_id'].astype(str).nunique()}")
 
-    scene_sets = []
-    process_paths = []
-    scene_rows = []
-    log("D1S3E_PROGRESS=VERIFY_CACHE_AND_QUERY_STAC")
-    for i, (_, row) in enumerate(selected.iterrows(), 1):
+    scene_sets: list[list[dict[str, Any]]] = []
+    process_paths: list[Path] = []
+    scene_rows: list[dict[str, Any]] = []
+    replacement_rows: list[dict[str, Any]] = []
+    selected = selected.copy().reset_index(drop=True)
+    reserved_tiles = set(selected["tile_id"].astype(str).tolist())
+    rejected_tiles: set[str] = set()
+
+    log("D1S3E_PROGRESS=VERIFY_CACHE_QUERY_STAC_AND_REPLACE_ZERO_SCENE")
+    i = 0
+    while i < len(selected):
+        row = selected.iloc[i]
         process_path = parent.verify_selected_process_tile(row)
+        log(f"D1S3E_STAC_PROGRESS={i+1}/{len(selected)} date={row.date} tile={row.tile_id}")
+        try:
+            scenes = prev.query_stac_resilient(parent, row, parent_cfg, out, cfg)
+        except Exception as exc:
+            if not is_no_stac_scene_error(exc):
+                raise
+            old_tile = str(row.tile_id)
+            day = str(row.date)
+            reserved_tiles.discard(old_tile)
+            rejected_tiles.add(old_tile)
+            current_without = selected.drop(index=i).reset_index(drop=True)
+            forbidden = set(prior_tiles) | set(reserved_tiles) | set(rejected_tiles)
+            repl = deterministic_same_date_replacement(cached_fresh, day, current_without, forbidden)
+            new_tile = str(repl.tile_id)
+            if new_tile in forbidden:
+                raise RuntimeError("D1-S3e replacement selected a forbidden tile")
+            replacement_rows.append({
+                "date": day,
+                "rejected_tile_id": old_tile,
+                "reason": "ZERO_STAC_SCENES",
+                "replacement_tile_id": new_tile,
+                "selection_rule": src_elig["on_zero_stac_scenes"],
+            })
+            for col in selected.columns:
+                selected.at[i, col] = repl[col]
+            reserved_tiles.add(new_tile)
+            log(f"D1S3E_SOURCE_REPLACEMENT date={day} rejected={old_tile} replacement={new_tile} reason=ZERO_STAC_SCENES")
+            continue
+
+        if len(scenes) < int(src_elig.get("minimum_stac_scenes", 1)):
+            raise RuntimeError(f"Source-eligibility invariant failed for {row.date}/{row.tile_id}")
         process_paths.append(process_path)
-        log(f"D1S3E_STAC_PROGRESS={i}/{len(selected)} date={row.date} tile={row.tile_id}")
-        scenes = prev.query_stac_resilient(parent, row, parent_cfg, out, cfg)
         scene_sets.append(scenes)
         for rank, scene in enumerate(scenes):
             scene_rows.append({
                 "date": str(row.date), "tile_id": str(row.tile_id), "parent_rank": rank,
                 "item_id": scene["item_id"], "datetime": scene["datetime"],
             })
+        i += 1
+
+    if len(scene_sets) != len(selected) or len(process_paths) != len(selected):
+        raise RuntimeError("D1-S3e source-eligible selection did not produce one scene set per request")
+    if selected["tile_id"].astype(str).duplicated().any():
+        raise RuntimeError("D1-S3e final global tile uniqueness violated after replacement")
+    per_date = selected.groupby(selected["date"].astype(str)).size().to_dict()
+    if any(int(per_date.get(day, 0)) != int(cfg["selection"]["requests_per_date"]) for day in dates):
+        raise RuntimeError("D1-S3e replacement changed per-date holdout size")
+
+    selected.to_csv(out / "d1s3e_selected_holdout_requests.csv", index=False, encoding="utf-8-sig")
+    pd.DataFrame(replacement_rows, columns=["date","rejected_tile_id","reason","replacement_tile_id","selection_rule"]).to_csv(
+        out / "d1s3e_source_unavailable_replacements.csv", index=False, encoding="utf-8-sig"
+    )
     pd.DataFrame(scene_rows).to_csv(out / "d1s3e_scene_inventory.csv", index=False, encoding="utf-8-sig")
+    log(f"D1S3E_SOURCE_REPLACEMENTS={len(replacement_rows)}")
 
     unique, projected_bytes = parent.estimate_unique_assets(scene_sets)
     projected_gib = projected_bytes / (1024 ** 3)
@@ -233,7 +332,7 @@ def main() -> int:
     radius = int(sem["interior_radius_pixels"])
     rows = []
     log("D1S3E_PROGRESS=REPROJECT_FROZEN_ALL_PARENT_AND_COMPARE")
-    for i, ((_, row), process_path, scenes) in enumerate(zip(selected.iterrows(), process_paths, scene_sets), 1):
+    for j, ((_, row), process_path, scenes) in enumerate(zip(selected.iterrows(), process_paths, scene_sets), 1):
         with rasterio.open(process_path) as ds:
             reference = ds.read().astype(np.float32)
             shape, transform, crs = (ds.height, ds.width), ds.transform, ds.crs
@@ -243,7 +342,7 @@ def main() -> int:
         req_pass = m["valid_ndvi_p99"] <= float(cfg["acceptance"]["request_ndvi_p99_max"]) and m["valid_lswi_p99"] <= float(cfg["acceptance"]["request_lswi_p99_max"])
         rows.append({"date": str(row.date), "tile_id": str(row.tile_id), "request_pass": bool(req_pass), **m})
         log(
-            f"D1S3E_PARITY {i}/{len(selected)} date={row.date} tile={row.tile_id} pass={str(req_pass).upper()} "
+            f"D1S3E_PARITY {j}/{len(selected)} date={row.date} tile={row.tile_id} pass={str(req_pass).upper()} "
             f"validmask={m['valid_mask_agreement']:.6f} scl={m['scl_agreement_common_data']:.6f} "
             f"ndvi_p99={m['valid_ndvi_p99']:.8g} lswi_p99={m['valid_lswi_p99']:.8g}"
         )
@@ -260,6 +359,8 @@ def main() -> int:
         "requests": int(len(frame)),
         "unique_tiles": int(selected["tile_id"].astype(str).nunique()),
         "prior_tile_ids_excluded": sorted(prior_tiles),
+        "source_eligibility_contract": src_elig,
+        "source_replacements": replacement_rows,
         "candidate_backend_semantics": sem,
         "acceptance_contract": cfg["acceptance"],
         "acceptance_result": acc,
@@ -271,13 +372,14 @@ def main() -> int:
         "thresholds_changed": False,
         "full_skane_s3_authorized": False,
         "automatic_geometry_replacement": False,
-        "next_step": "PASS permits only a separate end-to-end pilot/model parity using frozen backend semantics. REVIEW means no retuning on this holdout and no full-Skane S3 authorization."
+        "next_step": "PASS permits only a separate end-to-end pilot/model parity using frozen backend semantics. REVIEW means no retuning on this holdout and no full-Skåne S3 authorization."
     }
     (out / "d1s3e_manifest.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
     log("AKERPULS D1-S3E FRESH ALL_PARENT BACKEND HOLDOUT")
     log(f"STATUS={status}")
     log(f"DATES={','.join(dates)} REQUESTS={len(frame)} UNIQUE_TILES={summary['unique_tiles']}")
+    log(f"SOURCE_REPLACEMENTS={len(replacement_rows)}")
     log(f"REQUEST_PASS={acc['request_pass_count']}/{len(frame)} FRACTION={acc['request_pass_fraction']:.4f}")
     log(f"VALID_MASK_P10={acc['validmask_p10']:.6f} SCL_P10={acc['scl_p10']:.6f}")
     log(f"NDVI_P99_P90={acc['ndvi_p90']:.8g} MAX={acc['ndvi_max']:.8g}")
