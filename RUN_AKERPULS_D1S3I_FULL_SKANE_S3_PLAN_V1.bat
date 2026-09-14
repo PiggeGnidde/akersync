@@ -58,14 +58,14 @@ py -3 -c "import numpy,pandas,rasterio,geopandas,shapely" >nul 2>nul || (
 )
 
 if not exist "%OUT%" mkdir "%OUT%"
-py -3 -m unittest tests.test_akerpuls_d1s3i_full_skane_s3_plan_v1 -v
+py -3 -m unittest tests.test_akerpuls_d1s3i_full_skane_s3_plan_v1 tests.test_akerpuls_d1s3i_orderfix_v1 -v
 if errorlevel 1 goto :fail
 
 echo.
 echo D1-S3i starts now. Public CDSE STAC only. Successful date queries are cached for safe retry.
 echo Do not interrupt unless necessary; if a public STAC rate limit occurs, the runner can be rerun.
 echo.
-py -3 -u src\150_akerpuls_d1s3i_full_skane_s3_plan_v1.py --output-dir "%OUT%"
+py -3 -u src\150b_akerpuls_d1s3i_full_skane_s3_plan_orderfix_v1.py --output-dir "%OUT%"
 set "RC=%ERRORLEVEL%"
 
 if not exist "%OUT%\d1s3i_manifest.json" (
