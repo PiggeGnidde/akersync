@@ -57,6 +57,7 @@
     "true_loo_min_dice_abs_diff_max": 0.10,
     "fusion_score_abs_diff_p95_max": 0.01,
     "fusion_priority_union_abs_diff_max": 0.03,
+    "fusion_priority_union_noncommon_candidates_max": 0,
     "fusion_p90_symmetric_difference_max": 2,
     "fusion_p95_symmetric_difference_max": 1,
     "reference_p95_falling_below_s3_p90_max": 0,
@@ -89,5 +90,5 @@
     "crop_classification": false,
     "full_skane_s3_execution": false
   },
-  "interpretation": "New post-C7 REVIEW confirmation contract, frozen before any direct-S3 C5 end-to-end outcome is observed. C5 is geographically separate from C7 but was part of the frozen fusion development/reference population, so this stage validates backend equivalence rather than model generalization. The C7 frozen result remains REVIEW. The revised outcome-relevant fusion maximum is evaluated only on the union of P90-or-higher candidates; the global low-tier maximum is still reported diagnostically but cannot pass or fail this C5 confirmation. PASS authorizes only a separately guarded full-Skane S3 acquisition plan, never automatic geometry replacement."
+  "interpretation": "New post-C7 REVIEW confirmation contract, frozen before any direct-S3 C5 end-to-end outcome is observed. C5 is geographically separate from C7 but was part of the frozen fusion development/reference population, so this stage validates backend equivalence rather than model generalization. The C7 frozen result remains REVIEW. The revised outcome-relevant fusion maximum is evaluated only on the union of P90-or-higher candidates and all such candidates must exist in both backend candidate sets; the global low-tier maximum is still reported diagnostically but cannot pass or fail this C5 confirmation. PASS authorizes only a separately guarded full-Skane S3 acquisition plan, never automatic geometry replacement."
 }
