@@ -57,6 +57,25 @@ class TestAkerPulsD1S3KFullSkaneRasterQAV1(unittest.TestCase):
         self.assertEqual(a["minimum_fraction_fields_with_at_least_24_all4_valid_pixels"], 0.70)
         self.assertIn("pre-B2 coverage screen", self.cfg["interpretation"])
 
+    def test_projected_geometry_policy_is_qa_only_and_tightly_bounded(self):
+        p = self.cfg["projection_geometry_policy"]
+        self.assertTrue(p["require_source_geometry_valid_before_reprojection"])
+        self.assertTrue(p["repair_invalid_projected_geometry_for_qa_rasterization_only"])
+        self.assertEqual(p["repair_method"], "SHAPELY_MAKE_VALID_POLYGONAL_ONLY")
+        self.assertEqual(p["maximum_absolute_area_change_m2"], 1.0)
+        self.assertEqual(p["maximum_relative_area_change"], 0.000001)
+        self.assertFalse(p["persist_repaired_geometry"])
+        self.assertFalse(p["automatic_geometry_replacement"])
+
+    def test_polygonal_make_valid_helper(self):
+        from shapely.geometry import Polygon
+        bowtie = Polygon([(0, 0), (2, 2), (0, 2), (2, 0), (0, 0)])
+        self.assertFalse(bowtie.is_valid)
+        fixed = self.m.polygonal_make_valid(bowtie)
+        self.assertTrue(fixed.is_valid)
+        self.assertIn(fixed.geom_type, {"Polygon", "MultiPolygon"})
+        self.assertGreater(fixed.area, 0.0)
+
     def test_quantile_helper(self):
         self.assertAlmostEqual(self.m.q(np.array([1.0, 2.0, 3.0]), 0.5), 2.0)
         self.assertTrue(np.isnan(self.m.q(np.array([np.nan]), 0.5)))
