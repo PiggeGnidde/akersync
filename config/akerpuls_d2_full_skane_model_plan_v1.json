@@ -1,0 +1,121 @@
+{
+  "schema_version": "akerpuls-d2-full-skane-model-plan-v1",
+  "phase": "POST_D1S3K_FULL_SKANE_MODEL_PLAN_ONLY",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "parent_d1s3k": {
+    "manifest": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3k_full_skane_raster_qa_v1\\d1s3k_manifest.json",
+    "field_validity": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3k_full_skane_raster_qa_v1\\d1s3k_field_validity.csv",
+    "analysis_cell_validity": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3k_full_skane_raster_qa_v1\\d1s3k_analysis_cell_validity.csv",
+    "required_status": "PASS_TO_FULL_SKANE_D2_MODEL_PLAN"
+  },
+  "parent_d0b": {
+    "execution_contract": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0b_sparse_norm_v1\\D1_EXECUTION_CONTRACT_FINAL.json",
+    "expected_execution_contract_sha256": "d2c2a88d0978cffcd720dbb7a7982049fbc5c09ae41f3f7be2e959ad254aec19",
+    "resolved_normalization_windows": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0b_sparse_norm_v1\\d0b_resolved_normalization_windows.csv",
+    "expected_resolved_normalization_windows_sha256": "0e3faedd3da470a261a7348d4d4129d52d938c10f34350ccea328b47581c6dc8",
+    "field_partition": "C:\\AkerSyncRepo\\work\\akerpuls_full_skane_d0_plan_v1\\d0_field_partition.csv"
+  },
+  "raster_inputs": {
+    "d1s3j_snapshot_output_index": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3j_full_skane_s3_acquisition_v1\\d1s3j_snapshot_outputs.csv",
+    "d1s3j_vrt_output_index": "C:\\AkerSyncRepo\\work\\akerpuls_d1s3j_full_skane_s3_acquisition_v1\\d1s3j_vrt_outputs.csv",
+    "use_vrt_window_reads": true,
+    "whole_skane_in_memory": false
+  },
+  "frozen_model": {
+    "formal_fusion_config": "config/akerpuls_split_fusion_qa_v1.json",
+    "fusion_artifact": "C:\\AkerSyncRepo\\work\\akerpuls_fusion_freeze_c7a_v0\\FUSION_SCORE_FREEZE_BEFORE_C7.json",
+    "expected_fusion_artifact_sha256": "3ab2fcdd06284c15cbcffb20fba8da7de9f6b10ca102bd4026fc73a9ee0a7316",
+    "b2_config": "config/akerpuls_prelim_fields_2026_b2.json",
+    "true_loo_config": "config/akerpuls_true_loo_diagnostic_v0.json",
+    "rolling_prior": "C:\\AkerSyncRepo\\work\\akerpuls_geometry_rolling_backtest_v0\\field_prior_2026_preview.csv",
+    "history_signal": "prototype_p_splitmerge_2026",
+    "separation_signal": "separation_ratio",
+    "true_loo_signal": "true_loo_min_child_dice",
+    "fusion_transform": "EMPIRICAL_MIDRANK_CDF_AGAINST_FROZEN_DEVELOPMENT_POPULATION",
+    "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333],
+    "development_reference_n": 367,
+    "development_p90": 0.781017,
+    "development_p95": 0.843688
+  },
+  "expected": {
+    "fields": 128636,
+    "analysis_cells": 46,
+    "sparse_expanded_cells": 6,
+    "minimum_normalization_fields": 200,
+    "minimum_b2_valid_pixels": 24,
+    "snapshot_count": 4,
+    "target_crs_epsg": 32633,
+    "resolution_m": 10
+  },
+  "execution_plan": {
+    "stage_d2a": "FULL_SKANE_B2_BASELINE_SPLIT_DISCOVERY_ONLY",
+    "stage_d2b": "TRUE_LOO_HISTORY_PRIOR_FROZEN_FUSION_ONLY_AFTER_D2A_STOPPOINT",
+    "partition_unit": "ANALYSIS_CELL",
+    "cell_order": "LEXICOGRAPHIC_ANALYSIS_CELL_ID",
+    "owner_output_rule": "ONLY_FIELDS_OWNED_BY_ANALYSIS_CELL_PRODUCE_FINAL_ROWS",
+    "normalization_population": "ALL_2025_FIELDS_INTERSECTING_EXACT_D0B_RESOLVED_NORMALIZATION_WINDOW",
+    "normalization": "ROBUST_MEDIAN_MAD_USING_ALL_VALID_FIELD_PIXELS_IN_FOUR_SNAPSHOT_INTERSECTION",
+    "candidate_discovery": "IDENTICAL_TO_FROZEN_B2_BASELINE_SPLIT_CANDIDATE",
+    "insufficient_field_pixels": "UNCERTAIN",
+    "zero_raster_pixel_fields": "UNCERTAIN",
+    "true_loo_candidate_scope": "D2A_B2_SPLIT_CANDIDATES_ONLY",
+    "true_loo_normalization": "RECOMPUTE_ROBUST_MEDIAN_MAD_IN_SAME_D0B_WINDOW_FOR_EACH_THREE_SNAPSHOT_OMISSION",
+    "true_loo_refits": "FOUR_OMISSION_REFITS_PER_BASELINE_CANDIDATE",
+    "history_prior_lookup": "NORMALIZED_2025_FIELD_ID_MANY_TO_ONE",
+    "fusion_candidate_scope": "D2A_B2_SPLIT_CANDIDATES_ONLY",
+    "qa_tiers": {
+      "HIGH_PRIORITY_SPLIT_CANDIDATE": "fusion_score >= 0.843688",
+      "SPLIT_CANDIDATE": "0.781017 <= fusion_score < 0.843688",
+      "EVIDENCE_ONLY": "fusion_score < 0.781017"
+    },
+    "merge_handling": "NO_NEW_MERGE_AUTOMATION_IN_D2_SPLIT_FUSION_STAGE; MERGE_POLICY_REMAINS_CANDIDATE_ONLY",
+    "resumable_per_cell": true,
+    "final_aggregation": "DETERMINISTIC_SORT_BY_PARENT_FIELD_ID_2025",
+    "stop_after_d2a_before_true_loo_fusion": true
+  },
+  "geometry_policy": {
+    "default_output_geometry": "OFFICIAL_2025_GEOMETRY",
+    "projected_geometry_qa_repair": "MAY_REUSE_D1S3K_BOUNDED_IN_MEMORY_REPAIR_FOR_RASTER_OPERATIONS_ONLY",
+    "persist_repaired_geometry": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false
+  },
+  "plan_acceptance": {
+    "require_d1s3k_pass": true,
+    "require_exact_field_population": true,
+    "require_exact_analysis_cell_population": true,
+    "require_d0b_windows_hash": true,
+    "require_all_normalization_windows_resolved": true,
+    "require_minimum_normalization_fields_all_cells": true,
+    "require_rolling_prior_full_field_coverage": true,
+    "require_rolling_prior_signal_finite": true,
+    "require_fusion_freeze_exact": true,
+    "require_repo_model_hashes_match_d0b_contract": true,
+    "frozen_before_full_skane_model_outputs": true
+  },
+  "output": {
+    "plan_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d2_full_skane_model_plan_v1",
+    "future_d2a_result_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d2a_full_skane_split_discovery_v1",
+    "future_d2b_result_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d2b_full_skane_true_loo_fusion_v1"
+  },
+  "guards": {
+    "network_calls": false,
+    "public_stac_queries": false,
+    "s3_object_calls": false,
+    "sentinel_process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "model_execution": false,
+    "candidate_discovery_execution": false,
+    "true_loo_execution": false,
+    "fusion_execution": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false
+  },
+  "interpretation": "D2 plan only. It freezes a deterministic cell-wise full-Skane execution architecture after D1-S3k PASS. D2A will run frozen B2 baseline split discovery and stop for review before any expensive TRUE-LOO/fusion stage. D2B, if separately authorized after D2A, will run TRUE-LOO only on D2A baseline split candidates and then apply the unchanged rolling history prior and frozen 3-signal empirical-CDF fusion. No stage may automatically replace official 2025 geometry."
+}
