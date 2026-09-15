@@ -80,7 +80,9 @@ class TestAkerPulsD2BFullSkaneTrueLooFusionV1(unittest.TestCase):
         self.assertNotIn("boto3", text)
         self.assertNotIn("requests.", text)
         self.assertNotIn("process_url", text)
-        self.assertNotIn("visual_label", text)
+        self.assertNotIn("blind_review", text)
+        self.assertNotIn("c3_labels", text)
+        self.assertNotIn("c5d_labels", text)
 
     def test_candidate_outcome_rates_are_not_acceptance_thresholds(self):
         c = self.cfg["completion_contract"]
