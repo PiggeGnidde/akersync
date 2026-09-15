@@ -3,9 +3,14 @@
 """D1-S3k: zero-network full-Skane raster and field-validity QA.
 
 Scans the completed D1-S3j snapshot tiles only. No STAC, S3, Process API,
-model/fusion execution or geometry mutation occurs. All 128,636 frozen 2025
-fields are rasterized tile-by-tile on the exact 10 m D0 grid and VALID coverage
-is accumulated for all four frozen snapshots and for their intersection.
+model/fusion execution or persisted geometry mutation occurs. All 128,636 frozen
+2025 fields are rasterized tile-by-tile on the exact 10 m D0 grid and VALID
+coverage is accumulated for all four frozen snapshots and their intersection.
+
+The source geometry is required to be the exact frozen, valid geometry accepted
+by D0. If reprojection to EPSG:32633 alone creates a numerically invalid polygon,
+a tightly area-bounded in-memory make-valid repair is allowed for QA
+rasterization only; it is reported and is never persisted as field geometry.
 """
 from __future__ import annotations
 
@@ -66,6 +71,38 @@ def q(values: np.ndarray, p: float) -> float:
     return float(np.quantile(x, p)) if x.size else float("nan")
 
 
+def polygonal_make_valid(geom):
+    """Return a valid polygonal geometry, dropping only non-area make-valid debris."""
+    from shapely.geometry import Polygon, MultiPolygon
+    from shapely.ops import unary_union
+    try:
+        from shapely import make_valid
+    except ImportError:  # pragma: no cover - Shapely <2 compatibility
+        from shapely.validation import make_valid
+
+    fixed = make_valid(geom)
+    polys = []
+
+    def collect(x):
+        if x is None or x.is_empty:
+            return
+        if isinstance(x, Polygon):
+            polys.append(x)
+        elif isinstance(x, MultiPolygon):
+            polys.extend(list(x.geoms))
+        elif hasattr(x, "geoms"):
+            for part in x.geoms:
+                collect(part)
+
+    collect(fixed)
+    if not polys:
+        raise RuntimeError("make_valid produced no polygonal area")
+    out = polys[0] if len(polys) == 1 else unary_union(polys)
+    if out.is_empty or not out.is_valid or out.geom_type not in {"Polygon", "MultiPolygon"}:
+        raise RuntimeError(f"Projected geometry repair is not a valid polygon/multipolygon: {out.geom_type}")
+    return out
+
+
 def validate_config(cfg: dict[str, Any]) -> None:
     if cfg.get("schema_version") != "akerpuls-d1s3k-full-skane-raster-qa-v1":
         raise RuntimeError("Unexpected D1-S3k config schema")
@@ -78,6 +115,15 @@ def validate_config(cfg: dict[str, Any]) -> None:
         raise RuntimeError("Frozen full-Skane domain changed")
     if int(exp["minimum_b2_valid_pixels"]) != 24:
         raise RuntimeError("B2 minimum-valid-pixels reference changed")
+    gp = cfg["projection_geometry_policy"]
+    if not bool(gp["require_source_geometry_valid_before_reprojection"]):
+        raise RuntimeError("D1-S3k must require valid source geometry")
+    if not bool(gp["repair_invalid_projected_geometry_for_qa_rasterization_only"]):
+        raise RuntimeError("D1-S3k projected-geometry repair policy unexpectedly disabled")
+    if gp["repair_method"] != "SHAPELY_MAKE_VALID_POLYGONAL_ONLY":
+        raise RuntimeError("Unexpected projected-geometry repair method")
+    if bool(gp["persist_repaired_geometry"]) or bool(gp["automatic_geometry_replacement"]):
+        raise RuntimeError("Projected-geometry QA repair must never be persisted/replaced")
 
 
 def main() -> int:
@@ -179,10 +225,66 @@ def main() -> int:
     ids = infer_ids(g0)
     if ids.duplicated().any():
         raise RuntimeError("Frozen field IDs are not unique")
+
+    # Match the original D0 source-geometry invariant before any reprojection.
+    source_good = g0.geometry.notna() & ~g0.geometry.is_empty & g0.geometry.is_valid
+    source_invalid = int((~source_good).sum())
+    if source_invalid:
+        raise RuntimeError(f"Frozen source geometry contains {source_invalid} null/empty/invalid rows; source freeze no longer matches D0 validity invariant")
+
     g = g0.to_crs(int(exp["target_crs_epsg"])).copy().reset_index(drop=True)
     g["parent_field_id_2025"] = ids.to_numpy()
-    if (~(g.geometry.notna() & ~g.geometry.is_empty & g.geometry.is_valid)).any():
-        raise RuntimeError("Frozen geometry contains invalid/null/empty field")
+    projected_present = g.geometry.notna() & ~g.geometry.is_empty
+    if not bool(projected_present.all()):
+        bad = int((~projected_present).sum())
+        raise RuntimeError(f"Reprojection created {bad} null/empty geometries")
+
+    # CRS transformation can occasionally introduce a tiny topology defect through
+    # floating-point coordinate transformation even though the frozen source polygon
+    # is valid. Repair only that projected in-memory rasterization view and bound the
+    # area change tightly before continuing.
+    projected_invalid_positions = np.flatnonzero(~g.geometry.is_valid.to_numpy())
+    gp = cfg["projection_geometry_policy"]
+    max_abs_allowed = float(gp["maximum_absolute_area_change_m2"])
+    max_rel_allowed = float(gp["maximum_relative_area_change"])
+    repair_rows = []
+    for pos in projected_invalid_positions:
+        geom = g.geometry.iloc[int(pos)]
+        before_area = float(geom.area)
+        fixed = polygonal_make_valid(geom)
+        after_area = float(fixed.area)
+        abs_delta = abs(after_area - before_area)
+        rel_delta = abs_delta / max(abs(before_area), 1.0)
+        fid = str(g.parent_field_id_2025.iloc[int(pos)])
+        repair_rows.append({
+            "parent_field_id_2025": fid,
+            "position": int(pos),
+            "before_geom_type": str(geom.geom_type),
+            "after_geom_type": str(fixed.geom_type),
+            "before_area_m2": before_area,
+            "after_area_m2": after_area,
+            "absolute_area_change_m2": abs_delta,
+            "relative_area_change": rel_delta,
+        })
+        if abs_delta > max_abs_allowed and rel_delta > max_rel_allowed:
+            raise RuntimeError(
+                f"Projected geometry repair exceeds frozen QA tolerance for {fid}: "
+                f"abs_delta_m2={abs_delta:.12g} rel_delta={rel_delta:.12g}"
+            )
+        g.at[int(pos), "geometry"] = fixed
+    if not bool((g.geometry.notna() & ~g.geometry.is_empty & g.geometry.is_valid).all()):
+        raise RuntimeError("Projected geometry remains invalid after bounded QA-only repair")
+    repair_df = pd.DataFrame(repair_rows, columns=[
+        "parent_field_id_2025", "position", "before_geom_type", "after_geom_type",
+        "before_area_m2", "after_area_m2", "absolute_area_change_m2", "relative_area_change",
+    ])
+    repair_df.to_csv(out / "d1s3k_projected_geometry_repairs.csv", index=False, encoding="utf-8-sig")
+    max_repair_abs = float(repair_df.absolute_area_change_m2.max()) if len(repair_df) else 0.0
+    max_repair_rel = float(repair_df.relative_area_change.max()) if len(repair_df) else 0.0
+    log(
+        f"D1S3K_GEOMETRY SOURCE_INVALID={source_invalid} PROJECTED_INVALID_BEFORE_REPAIR={len(projected_invalid_positions)} "
+        f"REPAIRED_FOR_QA={len(repair_df)} MAX_ABS_AREA_DELTA_M2={max_repair_abs:.12g} MAX_REL_AREA_DELTA={max_repair_rel:.12g}"
+    )
 
     contract = read_json(Path(cfg["d0b_final_execution_contract"]))
     part_path = Path(cfg["d0_field_partition"])
@@ -310,6 +412,10 @@ def main() -> int:
     checks = {
         "parent_d1s3j_pass": jman.get("status") == cfg["required_d1s3j_status"],
         "geometry_and_partition_exact": len(field_df) == int(exp["fields"]) and geom_sha == cfg["expected_geometry_sha256"],
+        "projected_geometry_qa_repair_bounded": source_invalid == 0 and all(
+            (float(r["absolute_area_change_m2"]) <= max_abs_allowed) or (float(r["relative_area_change"]) <= max_rel_allowed)
+            for r in repair_rows
+        ),
         "snapshot_index_exact": snap_index_sha == cfg["expected_snapshot_output_index_sha256"] and len(snap_idx) == int(exp["snapshot_tiles"]),
         "vrt_index_exact": vrt_index_sha == cfg["expected_vrt_output_index_sha256"] and len(vrt_idx) == int(exp["snapshot_count"]),
         "field_rasterization_fraction": field_fraction_rasterized >= float(acc["minimum_fraction_fields_rasterized"]),
@@ -323,15 +429,26 @@ def main() -> int:
     }
     status = "PASS_TO_FULL_SKANE_D2_MODEL_PLAN" if all(checks.values()) else "REVIEW"
 
-    worst_cells = cells.nsmallest(min(10, len(cells)), "fraction_fields_ge24_all4_valid_pixels")[
-        ["analysis_cell_id", "owner_fields", "fields_ge24_all4_valid_pixels", "fraction_fields_ge24_all4_valid_pixels", "field_pixel_all4_valid_fraction"]
-    ].to_dict("records")
+    worst_cells = cells.nsmallest(min(10, len(cells)), "fraction_fields_ge24_all4_valid_pixels")[[
+        "analysis_cell_id", "owner_fields", "fields_ge24_all4_valid_pixels",
+        "fraction_fields_ge24_all4_valid_pixels", "field_pixel_all4_valid_fraction",
+    ]].to_dict("records")
     manifest = {
         "schema_version": "akerpuls-d1s3k-full-skane-raster-qa-result-v1",
         "status": status,
         "git": {"branch": branch, "head": head},
         "parent_d1s3j_status": jman.get("status"),
         "geometry_sha256": geom_sha,
+        "geometry_projection_qa": {
+            "source_invalid": source_invalid,
+            "projected_invalid_before_repair": int(len(projected_invalid_positions)),
+            "repaired_for_qa_rasterization": int(len(repair_rows)),
+            "maximum_absolute_area_change_m2": max_repair_abs,
+            "maximum_relative_area_change": max_repair_rel,
+            "repair_method": gp["repair_method"],
+            "persisted": False,
+            "automatic_geometry_replacement": False,
+        },
         "fields": int(len(field_df)),
         "raster_tiles": int(len(tiles)),
         "snapshot_tiles": int(len(snap_idx)),
