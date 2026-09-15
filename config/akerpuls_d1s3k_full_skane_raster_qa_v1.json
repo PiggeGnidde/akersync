@@ -26,6 +26,15 @@
     "minimum_b2_valid_pixels": 24,
     "snapshot_bands": ["B02", "B03", "B04", "B08", "B11", "SCL", "CLD", "VALID", "NDVI", "LSWI", "SOURCE_DATE_INDEX"]
   },
+  "projection_geometry_policy": {
+    "require_source_geometry_valid_before_reprojection": true,
+    "repair_invalid_projected_geometry_for_qa_rasterization_only": true,
+    "repair_method": "SHAPELY_MAKE_VALID_POLYGONAL_ONLY",
+    "maximum_absolute_area_change_m2": 1.0,
+    "maximum_relative_area_change": 0.000001,
+    "persist_repaired_geometry": false,
+    "automatic_geometry_replacement": false
+  },
   "acceptance": {
     "minimum_fraction_fields_rasterized": 0.999,
     "minimum_field_pixel_valid_fraction_each_snapshot": 0.60,
@@ -52,5 +61,5 @@
     "automatic_geometry_replacement": false,
     "crop_classification": false
   },
-  "interpretation": "D1-S3k is a zero-network structural and field-validity QA over the completed D1-S3j direct-S3 rasters. It scans all 568 snapshot tiles, verifies raster semantics, rasterizes all 128,636 frozen 2025 fields tile-by-tile, and reports per-field and per-analysis-cell VALID coverage. The >=24 all-four-snapshot pixel metric is a pre-B2 coverage screen only; exact B2 erosion and candidate discovery remain for D2. PASS permits a separate D2 full-Skane model/fusion execution stage, with low-coverage fields still allowed to become UNCERTAIN."
+  "interpretation": "D1-S3k is a zero-network structural and field-validity QA over the completed D1-S3j direct-S3 rasters. It scans all 568 snapshot tiles, verifies raster semantics, rasterizes all 128,636 frozen 2025 fields tile-by-tile, and reports per-field and per-analysis-cell VALID coverage. Source geometry must remain the exact frozen, valid 2025 file. If reprojection alone creates a numerically invalid polygon, a tightly bounded in-memory make-valid repair may be used only for QA rasterization; it is reported, area-bounded and never persisted or treated as a geometry update. The >=24 all-four-snapshot pixel metric is a pre-B2 coverage screen only; exact B2 erosion and candidate discovery remain for D2. PASS permits a separate D2 full-Skane model/fusion execution stage, with low-coverage fields still allowed to become UNCERTAIN."
 }
