@@ -45,12 +45,12 @@ if not exist "%D2C%\d2c_p95_split_line_freeze_v1\P95_SPLIT_LINE_PROPOSAL_FREEZE_
 
 echo.
 echo [1/2] Unit tests
-py -3 -m unittest tests.test_akerpuls_preliminary_fields_2026_map_v1 -v
+py -3 -m unittest tests.test_akerpuls_preliminary_fields_2026_map_v1 tests.test_akerpuls_preliminary_fields_2026_map_v1_policyfix -v
 if errorlevel 1 exit /b 1
 
 echo.
 echo [2/2] Build full-Skane preliminary 2026 field map
-py -3 -u src\166_akerpuls_preliminary_fields_2026_map_v1.py --d2c-dir "%D2C%" --output-dir "%OUT%"
+py -3 -u src\167_akerpuls_preliminary_fields_2026_map_v1_policyfix.py --d2c-dir "%D2C%" --output-dir "%OUT%"
 if errorlevel 1 exit /b 1
 
 if not exist "%OUT%\index.html" (echo ERROR: map HTML not created& exit /b 1)
