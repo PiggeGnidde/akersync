@@ -47,12 +47,12 @@ if not exist "C:\AkerSyncRepo\work\akerpuls_d2a_full_skane_split_discovery_v1\d2
 
 echo.
 echo [1/2] Unit tests
-py -3 -m unittest tests.test_akerpuls_merge_m0_satellite_only_v1 -v
+py -3 -m unittest tests.test_akerpuls_merge_m0_satellite_only_v1 tests.test_akerpuls_merge_m0_satellite_only_v1_blockcensusfix -v
 if errorlevel 1 exit /b 1
 
 echo.
 echo [2/2] Run full-Skane satellite-only merge discovery
-py -3 -u src\169_akerpuls_merge_m0_satellite_only_v1.py --d2c-dir "%D2C%" --output-dir "%OUT%"
+py -3 -u src\170_akerpuls_merge_m0_satellite_only_v1_blockcensusfix.py --d2c-dir "%D2C%" --output-dir "%OUT%"
 if errorlevel 1 exit /b 1
 
 if not exist "%OUT%\m0_satellite_merge_pairs.csv" (echo ERROR: M0 pair CSV not created& exit /b 1)
