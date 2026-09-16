@@ -9,6 +9,7 @@
   "expected_vrt_index_sha256": "0210f78b9780f6b586be0c89109e5a696202167b5283d5bae6b20a24d23c8979",
   "expected": {
     "fields_2025": 128636,
+    "blocks_2025": 99758,
     "skifte_layer_unique_block_ids_2025": 99758,
     "separate_block_layer_features_2025_context_only": 122970,
     "analysis_cells": 46,
