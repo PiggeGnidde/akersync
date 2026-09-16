@@ -63,7 +63,7 @@ class TestAkerPulsD2CP95GeometryAuditFreezeV1(unittest.TestCase):
     def test_next_step_is_reveal_only_after_freeze(self):
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("NEXT=REVEAL_AND_ANALYZE_P95_GEOMETRY_AUDIT", text)
-        self.assertIn("blind_key_opened": False, text)
+        self.assertIn('"blind_key_opened": False', text)
 
 
 if __name__ == "__main__":
