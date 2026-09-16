@@ -9,7 +9,8 @@
   "expected_vrt_index_sha256": "0210f78b9780f6b586be0c89109e5a696202167b5283d5bae6b20a24d23c8979",
   "expected": {
     "fields_2025": 128636,
-    "blocks_2025": 122970,
+    "skifte_layer_unique_block_ids_2025": 99758,
+    "separate_block_layer_features_2025_context_only": 122970,
     "analysis_cells": 46,
     "snapshot_order": ["S2_2026_APRIL", "S2_2026_MAY", "S2_2026_JUNE", "S2_2026_JULY"],
     "target_crs_epsg": 32633,
@@ -18,6 +19,7 @@
   "features_per_snapshot": ["B02", "B03", "B04", "B08", "B11", "NDVI", "LSWI"],
   "adjacency": {
     "scope": "SAME_2025_BLOCK_ONLY",
+    "block_population_definition": "UNIQUE_BLOCKID_VALUES_PRESENT_IN_FROZEN_2025_SKIFTE_LAYER",
     "require_positive_shared_boundary": true,
     "minimum_shared_boundary_m": 1.0,
     "pair_key_order": "LEXICOGRAPHIC_FIELD_ID"
