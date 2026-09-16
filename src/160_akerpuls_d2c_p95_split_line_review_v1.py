@@ -307,7 +307,6 @@ def main() -> int:
 
         if out.exists():
             raise RuntimeError(f"Output directory already exists; refusing to overwrite review package: {out}")
-        out.mkdir(parents=True, exist_ok=False)
 
         active_cells = sorted(set(p95.analysis_cell_id.astype(str)))
         cp_index = cell_plan.set_index(cell_plan.analysis_cell_id.astype(str), drop=False)
@@ -505,6 +504,10 @@ def main() -> int:
             raise RuntimeError(f"Exact D2A reconstruction census {exact_reproductions}/{len(summary_rows)} != {EXPECTED_P95}")
         if len(child_rows) != 2 * EXPECTED_P95:
             raise RuntimeError(f"Conservative child evidence census {len(child_rows)} != {2*EXPECTED_P95}")
+
+        # Only create the review package after every P95 field has reproduced
+        # the frozen D2A metrics exactly; failed reconstruction leaves no output.
+        out.mkdir(parents=True, exist_ok=False)
 
         summary = pd.DataFrame(summary_rows).sort_values("parent_field_id_2025").reset_index(drop=True)
         summary_path = out / "p95_split_proposal_summary.csv"
