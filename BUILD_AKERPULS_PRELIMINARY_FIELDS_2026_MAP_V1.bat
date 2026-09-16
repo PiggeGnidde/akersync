@@ -45,12 +45,12 @@ if not exist "%D2C%\d2c_p95_split_line_freeze_v1\P95_SPLIT_LINE_PROPOSAL_FREEZE_
 
 echo.
 echo [1/2] Unit tests
-py -3 -m unittest tests.test_akerpuls_preliminary_fields_2026_map_v1 tests.test_akerpuls_preliminary_fields_2026_map_v1_policyfix -v
+py -3 -m unittest tests.test_akerpuls_preliminary_fields_2026_map_v1 tests.test_akerpuls_preliminary_fields_2026_map_v1_policyfix tests.test_akerpuls_preliminary_fields_2026_map_v1_tilefix -v
 if errorlevel 1 exit /b 1
 
 echo.
 echo [2/2] Build full-Skane preliminary 2026 field map
-py -3 -u src\167_akerpuls_preliminary_fields_2026_map_v1_policyfix.py --d2c-dir "%D2C%" --output-dir "%OUT%"
+py -3 -u src\168_akerpuls_preliminary_fields_2026_map_v1_tilefix.py --d2c-dir "%D2C%" --output-dir "%OUT%"
 if errorlevel 1 exit /b 1
 
 if not exist "%OUT%\index.html" (echo ERROR: map HTML not created& exit /b 1)
@@ -67,7 +67,8 @@ for /f "delims=" %%S in ('git status --short') do (
 echo.
 echo ============================================================
 echo PASS: full-Skane preliminary 2026 field map built for review.
-echo OPEN: %OUT%\index.html
+echo OPEN VIA LOCAL HTTP: OPEN_AKERPULS_PRELIMINARY_FIELDS_2026_MAP_V1.bat
+echo DO NOT OPEN index.html DIRECTLY AS file:// FOR OSM TILE QA.
 echo EXACT GPKG: %OUT%\akerpuls_preliminary_fields_2026_map_v1.gpkg
 echo NEXT STOP: visually review map before freeze.
 echo ============================================================
