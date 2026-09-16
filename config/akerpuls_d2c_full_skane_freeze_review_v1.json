@@ -1,0 +1,96 @@
+{
+  "schema_version": "akerpuls-d2c-full-skane-freeze-review-v1",
+  "phase": "D2C_FREEZE_FULL_SKANE_QA_RANKING_AND_BUILD_REVIEW_PRODUCT",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "authorization": {
+    "status": "AUTHORIZED_AFTER_D2B_REVIEW",
+    "user_command": "GO D2C",
+    "scope": "FREEZE_D2B_RANKING_AND_BUILD_REVIEW_ONLY_SPATIAL_ARTIFACTS"
+  },
+  "parent_d2b": {
+    "manifest": "C:\\AkerSyncRepo\\work\\akerpuls_d2b_full_skane_true_loo_fusion_v1\\d2b_manifest.json",
+    "true_loo_candidates": "C:\\AkerSyncRepo\\work\\akerpuls_d2b_full_skane_true_loo_fusion_v1\\d2b_true_loo_candidates.csv",
+    "fusion_candidates": "C:\\AkerSyncRepo\\work\\akerpuls_d2b_full_skane_true_loo_fusion_v1\\d2b_fusion_candidates.csv",
+    "cell_summary": "C:\\AkerSyncRepo\\work\\akerpuls_d2b_full_skane_true_loo_fusion_v1\\d2b_cell_summary.csv",
+    "required_status": "PASS_TO_D2B_REVIEW_STOP",
+    "expected_candidates": 12676,
+    "expected_true_loo_stable": 10250,
+    "expected_fusion_ge_p90": 1136,
+    "expected_fusion_ge_p95": 618,
+    "expected_high_priority": 618,
+    "expected_split_candidate_tier": 518,
+    "expected_evidence_only": 11540
+  },
+  "frozen_model": {
+    "formal_fusion_config": "config/akerpuls_split_fusion_qa_v1.json",
+    "fusion_artifact": "C:\\AkerSyncRepo\\work\\akerpuls_fusion_freeze_c7a_v0\\FUSION_SCORE_FREEZE_BEFORE_C7.json",
+    "expected_fusion_artifact_sha256": "3ab2fcdd06284c15cbcffb20fba8da7de9f6b10ca102bd4026fc73a9ee0a7316",
+    "development_p90": 0.781017,
+    "development_p95": 0.843688,
+    "signals": [
+      "prototype_p_splitmerge_2026",
+      "separation_ratio",
+      "true_loo_min_child_dice"
+    ],
+    "weights": [0.3333333333333333, 0.3333333333333333, 0.3333333333333333]
+  },
+  "geometry": {
+    "local_paths": "config/local_paths.json",
+    "geometry_local_paths_key": "skiften",
+    "expected_geometry_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706",
+    "id_helper_script": "src/154_akerpuls_d2a_full_skane_split_discovery_v1.py",
+    "default_geometry": "OFFICIAL_2025_GEOMETRY",
+    "review_geometry_only": true,
+    "split_line_generation": false,
+    "persist_repaired_geometry": false,
+    "automatic_geometry_replacement": false
+  },
+  "review_product": {
+    "ranked_candidate_gpkg_rows": 12676,
+    "p90plus_rows": 1136,
+    "p95_rows": 618,
+    "html_scope": "P90PLUS_ONLY",
+    "html_note": "Review map only. Polygon is frozen official 2025 geometry; no proposed split line is generated in D2C.",
+    "audit_sample": {
+      "total": 100,
+      "high_priority_p95": 50,
+      "p90_only": 50,
+      "selection": "GEOGRAPHY_COVERAGE_THEN_SHA256_WITHIN_TIER",
+      "seed": "AKERPULS_D2C_VISUAL_AUDIT_V1",
+      "interpretation": "Deterministic geographically broad challenge/review sample; not a random population accuracy estimate."
+    }
+  },
+  "completion_contract": {
+    "require_parent_manifest_hashes_match_files": true,
+    "require_exact_parent_census": true,
+    "require_exact_frozen_thresholds": true,
+    "require_exact_qa_tier_partition": true,
+    "require_exact_candidate_geometry_join": true,
+    "require_review_p90plus_exact": true,
+    "require_audit_sample_exact": true,
+    "require_freeze_manifest_with_sha256": true,
+    "require_no_model_execution": true,
+    "require_no_geometry_mutation": true
+  },
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d2c_full_skane_freeze_review_v1",
+  "guards": {
+    "network_calls": false,
+    "public_stac_queries": false,
+    "s3_object_calls": false,
+    "sentinel_process_api_calls": false,
+    "sentinel_hub_pu_spend": false,
+    "model_execution": false,
+    "true_loo_execution": false,
+    "candidate_discovery_execution": false,
+    "threshold_tuning": false,
+    "fusion_refit": false,
+    "new_model_features": false,
+    "merge_execution": false,
+    "split_line_generation": false,
+    "automatic_split": false,
+    "automatic_merge": false,
+    "automatic_geometry_replacement": false,
+    "crop_classification": false
+  },
+  "interpretation": "D2C freezes the completed full-Skane D2B QA ranking exactly as produced, including its input/output hashes and frozen P90/P95 thresholds, and builds review-only spatial products on unchanged official 2025 field polygons. The full 12,676 candidate ranking is retained in a GeoPackage, P90+ and P95 subsets are exported for practical review, and a deterministic 100-field visual-audit sample is selected without labels or tuning. D2C does not create proposed split lines, refit any model, tune thresholds, merge fields, or authorize replacement of official geometry."
+}
