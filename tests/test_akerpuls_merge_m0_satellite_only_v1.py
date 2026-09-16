@@ -95,7 +95,8 @@ class TestAkerPulsMergeM0SatelliteOnlyV1(unittest.TestCase):
         self.assertEqual(self.cfg["official_2025_geometry_sha256"], "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706")
         self.assertEqual(self.cfg["expected_vrt_index_sha256"], "0210f78b9780f6b586be0c89109e5a696202167b5283d5bae6b20a24d23c8979")
         self.assertEqual(int(self.cfg["expected"]["fields_2025"]), 128636)
-        self.assertEqual(int(self.cfg["expected"]["blocks_2025"]), 122970)
+        self.assertEqual(int(self.cfg["expected"]["skifte_layer_unique_block_ids_2025"]), 99758)
+        self.assertEqual(int(self.cfg["expected"]["separate_block_layer_features_2025_context_only"]), 122970)
 
 
 if __name__ == "__main__":
