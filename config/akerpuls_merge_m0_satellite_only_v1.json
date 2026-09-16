@@ -1,0 +1,59 @@
+{
+  "schema_version": "akerpuls-merge-m0-satellite-only-v1",
+  "phase": "FULL_SKANE_SATELLITE_ONLY_MERGE_DISCOVERY",
+  "feature_branch": "feature/akerpuls-prelim-fields-2026-v0a",
+  "parent_preliminary_geometry_v1_freeze_sha256": "c2f4fd7ee03124f330d3a06a1d1465592399072ed5729a38e5a66ac27dcef376",
+  "official_2025_geometry_sha256": "63f256c012a8f8aab75f22699bc729e60036913429caeb070306f57c19b31706",
+  "d2a_config": "config/akerpuls_d2a_full_skane_split_discovery_v1.json",
+  "d2a_dir": "C:\\AkerSyncRepo\\work\\akerpuls_d2a_full_skane_split_discovery_v1",
+  "expected_vrt_index_sha256": "0210f78b9780f6b586be0c89109e5a696202167b5283d5bae6b20a24d23c8979",
+  "expected": {
+    "fields_2025": 128636,
+    "blocks_2025": 122970,
+    "analysis_cells": 46,
+    "snapshot_order": ["S2_2026_APRIL", "S2_2026_MAY", "S2_2026_JUNE", "S2_2026_JULY"],
+    "target_crs_epsg": 32633,
+    "resolution_m": 10
+  },
+  "features_per_snapshot": ["B02", "B03", "B04", "B08", "B11", "NDVI", "LSWI"],
+  "adjacency": {
+    "scope": "SAME_2025_BLOCK_ONLY",
+    "require_positive_shared_boundary": true,
+    "minimum_shared_boundary_m": 1.0,
+    "pair_key_order": "LEXICOGRAPHIC_FIELD_ID"
+  },
+  "normalization": {
+    "source": "FROZEN_D2A_LOCAL_NORMALIZATION_SCALE",
+    "same_cell_rule": "USE_CELL_SCALE",
+    "cross_cell_rule": "GEOMETRIC_MEAN_OF_TWO_CELL_SCALES",
+    "center_required_for_merge_distances": false
+  },
+  "field_stats": {
+    "interior_erosion_pixels": 1,
+    "minimum_all4_valid_pixels": 4,
+    "fallback_to_full_field_if_eroded_too_small": true
+  },
+  "merge": {
+    "boundary_dilation_pixels": 3,
+    "minimum_strip_pixels_per_side": 4,
+    "maximum_field_mean_distance": 0.60,
+    "maximum_between_within_ratio": 1.00,
+    "maximum_boundary_median_distance": 0.60,
+    "strong_edge_distance": 0.90,
+    "maximum_strong_edge_snapshots": 1,
+    "minimum_valid_boundary_snapshots": 3,
+    "minimum_confidence": 0.68,
+    "confidence_formula": "0.45*exp(-field_mean_distance)+0.40*exp(-boundary_median_distance)+0.15*(valid_snapshots/4)*(1-strong_snapshots/4)"
+  },
+  "execution": {
+    "satellite_only": true,
+    "history_prior": false,
+    "m4_prior": false,
+    "fusion": false,
+    "threshold_tuning": false,
+    "automatic_merge": false,
+    "geometry_mutation": false,
+    "stop_after_m0": true
+  },
+  "output_dir": "C:\\AkerSyncRepo\\work\\akerpuls_merge_m0_satellite_only_v1"
+}
