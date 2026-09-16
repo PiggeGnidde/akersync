@@ -24,6 +24,14 @@ class TestAkerPulsPreliminaryFields2026MapV1TileFix(unittest.TestCase):
         self.assertIn("https://tile.openstreetmap.org/{z}/{x}/{y}.png", html)
         self.assertNotIn("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", html)
 
+    def test_critical_leaflet_layout_css_is_embedded(self):
+        html = self.m.fixed_make_html(self.m.base_original, ["fields_001.js"])
+        self.assertIn("AKERPULS_LEAFLET_CRITICAL_CSS", html)
+        self.assertIn(".leaflet-tile-container", html)
+        self.assertIn("position:absolute", html)
+        self.assertIn(".leaflet-pane>canvas", html)
+        self.assertIn(".leaflet-tile-loaded", html)
+
     def test_geometry_and_model_logic_are_not_changed_here(self):
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertNotIn("deterministic_k2", text)
