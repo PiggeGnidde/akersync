@@ -1,0 +1,138 @@
+{
+  "schema_version": "akerpuls-m4-reimplementation-v1",
+  "purpose": "Reimplement the frozen M4-hard crop prior from surviving contracts and verify historical compatibility before opening 2026.",
+  "frozen_lineage": {
+    "m0_merge_freeze_sha256": "fd2536789931cc51466364580b3f32de90da4e405217ee025fffc35fbe917051",
+    "m4_contract_commit": "116d10ee20dd0bc7d3c95507a12d5c381f03c785",
+    "m4_contract_branch": "feature/akerpuls-vaxfoljd-prior-v1a",
+    "benchmark_file": "analysis/vaxfoljd_prior_v1/results/vaxfoljd_m4_full_paired_comparison.csv",
+    "benchmark_blob_sha": "45614c039fc373b9d10be7f9a9dcf07fee4ad253"
+  },
+  "inputs": {
+    "directory": "C:\\AkerSyncRepo\\work\\akerscore_validation_csv_upload",
+    "history": {
+      "file": "akerminne_2015_2025_selected.csv.gz",
+      "sha256": "05423236dc30544f86422d42ce5c9095376a9d5dac58e6ea110f6e6702cecdcf",
+      "rows": 1414996,
+      "fields": 128636
+    },
+    "static_context": {
+      "file": "field_static_context_selected.csv.gz",
+      "sha256": "31db31b79b53a4c0aa32621fb7bfa44165ea65b6b46371c32e4e19935f59feea",
+      "rows": 128636,
+      "fields": 128636
+    },
+    "soil_score": {
+      "file": "akerscore_soil_skiften_selected.csv.gz",
+      "sha256": "71dfd711a4243b3cbe465de7eaa013725b2d2f9be3a8890d213a89bc095427da",
+      "rows": 128636,
+      "fields": 128636
+    }
+  },
+  "target_classes": [
+    "höstraps",
+    "höstvete",
+    "vårvete",
+    "höstkorn",
+    "vårkorn",
+    "havre",
+    "råg",
+    "rågvete",
+    "sockerbetor",
+    "matpotatis",
+    "stärkelsepotatis",
+    "vall på åkermark",
+    "majs",
+    "baljväxter",
+    "träda/miljöyta",
+    "annan gröda"
+  ],
+  "crop_name_mapping_rules": [
+    {"class": "höstraps", "patterns": ["^Raps \\(höst\\)$"]},
+    {"class": "höstvete", "patterns": ["^Vete \\(höst\\)$"]},
+    {"class": "vårvete", "patterns": ["^Vete \\(vår\\)$"]},
+    {"class": "höstkorn", "patterns": ["^Korn \\(höst\\)$"]},
+    {"class": "vårkorn", "patterns": ["^Korn \\(vår\\)$"]},
+    {"class": "havre", "patterns": ["^Havre$"]},
+    {"class": "rågvete", "patterns": ["^Rågvete"]},
+    {"class": "råg", "patterns": ["^Råg$"]},
+    {"class": "sockerbetor", "patterns": ["^Sockerbetor$"]},
+    {"class": "matpotatis", "patterns": ["^Matpotatis$"]},
+    {"class": "stärkelsepotatis", "patterns": ["^Stärkelsepotatis$"]},
+    {"class": "vall på åkermark", "patterns": ["Slåtter och betesvall på åker", "Gräsfrövall"]},
+    {"class": "majs", "patterns": ["^Majs$"]},
+    {"class": "baljväxter", "patterns": ["Åkerbön", "Konservärt", "Ärt", "Lupin", "Sojab", "Baljväxt", "Proteingrödsbland"]},
+    {"class": "träda/miljöyta", "patterns": ["Träda", "Skyddszon", "Blommande åker", "Insådd för pollinatörer", "Insådd för vilt", "miljöyta"]}
+  ],
+  "history_features": {
+    "calendar_lags": [1, 2, 3],
+    "count_windows_years": [3, 5, 7, 10],
+    "recency_cap_years": 11,
+    "long_share_denominator": "valid_history_years",
+    "unknown_history_category": "__UNKNOWN__",
+    "minimum_target_year": 2018,
+    "validation_years": [2021, 2022, 2023, 2024, 2025],
+    "strictly_past_only": true
+  },
+  "static_features": {
+    "categorical": [
+      "municipality",
+      "dominant_sko_id",
+      "dominant_soil_class",
+      "context_status",
+      "context_reason_flags",
+      "historic_class_qa"
+    ],
+    "numeric": [
+      "field_area_log1p_ha",
+      "akerscore_soil_p50",
+      "soil_coverage_pct"
+    ]
+  },
+  "lightgbm": {
+    "package_version": "4.7.0",
+    "objective": "multiclass",
+    "n_estimators": 35,
+    "num_leaves": 31,
+    "learning_rate": 0.12,
+    "min_child_samples": 100,
+    "colsample_bytree": 0.7,
+    "reg_lambda": 5.0,
+    "random_state": 20260907,
+    "n_jobs": -1,
+    "verbosity": -1
+  },
+  "frozen_benchmark_m4": {
+    "2021": {"n": 118190, "log_loss": 0.7978696620983969, "brier_multiclass": 0.32461283429061977, "top1_accuracy": 0.762534901429901, "top3_accuracy": 0.899940773331077, "ece": 0.008386220894696093, "mean_entropy": 0.8311018920694669},
+    "2022": {"n": 119101, "log_loss": 0.7782788179310367, "brier_multiclass": 0.31774994589616834, "top1_accuracy": 0.764947397586922, "top3_accuracy": 0.9018060301760691, "ece": 0.008255952636105382, "mean_entropy": 0.8062392318761887},
+    "2023": {"n": 120330, "log_loss": 1.0985676117770162, "brier_multiclass": 0.3964067021959389, "top1_accuracy": 0.723402310313305, "top3_accuracy": 0.8597855896285216, "ece": 0.04800551671443351, "mean_entropy": 0.7775876330620458},
+    "2024": {"n": 122065, "log_loss": 0.8521353612016346, "brier_multiclass": 0.3536280908881384, "top1_accuracy": 0.7352066521935035, "top3_accuracy": 0.89821816245443, "ece": 0.015733740726787508, "mean_entropy": 0.9097219284526212},
+    "2025": {"n": 128636, "log_loss": 0.9834121021745554, "brier_multiclass": 0.4011160811518356, "top1_accuracy": 0.7145355887931839, "top3_accuracy": 0.8840915451351099, "ece": 0.04960883365589971, "mean_entropy": 0.7958216942560573}
+  },
+  "reproduction_gate_tolerances_frozen_before_run": {
+    "n_must_match_exactly": true,
+    "mean_abs_delta": {
+      "log_loss": 0.04,
+      "brier_multiclass": 0.025,
+      "top1_accuracy": 0.015,
+      "top3_accuracy": 0.015,
+      "mean_entropy": 0.08
+    },
+    "max_abs_delta": {
+      "log_loss": 0.06,
+      "brier_multiclass": 0.04,
+      "top1_accuracy": 0.025,
+      "top3_accuracy": 0.025,
+      "mean_entropy": 0.12
+    },
+    "ece_is_report_only": true
+  },
+  "persistence": {
+    "save_feature_contract": true,
+    "save_fold_metrics": true,
+    "save_fold_models_lightgbm_txt": true,
+    "save_environment": true,
+    "save_sha256_manifest": true,
+    "do_not_predict_2026_in_reproduction_gate": true
+  }
+}
