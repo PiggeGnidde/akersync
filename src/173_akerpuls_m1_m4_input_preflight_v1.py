@@ -55,21 +55,37 @@ def git_guard() -> str:
 def find_m0_freeze(root: Path) -> tuple[Path, dict[str, Any]]:
     if not root.is_dir():
         raise FileNotFoundError(root)
-    matches = []
-    for p in root.glob("*.json"):
+
+    # A formal freeze package may legitimately contain both a freeze JSON and a
+    # manifest JSON carrying the same frozen status. Identity is therefore the
+    # pinned freeze SHA, not status-string uniqueness.
+    status_matches: list[tuple[Path, dict[str, Any], str]] = []
+    sha_matches: list[tuple[Path, dict[str, Any]]] = []
+    for p in sorted(root.glob("*.json")):
         try:
             obj = read_json(p)
         except Exception:
             continue
-        if obj.get("status") == "FROZEN_AKERPULS_MERGE_M0_SATELLITE_ONLY_V1":
-            matches.append((p, obj))
-    if len(matches) != 1:
-        raise RuntimeError(f"Expected exactly one M0 freeze JSON in {root}, found {len(matches)}")
-    p, obj = matches[0]
-    got = sha256_file(p)
-    if got != EXPECTED_M0_FREEZE_SHA256:
-        raise RuntimeError(f"M0 freeze SHA changed: {got}")
-    return p, obj
+        if obj.get("status") != "FROZEN_AKERPULS_MERGE_M0_SATELLITE_ONLY_V1":
+            continue
+        got = sha256_file(p)
+        status_matches.append((p, obj, got))
+        if got == EXPECTED_M0_FREEZE_SHA256:
+            sha_matches.append((p, obj))
+
+    if len(sha_matches) == 1:
+        return sha_matches[0]
+
+    diag = [f"{p.name}:{got}" for p, _obj, got in status_matches]
+    if not sha_matches:
+        raise RuntimeError(
+            "Pinned M0 freeze JSON not found by SHA. "
+            f"expected={EXPECTED_M0_FREEZE_SHA256} status_candidates={diag}"
+        )
+    raise RuntimeError(
+        "Pinned M0 freeze SHA matched more than one JSON unexpectedly: "
+        f"expected={EXPECTED_M0_FREEZE_SHA256} matches={[p.name for p, _ in sha_matches]}"
+    )
 
 
 def find_vax_dir(explicit: Path) -> Path:
@@ -118,71 +134,42 @@ def parquet_metadata(path: Path) -> dict[str, Any]:
         return {"parquet_error": type(e).__name__}
 
 
-def text_signals(path: Path) -> dict[str, Any]:
-    if path.stat().st_size > 2_000_000:
-        return {}
-    try:
-        text = path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return {}
-    low = text.lower()
-    keys = {
-        "mentions_lightgbm": "lightgbm" in low or "lgbmclassifier" in low,
-        "mentions_predict_proba": "predict_proba" in low,
-        "mentions_2026": "2026" in low,
-        "mentions_feature": "feature" in low,
-        "mentions_m4": "m4" in low,
+def classify_file(path: Path) -> list[str]:
+    n = path.name.lower()
+    s = str(path).lower()
+    groups = []
+    if any(x in n for x in ("manifest", "freeze", "stoppunkt", "stop_e")):
+        groups.append("manifest_like")
+    if path.suffix.lower() in {".txt", ".json", ".pkl", ".pickle", ".joblib", ".bin"} and any(
+        x in n for x in ("model", "lightgbm", "lgbm", "booster", "m4")
+    ):
+        groups.append("model_like")
+    if path.suffix.lower() == ".py" and any(x in n for x in ("feature", "predict", "m4", "vax", "prior")):
+        groups.append("feature_builder_like")
+    if path.suffix.lower() in {".csv", ".parquet", ".json"} and any(
+        x in n for x in ("prior", "prediction", "predict", "prob", "2026")
+    ):
+        groups.append("prior_export_like")
+    if any(x in n for x in ("contract", "model_card", "data_contract", "taxonomy", "class")):
+        groups.append("contract_like")
+    return groups
+
+
+def inspect_file(path: Path, root: Path) -> dict[str, Any]:
+    rec: dict[str, Any] = {
+        "relative_path": str(path.relative_to(root)),
+        "bytes": int(path.stat().st_size),
+        "sha256": sha256_file(path),
+        "suffix": path.suffix.lower(),
+        "groups": classify_file(path),
     }
-    return {k: v for k, v in keys.items() if v}
-
-
-def inventory(root: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    allowed_text = {".py", ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".csv"}
-    interesting_binary = {".parquet", ".joblib", ".pkl", ".pickle", ".model", ".bin", ".ubj"}
-    for p in sorted(root.rglob("*")):
-        if not p.is_file():
-            continue
-        try:
-            rel = str(p.relative_to(root))
-        except Exception:
-            rel = str(p)
-        rec: dict[str, Any] = {
-            "relative_path": rel,
-            "bytes": int(p.stat().st_size),
-            "suffix": p.suffix.lower(),
-        }
-        name_low = p.name.lower()
-        if p.suffix.lower() in allowed_text or p.suffix.lower() in interesting_binary or any(x in name_low for x in ("manifest", "model", "feature", "prior", "freeze", "contract")):
-            rec["sha256"] = sha256_file(p)
-        if p.suffix.lower() == ".json":
-            rec.update(json_metadata(p))
-        elif p.suffix.lower() == ".csv":
-            rec.update(csv_metadata(p))
-        elif p.suffix.lower() == ".parquet":
-            rec.update(parquet_metadata(p))
-        elif p.suffix.lower() in {".py", ".md", ".txt"}:
-            rec.update(text_signals(p))
-        rows.append(rec)
-    return rows
-
-
-def classify_candidates(rows: list[dict[str, Any]]) -> dict[str, list[str]]:
-    out = {"manifest_like": [], "model_like": [], "feature_builder_like": [], "prior_export_like": [], "contract_like": []}
-    for r in rows:
-        rel = str(r["relative_path"])
-        low = rel.lower()
-        if "manifest" in low:
-            out["manifest_like"].append(rel)
-        if any(x in low for x in ("model", "booster", "lightgbm", "m4")) and r.get("suffix") in {".txt", ".json", ".joblib", ".pkl", ".pickle", ".model", ".bin", ".ubj", ".py"}:
-            out["model_like"].append(rel)
-        if r.get("suffix") == ".py" and (r.get("mentions_feature") or r.get("mentions_predict_proba")):
-            out["feature_builder_like"].append(rel)
-        if "prior" in low and r.get("suffix") in {".csv", ".parquet", ".json"}:
-            out["prior_export_like"].append(rel)
-        if "contract" in low or "card" in low:
-            out["contract_like"].append(rel)
-    return out
+    if path.suffix.lower() == ".json":
+        rec["metadata"] = json_metadata(path)
+    elif path.suffix.lower() == ".csv":
+        rec["metadata"] = csv_metadata(path)
+    elif path.suffix.lower() == ".parquet":
+        rec["metadata"] = parquet_metadata(path)
+    return rec
 
 
 def main() -> int:
@@ -199,61 +186,78 @@ def main() -> int:
     if out.exists():
         raise RuntimeError(f"Output directory already exists: {out}")
 
-    print("M1_M4_PREFLIGHT_PROGRESS=INVENTORY_FROZEN_VAXTFOLJD_PACKAGE", flush=True)
-    rows = inventory(vax)
-    cand = classify_candidates(rows)
-    out.mkdir(parents=True, exist_ok=False)
+    files = [p for p in sorted(vax.rglob("*")) if p.is_file()]
+    inventory = [inspect_file(p, vax) for p in files]
+    groups = {k: [] for k in ("manifest_like", "model_like", "feature_builder_like", "prior_export_like", "contract_like")}
+    for rec in inventory:
+        for g in rec["groups"]:
+            groups[g].append(rec["relative_path"])
 
     result = {
-        "schema_version": "akerpuls-merge-m1-m4-input-preflight-v1",
+        "schema_version": "akerpuls-merge-m1-m4-input-discovery-v1",
         "status": STATUS,
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "git_head": head,
         "m0_freeze": {
             "path": str(m0_path),
-            "sha256": EXPECTED_M0_FREEZE_SHA256,
+            "sha256": sha256_file(m0_path),
             "status": m0.get("status"),
         },
-        "vaxfoljd_root": str(vax),
-        "file_count": len(rows),
-        "candidate_groups": cand,
-        "files": rows,
+        "vaxtfoljd_root": str(vax),
+        "files_inventoried": len(inventory),
+        "groups": groups,
+        "inventory": inventory,
         "guards": {
             "model_executed": False,
             "m4_prediction_executed": False,
-            "m0_modified": False,
             "fusion_executed": False,
             "thresholds_tuned": False,
             "geometry_mutated": False,
         },
         "next": "REVIEW_EXACT_M4_ARTEFACTS_THEN_BUILD_2026_FIELD_PRIOR_AND_PAIR_PRIOR",
     }
+
+    out.mkdir(parents=True, exist_ok=False)
     j = out / "M1_M4_INPUT_DISCOVERY_V1.json"
     j.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    lines = [
-        "# ÅkerPuls M1 M4 input discovery v1",
+    md = [
+        "# ÅkerPuls Merge M1 — M4 input discovery v1",
         "",
         f"Status: `{STATUS}`",
-        f"M0 freeze SHA256: `{EXPECTED_M0_FREEZE_SHA256}`",
+        "",
+        f"M0 freeze: `{m0_path}`",
+        f"M0 freeze SHA256: `{sha256_file(m0_path)}`",
         f"Växtföljd root: `{vax}`",
-        f"Files inventoried: {len(rows)}",
+        f"Files inventoried: **{len(inventory)}**",
         "",
     ]
-    for group, vals in cand.items():
-        lines.append(f"## {group}")
-        lines.extend([f"- `{x}`" for x in vals] or ["- none detected"])
-        lines.append("")
-    (out / "M1_M4_INPUT_DISCOVERY_V1.md").write_text("\n".join(lines), encoding="utf-8")
+    for k in ("manifest_like", "model_like", "feature_builder_like", "prior_export_like", "contract_like"):
+        md.append(f"## {k}")
+        if groups[k]:
+            md.extend([f"- `{x}`" for x in groups[k]])
+        else:
+            md.append("- none")
+        md.append("")
+    md.extend([
+        "## Guard",
+        "Read-only discovery only. No model execution, 2026 prediction, fusion, threshold tuning, or geometry mutation.",
+        "",
+    ])
+    (out / "M1_M4_INPUT_DISCOVERY_V1.md").write_text("\n".join(md), encoding="utf-8")
 
     print("AKERPULS MERGE M1 M4 INPUT PREFLIGHT")
     print(f"STATUS={STATUS}")
-    print(f"M0_FREEZE_SHA256={EXPECTED_M0_FREEZE_SHA256}")
+    print(f"M0_FREEZE_SHA256={sha256_file(m0_path)}")
     print(f"VAXTFOLJD_ROOT={vax}")
-    print(f"FILES_INVENTORIED={len(rows)}")
-    print(f"MANIFEST_LIKE={len(cand['manifest_like'])} MODEL_LIKE={len(cand['model_like'])} FEATURE_BUILDER_LIKE={len(cand['feature_builder_like'])} PRIOR_EXPORT_LIKE={len(cand['prior_export_like'])}")
-    print("MODEL_EXECUTED=FALSE M4_PREDICTION_EXECUTED=FALSE FUSION_EXECUTED=FALSE THRESHOLDS_TUNED=FALSE GEOMETRY_MUTATED=FALSE")
-    print("NEXT=REVIEW_DISCOVERY_AND_BUILD_EXACT_M1")
+    print(f"FILES_INVENTORIED={len(inventory)}")
+    for k in ("manifest_like", "model_like", "feature_builder_like", "prior_export_like", "contract_like"):
+        print(f"{k.upper()}={len(groups[k])}")
+        for x in groups[k][:12]:
+            print(f"  {x}")
+    print("MODEL_EXECUTED=FALSE M4_PREDICTION_EXECUTED=FALSE FUSION_EXECUTED=FALSE")
+    print("THRESHOLDS_TUNED=FALSE GEOMETRY_MUTATED=FALSE")
+    print("NEXT=REVIEW_EXACT_M4_ARTEFACTS_THEN_BUILD_2026_FIELD_PRIOR_AND_PAIR_PRIOR")
     print(f"OUTPUT={out}")
     return 0
 
