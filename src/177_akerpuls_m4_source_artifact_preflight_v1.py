@@ -49,7 +49,7 @@ TEXT_TERMS = (
     "M4_full_pair",
     "M4-hard multiclass",
     "random_state=20260907",
-    "random_state":=20260907,
+    '"random_state": 20260907',
     "n_estimators=35",
     "vaxfoljd_model_report_stoppunkt_c_final",
     "AKERPULS_VAXTFOLJDSMODELL_STUDIE",
