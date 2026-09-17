@@ -1,0 +1,27 @@
+{
+  "schema_version": "akerpuls-m4-target-validity-patch-v1b",
+  "purpose": "Recover the exact historical target/history validity rule before any M4 model fit.",
+  "discovery_status": "PASS_M4_TARGET_CENSUS_DIAGNOSTIC_STOP",
+  "diagnostic_git_head": "92a68a1f3af195345207c8a70c662f6d46902ee4",
+  "diagnostic_output": "C:\\AkerSyncRepo\\work\\akerpuls_m4_target_census_diagnostic_v1\\M4_TARGET_CENSUS_DIAGNOSTIC_V1.json",
+  "frozen_history_sha256": "05423236dc30544f86422d42ce5c9095376a9d5dac58e6ea110f6e6702cecdcf",
+  "rule": {
+    "require_dominant_crop_known": true,
+    "require_mapped_to_16_target_classes": true,
+    "exclude_statuses": ["NO_PUBLIC_MATCH"],
+    "apply_to_target_validity": true,
+    "apply_to_history_feature_validity": true,
+    "excluded_history_rows_are_category": "__UNKNOWN__"
+  },
+  "exact_target_census_reproduction": {
+    "2021": 118190,
+    "2022": 119101,
+    "2023": 120330,
+    "2024": 122065,
+    "2025": 128636
+  },
+  "diagnostic_deltas_vs_frozen": [0, 0, 0, 0, 0],
+  "selected_before_model_fit": true,
+  "model_fit_used_for_rule_selection": false,
+  "prediction_2026_used_for_rule_selection": false
+}
