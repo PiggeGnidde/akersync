@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -48,6 +50,26 @@ class TestAkerPulsM1M4InputPreflightV1(unittest.TestCase):
     def test_status_stops_before_m1_execution(self):
         self.assertEqual(self.m.STATUS, "PASS_M1_M4_INPUT_DISCOVERY_STOP")
         self.assertIn("REVIEW_EXACT_M4_ARTEFACTS_THEN_BUILD_2026_FIELD_PRIOR_AND_PAIR_PRIOR", self.text)
+
+    def test_m0_freeze_selection_uses_pinned_sha_when_manifest_has_same_status(self):
+        status = "FROZEN_AKERPULS_MERGE_M0_SATELLITE_ONLY_V1"
+        old_sha = self.m.sha256_file
+        old_expected = self.m.EXPECTED_M0_FREEZE_SHA256
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                freeze = root / "AKERPULS_MERGE_M0_SATELLITE_ONLY_FREEZE_V1.json"
+                manifest = root / "m0_freeze_manifest.json"
+                freeze.write_text(json.dumps({"status": status}), encoding="utf-8")
+                manifest.write_text(json.dumps({"status": status}), encoding="utf-8")
+                self.m.EXPECTED_M0_FREEZE_SHA256 = "PINNED"
+                self.m.sha256_file = lambda p: "PINNED" if Path(p).name == freeze.name else "OTHER"
+                picked, obj = self.m.find_m0_freeze(root)
+                self.assertEqual(picked, freeze)
+                self.assertEqual(obj["status"], status)
+        finally:
+            self.m.sha256_file = old_sha
+            self.m.EXPECTED_M0_FREEZE_SHA256 = old_expected
 
 
 if __name__ == "__main__":
