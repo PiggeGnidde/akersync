@@ -48,14 +48,16 @@ D1_DIR = Path(r"C:\AkerSyncRepo\work\akerpuls_d1s3j_full_skane_s3_acquisition_v1
 VRT_INDEX = D1_DIR / "d1s3j_vrt_outputs.csv"
 EXPECTED_VRT_INDEX_SHA256 = "0210f78b9780f6b586be0c89109e5a696202167b5283d5bae6b20a24d23c8979"
 
-DEFAULT_OUT = Path(r"C:\AkerSyncRepo\work\akerpuls_merge_blind_disagreement_audit_viewer_v1")
+DEFAULT_OUT = Path(r"C:\AkerSyncRepo\work\akerpuls_merge_blind_disagreement_audit_viewer_v1b")
 STATUS = "PASS_TO_BLIND_MERGE_DISAGREEMENT_AUDIT_V1B"
 EXPECTED_PAIRS = 27146
 EXPECTED_ASSESSABLE = 22358
 SAMPLE_PER_STRATUM = 25
 EXPECTED_SAMPLE = 100
-HIGH_Q = 0.90
-LOW_Q = 0.10
+M0_HIGH_Q = 0.90
+M0_LOW_Q = 0.10
+M1_HIGH_Q = 0.75
+M1_LOW_Q = 0.25
 SAMPLE_SALT = "akerpuls-merge-disagreement-audit-sample-v1b|2026-09-20|54a567c2|m0decile-m1quartile"
 BLIND_ORDER_SALT = "akerpuls-merge-disagreement-audit-order-v1b|2026-09-20|54a567c2|m0decile-m1quartile"
 BUFFER_M = 100.0
@@ -471,7 +473,8 @@ def main() -> int:
     }
     manifest_path = out / "MERGE_BLIND_DISAGREEMENT_AUDIT_VIEWER_MANIFEST_V1.json"; write_json(manifest_path, manifest)
 
-    print(f"STATUS={STATUS}")\n    print("DESIGN=M0_TOP_BOTTOM_10_PERCENT__M1_TOP_BOTTOM_25_PERCENT")
+    print(f"STATUS={STATUS}")
+    print("DESIGN=M0_TOP_BOTTOM_10_PERCENT__M1_TOP_BOTTOM_25_PERCENT")
     print(f"ASSESSABLE_POPULATION={EXPECTED_ASSESSABLE} AUDIT_SAMPLE={EXPECTED_SAMPLE} PER_STRATUM={SAMPLE_PER_STRATUM}")
     print("STRATUM_COUNTS=" + " | ".join(f"{k}:{v}" for k, v in stratum_counts.items()))
     print(f"SAMPLE_POPULATION_SHA256={sample_population_sha}")
