@@ -42,14 +42,25 @@ def main():
     mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
     items=[{"blind_index":i,"image":f"images/audit_{i:03d}.jpg"} for i in range(1,101)]
     text=mod.build_html(items,EXPECTED_KEY_SHA)
-    got=hashlib.sha256(text.encode("utf-8")).hexdigest()
-    if got != sh["html_sha256"]:
-        raise RuntimeError(f"Regenerated HTML SHA mismatch: {got}")
+
+    # The frozen viewer was written on Windows using Path.write_text(), so the
+    # on-disk bytes use CRLF line endings. Verify the actual Windows text-mode
+    # serialization, not an in-memory LF-only UTF-8 encoding.
+    lf_sha=hashlib.sha256(text.encode("utf-8")).hexdigest()
+    crlf_bytes=text.replace("\r\n","\n").replace("\n","\r\n").encode("utf-8")
+    crlf_sha=hashlib.sha256(crlf_bytes).hexdigest()
+    expected_html_sha=sh["html_sha256"]
+    print(f"REGENERATED_HTML_LF_SHA256={lf_sha}")
+    print(f"REGENERATED_HTML_CRLF_SHA256={crlf_sha}")
+    if crlf_sha != expected_html_sha:
+        raise RuntimeError(
+            f"Regenerated Windows HTML SHA mismatch: {crlf_sha} != {expected_html_sha}"
+        )
 
     html=SRC/"index.html"
     if not html.exists():
-        html.write_text(text,encoding="utf-8")
-    if sha(html) != sh["html_sha256"]:
+        html.write_bytes(crlf_bytes)
+    if sha(html) != expected_html_sha:
         raise RuntimeError("index.html SHA mismatch after restore")
 
     if sha(FROZEN_MANIFEST) != sh["source_manifest_sha256"]:
