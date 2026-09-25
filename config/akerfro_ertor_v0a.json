@@ -83,7 +83,7 @@
       0.526
     ],
     "top_decile_historical_positive_count": 712,
-    "semantics_locked": "relative physical/structural pea-match ranking; not probability",
+    "semantics_locked": "relative physical/structural pea-match ranking, not probability",
     "excluded_to_artkandidat_locked": [
       "field_area",
       "rotation",
