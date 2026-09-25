@@ -63,7 +63,7 @@
     "semantics": "relative physical/structural pea-match ranking, not probability"
   },
   "artmatch_v0a_freeze_contract": {
-    "status": "FREEZE_PENDING_LOCAL_VERIFY",
+    "status": "FREEZE_CONTRACT_DEFINED",
     "expected_population_fields": 128636,
     "expected_historical_positive_fields": 3079,
     "expected_scored_fields": 120761,
