@@ -6,6 +6,10 @@
   "expected_current_fields": 128636,
   "expected_field_years": 1414996,
   "positive_history_statuses": ["SINGLE_CROP"],
+  "checkpoint_a_anchors": {
+    "clean_conservart_field_years": 3210,
+    "unique_clean_conservart_fields": 3079
+  },
   "rotation": {
     "target_pea_min_years": null,
     "any_pea_min_years": null,
