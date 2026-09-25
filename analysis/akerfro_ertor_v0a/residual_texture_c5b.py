@@ -146,13 +146,31 @@ def pairwise_from_predictions(pred: pd.DataFrame) -> dict[str, float | int]:
 
 
 def exact_binomial_two_sided(k: int, n: int) -> float:
-    """Exact two-sided binomial p-value under p=0.5, dependency-free."""
+    """Exact two-sided binomial p-value under p=0.5, dependency-free.
+
+    Uses log-space summation so large n (e.g. 3,015 matched pairs) does not
+    overflow via 2**n or huge binomial coefficients.
+    """
     if n <= 0:
         return np.nan
+    if k < 0 or k > n:
+        raise ValueError("k must satisfy 0 <= k <= n")
     lo = min(k, n-k)
-    # Sum probabilities of outcomes with probability <= observed; for p=.5 this
-    # is equivalent to symmetric tails up to lo.
-    tail = sum(math.comb(n, i) for i in range(lo + 1)) / (2.0 ** n)
+
+    log_terms = []
+    log2n = n * math.log(2.0)
+    for i in range(lo + 1):
+        log_p = (
+            math.lgamma(n + 1)
+            - math.lgamma(i + 1)
+            - math.lgamma(n - i + 1)
+            - log2n
+        )
+        log_terms.append(log_p)
+
+    m = max(log_terms)
+    log_tail = m + math.log(sum(math.exp(v - m) for v in log_terms))
+    tail = math.exp(log_tail)
     return min(1.0, 2.0 * tail)
 
 
