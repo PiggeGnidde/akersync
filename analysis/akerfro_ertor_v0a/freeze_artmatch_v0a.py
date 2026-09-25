@@ -198,7 +198,7 @@ def make_manifest(validation: dict) -> dict:
         "schema_version": "akerfro-artmatch-v0a-freeze-1",
         "freeze_name": "ÅkerFrö ÄrtMatch v0a",
         "source_git_head": git_head(),
-        "semantics": "relative physical/structural pea-match ranking; not probability",
+        "semantics": "relative physical/structural pea-match ranking, not probability",
         "formula": "0.65*slope_component + 0.25*akerscore_component + 0.10*texture_residual_component",
         "scope_frozen": [
             "C6 score formula and weights",
