@@ -42,6 +42,11 @@ class TestAkerFroResidualTextureC5b(unittest.TestCase):
     def test_binomial_balanced_is_one(self):
         self.assertAlmostEqual(exact_binomial_two_sided(5, 10), 1.0)
 
+    def test_binomial_large_n_is_finite(self):
+        p = exact_binomial_two_sided(1600, 3015)
+        self.assertGreaterEqual(p, 0.0)
+        self.assertLessEqual(p, 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
