@@ -61,5 +61,36 @@
       "drought_and_irrigation_risk"
     ],
     "semantics": "relative physical/structural pea-match ranking, not probability"
+  },
+  "artmatch_v0a_freeze_contract": {
+    "status": "FREEZE_PENDING_LOCAL_VERIFY",
+    "expected_population_fields": 128636,
+    "expected_historical_positive_fields": 3079,
+    "expected_scored_fields": 120761,
+    "expected_insufficient_core_fields": 7875,
+    "expected_scored_historical_positive_fields": 3015,
+    "expected_weights": {
+      "slope": 0.65,
+      "akerscore": 0.25,
+      "texture_residual": 0.1
+    },
+    "raw_historical_selection_rank_auc_range": [
+      0.699,
+      0.701
+    ],
+    "near_twin_pairwise_accuracy_range": [
+      0.523,
+      0.526
+    ],
+    "top_decile_historical_positive_count": 712,
+    "semantics_locked": "relative physical/structural pea-match ranking; not probability",
+    "excluded_to_artkandidat_locked": [
+      "field_area",
+      "rotation",
+      "processor_distance_and_logistics",
+      "current_crop",
+      "contracts",
+      "drought_and_irrigation_risk"
+    ]
   }
 }
