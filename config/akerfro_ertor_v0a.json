@@ -1,11 +1,25 @@
 {
   "schema_version": "akerfro-ertor-v0a",
   "target_crop_group": "CONSERVART",
-  "years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+  "years": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
   "expected_municipalities": 33,
   "expected_current_fields": 128636,
   "expected_field_years": 1414996,
-  "positive_history_statuses": ["SINGLE_CROP"],
+  "positive_history_statuses": [
+    "SINGLE_CROP"
+  ],
   "checkpoint_a_anchors": {
     "clean_conservart_field_years": 3210,
     "unique_clean_conservart_fields": 3079
@@ -19,5 +33,10 @@
     "name": "Apetit Bjuv",
     "lat": null,
     "lon": null
+  },
+  "checkpoint_b_anchors": {
+    "fields_with_2plus_clean_conservart_years": 131,
+    "max_clean_conservart_years_on_one_field": 2,
+    "mixed_or_complex_target_field_years": 1864
   }
 }
