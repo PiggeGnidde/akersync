@@ -38,5 +38,28 @@
     "fields_with_2plus_clean_conservart_years": 131,
     "max_clean_conservart_years_on_one_field": 2,
     "mixed_or_complex_target_field_years": 1864
+  },
+  "artmatch_v0a_candidate": {
+    "weights": {
+      "slope": 0.65,
+      "akerscore": 0.25,
+      "texture_residual": 0.1
+    },
+    "component_scale": "whole-Skane empirical percentile 0-100",
+    "required_core": [
+      "topography__slope_p90_deg",
+      "akerscore__akerscore_soil_p50"
+    ],
+    "texture_model": "quadratic orthonormal ILR residual from C5b near-twin study",
+    "texture_missing_policy": "neutral_50",
+    "excluded_to_artkandidat": [
+      "field_area",
+      "rotation",
+      "processor_distance_and_logistics",
+      "current_crop",
+      "contracts",
+      "drought_and_irrigation_risk"
+    ],
+    "semantics": "relative physical/structural pea-match ranking, not probability"
   }
 }
