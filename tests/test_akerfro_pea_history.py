@@ -90,7 +90,7 @@ class TestAkerFroPeaHistory(unittest.TestCase):
 
         f2 = h.loc["F2"]
         self.assertEqual(f2["n_target_pea_years_2015_2025"], 0)
-        self.assertIsNone(f2["last_target_pea_year"] if pd.isna(f2["last_target_pea_year"]) else None)
+        self.assertTrue(pd.isna(f2["last_target_pea_year"]))
 
     def test_usable_history_years_are_clean_only(self):
         h = build_field_history(self.synthetic()).set_index("current_field_id")
