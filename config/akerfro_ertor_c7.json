@@ -1,0 +1,18 @@
+{
+  "schema_version": "akerfro-ertor-c7-v0a",
+  "candidate_year": 2026,
+  "rotation_gap_scenarios_years": [6, 7, 8],
+  "controls_per_positive": 8,
+  "predecessor_lags": [1, 2],
+  "primary_predecessor_lag": 1,
+  "matching_stratum": "target_year x municipality x dominant_SKO x global_current_area_decile",
+  "target_event_definition": "SINGLE_CROP + semantic CONSERVART",
+  "predecessor_definition": "SINGLE_CROP with known dominant crop",
+  "eligibility_interpretation": "scenario diagnostic from observed 2015-2025 history; not frozen agronomic rule",
+  "guardrails": [
+    "2015-2025 history is left-censored: no observed pea is not the same as never pea",
+    "mixed/complex CONSERVART components are reported as a separate stricter sensitivity basis",
+    "OTHER_PEA and FABA_BEAN are separate scenario flags, not assumed biologically equivalent to CONSERVART",
+    "predecessor enrichment is historical selection association, not causal yield response"
+  ]
+}
