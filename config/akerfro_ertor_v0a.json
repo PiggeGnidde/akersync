@@ -1,0 +1,19 @@
+{
+  "schema_version": "akerfro-ertor-v0a",
+  "target_crop_group": "CONSERVART",
+  "years": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+  "expected_municipalities": 33,
+  "expected_current_fields": 128636,
+  "expected_field_years": 1414996,
+  "positive_history_statuses": ["SINGLE_CROP"],
+  "rotation": {
+    "target_pea_min_years": null,
+    "any_pea_min_years": null,
+    "faba_bean_min_years": null
+  },
+  "processor": {
+    "name": "Apetit Bjuv",
+    "lat": null,
+    "lon": null
+  }
+}
