@@ -126,7 +126,12 @@ def prepare_frame(matrix_path: Path) -> pd.DataFrame:
     return frame
 
 
-def matched_sample(frame: pd.DataFrame, controls_per_positive: int) -> pd.DataFrame:
+def matched_sample(
+    frame: pd.DataFrame,
+    controls_per_positive: int,
+    *,
+    return_diagnostics: bool = False,
+):
     keep_parts: list[pd.DataFrame] = []
     diagnostics = []
 
@@ -156,7 +161,9 @@ def matched_sample(frame: pd.DataFrame, controls_per_positive: int) -> pd.DataFr
     if not keep_parts:
         raise RuntimeError("No C3 common-support strata")
     out = pd.concat(keep_parts, ignore_index=True)
-    out.attrs["match_diagnostics"] = pd.DataFrame(diagnostics)
+    diag = pd.DataFrame(diagnostics)
+    if return_diagnostics:
+        return out, diag
     return out
 
 
@@ -171,7 +178,6 @@ def build_pipeline(features: list[str]) -> Pipeline:
         verbose_feature_names_out=False,
     )
     clf = LogisticRegression(
-        penalty="l2",
         C=1.0,
         solver="liblinear",
         max_iter=2000,
@@ -221,6 +227,7 @@ def leave_one_sko_out(
         ]].copy()
         pred["model"] = model_name
         pred["score"] = score
+        pred.attrs = {}
         preds.append(pred)
 
     return pd.DataFrame(folds), pd.concat(preds, ignore_index=True) if preds else pd.DataFrame()
@@ -285,8 +292,11 @@ def main() -> int:
         raise ValueError("--controls-per-positive must be >=1")
 
     frame = prepare_frame(Path(args.matrix))
-    sample = matched_sample(frame, args.controls_per_positive)
-    diag = sample.attrs["match_diagnostics"].copy()
+    sample, diag = matched_sample(
+        frame,
+        args.controls_per_positive,
+        return_diagnostics=True,
+    )
 
     n_pos = int(sample["is_positive"].sum())
     n_unl = int((~sample["is_positive"]).sum())
