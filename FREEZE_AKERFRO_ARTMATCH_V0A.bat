@@ -6,6 +6,9 @@ cd /d "%~dp0"
 echo ==============================================================================
 echo AkerFro - Ertor - FORMAL FREEZE ARTMATCH v0a
 echo ==============================================================================
+py -3 -m unittest tests.test_akerfro_freeze_artmatch_v0a -v
+if errorlevel 1 goto :fail
+
 py -3 analysis\akerfro_ertor_v0a\freeze_artmatch_v0a.py --mode freeze
 if errorlevel 1 goto :fail
 
