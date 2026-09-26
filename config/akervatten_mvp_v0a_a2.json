@@ -1,0 +1,69 @@
+{
+  "schema_version": "akervatten-mvp-v0a-a2-source-inventory",
+  "network": {
+    "timeout_seconds": 30,
+    "user_agent": "AkerVatten-MVP-v0a-source-inventory/1.0"
+  },
+  "sources": {
+    "sgu_smallmag": {
+      "product_page": "https://www.sgu.se/produkter-och-tjanster/geologiska-data/grundvatten--geologiska-data/grundvattenmagasin/",
+      "bulk_zip": "https://resource.sgu.se/data/oppnadata/grundvattentillgang-sma-magasin/grundvattentillgang-sma-magasin.zip",
+      "wcs_capabilities": "https://api.sgu.se/oppnadata/grundvattentillgang-sma-magasin/wcs?request=GetCapabilities&service=WCS&version=2.0.1"
+    },
+    "sgu_groundwater_magazines": {
+      "ogc_landing": "https://api.sgu.se/oppnadata/grundvattenmagasin/ogc/features/v1",
+      "ogc_collections": "https://api.sgu.se/oppnadata/grundvattenmagasin/ogc/features/v1/collections?f=application/json"
+    },
+    "sgu_hype": {
+      "product_page": "https://www.sgu.se/produkter-och-tjanster/geologiska-data/grundvatten--geologiska-data/grundvattennivaer/",
+      "collections": "https://api.sgu.se/oppnadata/grundvattennivaer-sgu-hype-omraden/ogc/features/v1/collections/?f=application/json",
+      "areas_sample": "https://api.sgu.se/oppnadata/grundvattennivaer-sgu-hype-omraden/ogc/features/v1/collections/omraden/items?f=application/geo%2Bjson&limit=1",
+      "areas_queryables": "https://api.sgu.se/oppnadata/grundvattennivaer-sgu-hype-omraden/ogc/features/v1/collections/omraden/queryables?f=application/schema%2Bjson",
+      "history_queryables": "https://api.sgu.se/oppnadata/grundvattennivaer-sgu-hype-omraden/ogc/features/v1/collections/grundvattennivaer-tidigare/queryables?f=application/schema%2Bjson",
+      "history_items_base": "https://api.sgu.se/oppnadata/grundvattennivaer-sgu-hype-omraden/ogc/features/v1/collections/grundvattennivaer-tidigare/items"
+    },
+    "smhi_svar2022": {
+      "explorer_page": "https://www.smhi.se/data/sok-oppna-data-i-utforskaren/vattenforekomstavrinningsomraden-svar2022",
+      "bulk_zip": "https://opendata-download.smhi.se/svar/SVAR2022_Vattenforekomstavrinningsomraden.zip",
+      "wfs_capabilities": "https://opendata-view.smhi.se/SMHI_vatten/Vattenforekomstavrinningsomraden_2022/wfs?service=WFS&request=GetCapabilities"
+    },
+    "smhi_shype": {
+      "overview": "https://www.smhi.se/data/sjoar-och-vattendrag/vattenwebb",
+      "model_area_docs": "https://www.smhi.se/data/sjoar-och-vattendrag/vattenwebb/om-tjanster-i-vattenwebb/modelldata-per-omrade",
+      "nadia_bulk": "https://vattenwebb.smhi.se/nadia/",
+      "modelarea": "https://vattenwebb.smhi.se/modelarea/"
+    },
+    "licenses": {
+      "sgu": "https://www.sgu.se/produkter-och-tjanster/geologiska-data/om-geologiska-data/licensvillkor/",
+      "smhi": "https://www.smhi.se/data/om-smhis-data/villkor-for-anvandning"
+    }
+  },
+  "expected": {
+    "sgu_hype_collections": ["omraden", "grundvattennivaer-tidigare"],
+    "sgu_hype_area_fields": ["omrade_id", "url_tidsserie"],
+    "sgu_hype_history_fields": [
+      "datum",
+      "omrade_id",
+      "grundvattensituation_sma",
+      "grundvattensituation_stora",
+      "fyllnadsgrad_sma",
+      "fyllnadsgrad_stora"
+    ],
+    "smhi_nadia_terms": [
+      "Lokal vattenföring",
+      "Total vattenföring",
+      "subid eller aroid",
+      "Från år",
+      "Till och med år"
+    ]
+  },
+  "guardrails": [
+    "A2 is source inventory only; no full raster/vector/time-series bulk download is performed",
+    "bulk ZIP/TIFF resources are probed by HEAD or byte-range only",
+    "SGU-HYPE sample history is limited to a handful of rows",
+    "SMHI NADIA is treated as a documented bulk mechanism; no undocumented backend endpoint is reverse-engineered in A2",
+    "SVAR2022 geometry-to-current-S-HYPE SUBID linkage must be proven before full spatial linkage",
+    "SGU data are screening inputs, not property-level well-yield claims",
+    "SMHI S-HYPE flows are modelled catchment/outlet data, not measured irrigation-point flow"
+  ]
+}
