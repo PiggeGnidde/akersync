@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -74,9 +75,10 @@ def repository_head() -> str:
 
 
 def stable_json(document: Any, compact: bool = False) -> str:
+    kwargs = {"ensure_ascii": False, "allow_nan": False}
     if compact:
-        return json.dumps(document, ensure_ascii=False, separators=(",", ":")) + "\n"
-    return json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        return json.dumps(document, separators=(",", ":"), **kwargs) + "\n"
+    return json.dumps(document, indent=2, sort_keys=True, **kwargs) + "\n"
 
 
 def atomic_text(text: str, path: Path) -> None:
@@ -140,6 +142,8 @@ def number(value: Any, digits: int | None = None) -> float | int | None:
     try:
         x = float(value)
     except (TypeError, ValueError):
+        return None
+    if not math.isfinite(x):
         return None
     if digits is None:
         return x
