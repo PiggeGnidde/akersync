@@ -1,7 +1,7 @@
 {
   "schema_version": "akerfro-ertor-c8-artkandidat-v0a",
   "candidate_year": 2026,
-  "artmatch_high_quantile": 0.80,
+  "artmatch_high_quantile": 0.8,
   "rotation_gap_years": 6,
   "rotation_primary": "target_any_component",
   "rotation_cautions": [
@@ -11,8 +11,8 @@
   "predecessor": {
     "source": "C7 lag-1 matched enrichment",
     "positive_min_enrichment": 1.25,
-    "negative_max_enrichment": 0.80,
-    "min_positive_events": 20
+    "negative_max_enrichment": 0.8,
+    "min_positive_events": 50
   },
   "classes": {
     "A_STRONG_CANDIDATE": "high ArtMatch + rotation OK + positive predecessor prior",
@@ -26,6 +26,7 @@
     "rotation uses observed 2015-2025 history and is left-censored",
     "other pea and faba are cautions, not proven equivalent rotation constraints",
     "predecessor prior is historical selection association, not causal agronomic effect",
-    "processor distance, logistics, contracts, irrigation and water risk are intentionally excluded from C8"
+    "processor distance, logistics, contracts, irrigation and water risk are intentionally excluded from C8",
+    "A-class predecessor prior requires at least 50 historical positive predecessor events in C8b"
   ]
 }
