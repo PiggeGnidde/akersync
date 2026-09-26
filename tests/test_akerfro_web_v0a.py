@@ -70,6 +70,15 @@ class AkerFroWebV0aTests(unittest.TestCase):
         self.assertEqual(payload["rows"][0]["rank"], 1)
         self.assertEqual(payload["rows"][-1]["rank"], 1000)
 
+    def test_nonfinite_numbers_become_json_null(self):
+        frame = pd.DataFrame([sample_row("1|A", "Lomma", 1)])
+        frame.loc[0, "predecessor_enrichment_ratio"] = float("inf")
+        payload = BUILD.build_municipality_payload(frame)
+        text = BUILD.stable_json(payload, compact=True)
+        self.assertNotIn("Infinity", text)
+        self.assertNotIn("NaN", text)
+        self.assertIn("null", text)
+
     def test_ui_patch_preserves_akernorm_and_adds_akerfro(self):
         akn = "$" + "{akernormSection(p)}"
         tick = chr(96)
