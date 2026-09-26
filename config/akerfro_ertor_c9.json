@@ -1,0 +1,28 @@
+{
+  "schema_version": "akerfro-ertor-c9-area-logistics-v0a",
+  "candidate_year": 2026,
+  "processor": {
+    "name": "Apetit Sverige / Bjuv frozen pea factory",
+    "address": "Billesholmsvägen 4, 267 40 Bjuv",
+    "lat": 56.0731,
+    "lon": 12.9395,
+    "distance_metric": "haversine_straight_line_km"
+  },
+  "area_bins_ha": [0, 2, 5, 8, 12, 20, 1000000],
+  "distance_bins_km": [0, 20, 40, 60, 80, 100, 1000000],
+  "analysis_universes": [
+    "all_fields_with_required_measure",
+    "high_artmatch_rotation_ok"
+  ],
+  "policy": {
+    "diagnostic_only": true,
+    "do_not_modify_c8_classes": true,
+    "do_not_create_logistics_score_yet": true
+  },
+  "guardrails": [
+    "field area is operational selection context, not part of frozen ÄrtMatch",
+    "straight-line distance is a reproducible proxy, not road distance or harvest travel time",
+    "historical positive enrichment can reflect contracts and grower geography as well as operational efficiency",
+    "C9 diagnoses area/logistics structure before any product thresholds or weights are chosen"
+  ]
+}
