@@ -25,7 +25,10 @@ spec.loader.exec_module(BUILD)
 def load_json(path: Path) -> dict:
     if not path.exists():
         raise RuntimeError(f"Missing verifier input: {path}")
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+    text = path.read_text(encoding="utf-8-sig")
+    def reject_constant(value: str):
+        raise RuntimeError(f"Browser-invalid JSON numeric constant {value} in {path}")
+    return json.loads(text, parse_constant=reject_constant)
 
 
 def main() -> int:
