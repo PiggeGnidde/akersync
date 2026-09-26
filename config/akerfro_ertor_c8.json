@@ -1,0 +1,31 @@
+{
+  "schema_version": "akerfro-ertor-c8-artkandidat-v0a",
+  "candidate_year": 2026,
+  "artmatch_high_quantile": 0.80,
+  "rotation_gap_years": 6,
+  "rotation_primary": "target_any_component",
+  "rotation_cautions": [
+    "any_pea_clean",
+    "pea_or_faba_clean"
+  ],
+  "predecessor": {
+    "source": "C7 lag-1 matched enrichment",
+    "positive_min_enrichment": 1.25,
+    "negative_max_enrichment": 0.80,
+    "min_positive_events": 20
+  },
+  "classes": {
+    "A_STRONG_CANDIDATE": "high ArtMatch + rotation OK + positive predecessor prior",
+    "B_PHYSICAL_CANDIDATE": "high ArtMatch + rotation OK + predecessor neutral/negative/unknown",
+    "C_ROTATION_CAUTION": "high ArtMatch + observed recent target pea/other pea/faba within 6-year caution scenario",
+    "D_NOT_HIGH_PHYSICAL_MATCH": "ArtMatch below top-20-percent product threshold or insufficient core"
+  },
+  "guardrails": [
+    "ÄrtMatch v0a is frozen and read-only",
+    "top-20-percent ArtMatch is a transparent MVP product threshold, not a biological cutoff",
+    "rotation uses observed 2015-2025 history and is left-censored",
+    "other pea and faba are cautions, not proven equivalent rotation constraints",
+    "predecessor prior is historical selection association, not causal agronomic effect",
+    "processor distance, logistics, contracts, irrigation and water risk are intentionally excluded from C8"
+  ]
+}
