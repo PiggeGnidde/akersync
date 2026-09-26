@@ -1,0 +1,27 @@
+{
+  "schema_version": "akerfro-ertor-c7c-contract-shock-v0a",
+  "shock_year": 2025,
+  "placebo_years": [2019, 2020, 2021, 2022, 2023, 2024],
+  "ring": {
+    "t_minus_2": "raps (höst)",
+    "t_minus_1": "vete (höst)",
+    "expected_t": "sockerbetor",
+    "next_expected": "korn (vår)"
+  },
+  "primary_actual_substitute": "CONSERVART",
+  "history_definition": "SINGLE_CROP only",
+  "reuse": {
+    "general_rotation_model": "vaxfoljd-prior-m4-v1.0-rc1",
+    "general_rotation_branch": "feature/akerpuls-vaxfoljd-prior-v1a",
+    "m4_prior_2025_optional": true,
+    "local_prior_search_names": ["prior_2025.parquet"]
+  },
+  "guardrails": [
+    "2025 actual crop is never used to define an expected 2025 beet slot",
+    "ring-state uses only t-2 and t-1 clean history",
+    "established-beet status uses only years before target year",
+    "same-slot-repeat uses only earlier raps->winter-wheat->sugar-beet triplets",
+    "2019-2024 are placebo comparison years; 2017 Bjuv shock is excluded",
+    "this tests a contract-shock signature, not farmer intent or causal attribution"
+  ]
+}
