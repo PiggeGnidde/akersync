@@ -1,0 +1,27 @@
+{
+  "schema_version": "akerfro-ertor-c9b-robustness-v0a",
+  "candidate_universe": "C8 A_STRONG_CANDIDATE + B_PHYSICAL_CANDIDATE",
+  "sweet_zone_posthoc": {
+    "area_min_ha": 5.0,
+    "area_max_ha": 12.0,
+    "distance_max_km": 60.0,
+    "interpretation": "post-hoc diagnostic from C9; not a frozen product rule"
+  },
+  "municipality_min_candidate_fields": 100,
+  "municipality_min_sweet_zone_fields": 20,
+  "lomo_model": {
+    "features": ["z_log_area", "z_log_area_sq", "z_distance", "z_distance_sq"],
+    "solver": "lbfgs",
+    "C": 1.0,
+    "max_iter": 2000,
+    "class_weight": null,
+    "random_state": 20260926
+  },
+  "guardrails": [
+    "C9b is robustness analysis only and does not modify C8 classes or frozen ArtMatch",
+    "the 5-12 ha and <60 km sweet zone was observed in C9 and is therefore post-hoc",
+    "historical CONSERVART is positive-unlabeled selection, not a causal agronomic outcome",
+    "municipality holdout tests geographic stability but cannot observe farmer identity or contracts",
+    "straight-line Bjuv distance remains a logistics proxy rather than road travel time"
+  ]
+}
