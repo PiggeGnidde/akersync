@@ -54,7 +54,7 @@ class TestAkerVattenA1bCoverageSchema(unittest.TestCase):
         })
         matches, allcols=A1B.static_context_inventory(df,["slope","tpi","hydro"])
         self.assertEqual(set(matches["column"]),{"slope_p90","tpi150_mean"})
-        self.assertEqual(len(allcols),3)
+        self.assertEqual(len(allcols),4)
 
     def test_exact_old_subset_match(self):
         rec=pd.DataFrame({
