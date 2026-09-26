@@ -1,0 +1,36 @@
+{
+  "schema_version": "akervatten-mvp-v0a-a1b-coverage-schema",
+  "inputs": {
+    "soil": "data/derived/soil_features_skiften.csv",
+    "hydrology": "data/derived/hydrology_features_skiften.csv",
+    "water_prospect": "data/derived/water_prospect_features_skiften.csv",
+    "prestation_static_context": "data/derived/akerprestation_phase0/skane/field_static_context.parquet"
+  },
+  "old_robust_filter": {
+    "min_area_ha": 1.0,
+    "min_soil_coverage_pct": 90.0,
+    "min_soil_pixels": 10,
+    "min_twi_cells": 25
+  },
+  "static_context_search_terms": [
+    "slope",
+    "relief",
+    "elev",
+    "tpi",
+    "low",
+    "twi",
+    "hydro",
+    "flow",
+    "wet",
+    "dry",
+    "terrain",
+    "topo"
+  ],
+  "guardrails": [
+    "A1b is coverage/schema diagnostics only",
+    "OLD_ROBUST reproduces the old exploratory eligibility filter and is not a new product-quality contract",
+    "DATA_MISSING means a core MarkTorka/MarkVata input is absent, not that the field has low water risk",
+    "no MarkTorka/MarkVata score is frozen in A1b",
+    "no external SGU/SMHI data are downloaded in A1b"
+  ]
+}
