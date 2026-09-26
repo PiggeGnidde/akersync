@@ -16,8 +16,8 @@ Ingen ny ML tränas.
 **Hög ÄrtMatch** = topp 20 % bland scorebara Skånefält. Detta är en transparent produkttröskel, inte en biologisk gräns.
 
 Förfruktsprior:
-- POSITIVE: minst 20 historiska positiva händelser och enrichment >= 1.25,
-- NEGATIVE: minst 20 och enrichment <= 0.80,
+- POSITIVE: minst 50 historiska positiva händelser och enrichment >= 1.25,
+- NEGATIVE: minst 50 och enrichment <= 0.80,
 - NEUTRAL: däremellan,
 - LOW_SUPPORT/UNKNOWN: otillräckligt underlag.
 
