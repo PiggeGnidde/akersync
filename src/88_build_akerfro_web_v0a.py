@@ -38,6 +38,10 @@ EXPECTED_CLASSES = {
 }
 EXPECTED_BANDS = {"HIGH": 20327, "MEDIUM": 34060, "LOW": 74249}
 OWNED_PREFIX = Path("data/akerfro")
+OWNED_FILES = {
+    Path("assets/akerfro_v0a.css"),
+    Path("assets/akerfro_v0a.js"),
+}
 
 ROW_COLUMNS = [
     "class", "artmatch", "rotation_status", "predecessor_crop",
@@ -91,7 +95,11 @@ def slug(text: str) -> str:
 
 
 def is_owned(relative: Path) -> bool:
-    return relative == OWNED_PREFIX or OWNED_PREFIX in relative.parents
+    return (
+        relative == OWNED_PREFIX
+        or OWNED_PREFIX in relative.parents
+        or relative in OWNED_FILES
+    )
 
 
 def inventory(root: Path, *, exclude_owned: bool = False, exclude_index: bool = False) -> list[dict[str, Any]]:
@@ -361,6 +369,14 @@ def main() -> int:
 
         index = build_data(frame, target_dist / OWNED_PREFIX)
 
+        assets_dir = target_dist / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        for name in ("akerfro_v0a.css", "akerfro_v0a.js"):
+            source = ROOT / "web" / name
+            if not source.exists():
+                raise RuntimeError(f"ÅkerFrö web asset missing: {source}")
+            shutil.copy2(source, assets_dir / name)
+
         from importlib.util import module_from_spec, spec_from_file_location
         spec = spec_from_file_location("akerfro_web_ui", args.patcher.resolve())
         if spec is None or spec.loader is None:
@@ -389,7 +405,14 @@ def main() -> int:
             "field_count": index["field_count"],
             "class_counts": index["class_counts"],
             "operational_band_counts": index["operational_band_counts"],
-            "web_artifacts": inventory(target_dist / OWNED_PREFIX),
+            "web_artifacts": (
+                inventory(target_dist / OWNED_PREFIX)
+                + [
+                    {"path": path.as_posix(), "bytes": (target_dist / path).stat().st_size,
+                     "sha256": sha256_file(target_dist / path)}
+                    for path in sorted(OWNED_FILES, key=lambda p: p.as_posix())
+                ]
+            ),
             "scope": {
                 "akerfro_model_recalculated": False,
                 "akernorm_base_changed": False,
@@ -408,7 +431,7 @@ def main() -> int:
         print(f"Target: {target_dist}")
         print(f"Fields: {index['field_count']:,} · municipalities: {index['municipality_count']}")
         print(f"A/B/C/D: {index['class_counts']}")
-        print("ÅkerNorm base files: byte-identical outside index.html / data/akerfro")
+        print("ÅkerNorm base files: byte-identical outside index.html / data/akerfro / ÅkerFrö assets")
         print("Frozen ÅkerFrö model recalculated: NO")
         print("Deployment: NO")
         print("=" * 92)
