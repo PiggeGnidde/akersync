@@ -1,0 +1,45 @@
+{
+  "schema_version": "akervatten-mvp-v0a-a1-local-inventory",
+  "inputs": {
+    "soil": "data/derived/soil_features_skiften.csv",
+    "hydrology": "data/derived/hydrology_features_skiften.csv",
+    "water_prospect": "data/derived/water_prospect_features_skiften.csv",
+    "water_regimes": "data/derived/water_regimes_skiften.csv",
+    "prestation_static_context": "data/derived/akerprestation_phase0/skane/field_static_context.parquet"
+  },
+  "candidate_features": {
+    "mark_torka": [
+      "sand_mean",
+      "clay_mean",
+      "silt_mean",
+      "twi_mean",
+      "twi_p50",
+      "twi_p90",
+      "dryness_pctile",
+      "irrigation_sensitivity_score"
+    ],
+    "mark_vata": [
+      "clay_mean",
+      "sand_mean",
+      "twi_mean",
+      "twi_p90",
+      "wetness_pctile",
+      "drainage_challenge_score"
+    ],
+    "terrain_context": [
+      "slope_mean_deg",
+      "slope_p90_deg",
+      "relief_p95_p05_m",
+      "local_low50_lt_m0p25_pct",
+      "local_low50_lt_m0p50_pct",
+      "local_low150_lt_m0p50_pct"
+    ]
+  },
+  "guardrails": [
+    "A1 is an audit only: no new MarkTorka/MarkVata score is frozen here",
+    "TWI is topographic wetness propensity, not observed soil moisture or drainage status",
+    "soil texture is modelled texture and not measured plant-available water capacity",
+    "existing water_prospect scores are treated as exploratory baselines, not adopted product scores",
+    "no external SGU/SMHI data are downloaded in A1"
+  ]
+}
