@@ -1,0 +1,51 @@
+{
+  "schema_version": "akerfro-ertor-c10-operational-layer-v0a",
+  "candidate_year": 2026,
+  "semantics": {
+    "artmatch": "frozen physical/structural pea-match score; unchanged",
+    "area_fit": "transparent operational field-size fit, not agronomic suitability",
+    "bjuv_proximity": "transparent monotone logistics proxy from straight-line distance to Bjuv",
+    "area_logistics": "weighted operational score from AreaFit and BjuvProximity; not probability"
+  },
+  "area_fit": {
+    "method": "piecewise_linear_policy",
+    "knots_ha": [0, 2, 5, 12, 20, 40, 100],
+    "scores":   [25, 40, 100, 100, 75, 55, 40],
+    "above_last_knot_score": 40,
+    "rationale": "C9b supports a broad 5-12 ha sweet zone; decline outside is deliberately soft"
+  },
+  "bjuv_proximity": {
+    "method": "piecewise_linear_policy",
+    "knots_km": [0, 20, 40, 60, 80, 100, 140],
+    "scores":   [100, 100, 85, 70, 50, 35, 15],
+    "above_last_knot_score": 15,
+    "rationale": "C9b supports monotone negative distance association; no hard 60 km veto"
+  },
+  "area_logistics": {
+    "weights": {
+      "area_fit": 0.55,
+      "bjuv_proximity": 0.45
+    },
+    "weight_policy": "fixed transparent policy weights; not optimized on historical pea labels"
+  },
+  "operational_bands": {
+    "HIGH": 80,
+    "MEDIUM": 60,
+    "LOW": 0
+  },
+  "ranking_policy": [
+    "C8 candidate class A before B before C before D",
+    "within class: AreaLogistik descending",
+    "then frozen ArtMatch descending",
+    "then current_field_id ascending for deterministic ties"
+  ],
+  "guardrails": [
+    "frozen ArtMatch v0a is read-only",
+    "C8 A/B/C/D classes are not redefined by C10",
+    "5-12 ha was observed post-hoc in C9/C9b, so AreaFit is an operational policy curve rather than an agronomic optimum",
+    "BjuvProximity uses straight-line distance and is not road travel time",
+    "AreaLogistik weights are fixed policy weights and are not label-optimized",
+    "historical-selection diagnostics produced after scoring must not be used to retune C10 v0a in the same analysis",
+    "contracts, irrigation/water risk and farmer-level machinery/management remain outside C10"
+  ]
+}
