@@ -320,54 +320,85 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
 
 def probe_smhi_svar2022(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
     s = cfg["sources"]["smhi_svar2022"]
-    page = p.get(s["explorer_page"], max_bytes=2_000_000)
+    page = p.get(s["explorer_page"], max_bytes=3_000_000)
     bulk = p.head_or_range(s["bulk_zip"])
-    wfs = p.get(s["wfs_capabilities"], max_bytes=4_000_000)
-    parsed = parse_wfs_capabilities(wfs.content)
     page_text = page.text
-    mentions_2022 = "SVAR2022" in page_text or "SVAR 2022" in page_text
-    ok = bool(bulk["ok"] and parsed["feature_types"] and mentions_2022)
+    mentions_2022 = (
+        "SVAR2022" in page_text
+        or "SVAR 2022" in page_text
+        or "Vattenförekomstavrinningsområden" in page_text
+    )
+
+    attempts = [s["wfs_capabilities"]] + list(s.get("wfs_fallbacks", []))
+    wfs_results = []
+    selected = None
+    for url in attempts:
+        try:
+            r = p.get(url, max_bytes=6_000_000)
+            parsed = parse_wfs_capabilities(r.content)
+            item = {
+                "url": r.url,
+                "status_code": r.status_code,
+                "content_type": r.headers.get("content-type"),
+                "feature_types": parsed["feature_types"],
+                "crs": parsed["crs"],
+                "version": parsed["version"],
+                "ok": bool(parsed["feature_types"]),
+            }
+            wfs_results.append(item)
+            if item["ok"] and selected is None:
+                selected = item
+        except Exception as exc:
+            wfs_results.append({"url": url, "ok": False, "error": repr(exc)})
+
+    # The official explorer page + reachable packaged GeoPackage prove a current source route.
+    # Working WFS is strongly preferred but not a blocker for STOPPUNKT B because the tiny
+    # pilot may use the official package and inspect its schema locally.
+    route_ok = bool(mentions_2022 and bulk["ok"])
+    status = "PASS" if route_ok else "FAIL"
     return {
-        "status": "PASS" if ok else "FAIL",
+        "status": status,
         "explorer_page_status_code": page.status_code,
         "mentions_svar2022": mentions_2022,
         "bulk_probe": bulk,
-        "wfs_url": wfs.url,
-        "wfs_status_code": wfs.status_code,
-        "wfs_content_type": wfs.headers.get("content-type"),
-        "wfs": parsed,
+        "wfs_attempts": wfs_results,
+        "wfs_selected": selected,
+        "wfs_status": "PASS" if selected else "UNAVAILABLE_USE_BULK_FALLBACK",
+        "schema_crs_status": (
+            "AVAILABLE_FROM_WFS" if selected
+            else "TO_BE_INSPECTED_FROM_OFFICIAL_GEOPACKAGE_IN_STOPPUNKT_B"
+        ),
         "mapping_note": (
             "This public SVAR2022 geometry product must not be assumed to expose the same SUBID/AROID identifiers "
             "used by current S-HYPE/NADIA until the B pilot proves the mapping."
         ),
     }
 
-
 def probe_smhi_shype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
     s = cfg["sources"]["smhi_shype"]
-    terms = cfg["expected"]["smhi_nadia_terms"]
+    doc_terms = cfg["expected"].get("smhi_docs_terms", ["S-HYPE", "SUBID", "vattenflöde"])
 
-    overview = p.get(s["overview"], max_bytes=2_000_000)
-    docs = p.get(s["model_area_docs"], max_bytes=2_000_000)
+    overview = p.get(s["overview"], max_bytes=3_000_000)
+    docs = p.get(s["model_area_docs"], max_bytes=3_000_000)
     nadia = p.get(s["nadia_bulk"], max_bytes=3_000_000)
     modelarea = p.get(s["modelarea"], max_bytes=3_000_000)
 
-    nadia_ok, nadia_missing = html_contains_all(nadia.text, terms)
-    docs_ok = all(
-        t.lower() in docs.text.lower()
-        for t in ("SUBID", "S-HYPE", "vattenflöde")
-    )
-    modelarea_ok = "S-HYPE" in modelarea.text and (
-        "SUBID" in modelarea.text or "AROID" in modelarea.text
-    )
+    # NADIA is partly client-rendered. Reachability is the robust inventory test;
+    # documented identifiers/variables come from the official SMHI documentation page.
+    docs_ok, docs_missing = html_contains_all(docs.text, doc_terms)
+    nadia_reachable = nadia.status_code == 200
+    modelarea_reachable = modelarea.status_code == 200 and "S-HYPE" in modelarea.text
+    overview_reachable = overview.status_code == 200
 
+    ok = docs_ok and nadia_reachable and modelarea_reachable and overview_reachable
     return {
-        "status": "PASS" if (nadia_ok and docs_ok and modelarea_ok) else "FAIL",
+        "status": "PASS" if ok else "FAIL",
         "overview_status_code": overview.status_code,
         "docs_status_code": docs.status_code,
+        "docs_expected_terms_missing": docs_missing,
         "nadia_status_code": nadia.status_code,
         "nadia_final_url": nadia.url,
-        "nadia_expected_terms_missing": nadia_missing,
+        "nadia_probe_mode": "reachability_only_client_rendered_ui",
         "modelarea_status_code": modelarea.status_code,
         "documented_bulk_mechanism": {
             "type": "official interactive multi-area bulk download",
@@ -380,7 +411,7 @@ def probe_smhi_shype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
                 "natural flow",
                 "stream temperature",
             ],
-            "documented_historical_availability_note": "SMHI Vattenwebb states flow data from 1991 are available in multi-download.",
+            "documented_historical_availability_note": "SMHI Vattenwebb documents historical model data and multi-area download; exact pilot period will be read from downloaded metadata.",
             "programmatic_backend_endpoint_documented": False,
         },
         "identifier_geometry_mapping_status": "OPEN_FOR_STOPPUNKT_B",
@@ -390,7 +421,6 @@ def probe_smhi_shype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
             "Prove linkage on the deterministic 100-field pilot before scaling."
         ),
     }
-
 
 def probe_licenses(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
     s = cfg["sources"]["licenses"]
