@@ -1,0 +1,54 @@
+{
+  "schema_version": "akervatten-mvp-v0a-stoppunkt-c-freeze",
+  "status": "PASS",
+  "field_population": 128636,
+  "coverage": {
+    "sgu_smallmag": {
+      "matched": 128632,
+      "total": 128636
+    },
+    "sgu_hype": {
+      "matched": 128636,
+      "total": 128636
+    },
+    "svar_aro_uuid": {
+      "matched": 128636,
+      "total": 128636
+    },
+    "shype_subid": {
+      "matched": 128636,
+      "total": 128636
+    }
+  },
+  "hydrological_reuse": {
+    "sgu_hype": {
+      "unique_units": 786,
+      "fields_per_unit_median": 162,
+      "fields_per_unit_p90": 287,
+      "fields_per_unit_max": 585
+    },
+    "svar_aro_uuid": {
+      "unique_units": 502,
+      "fields_per_unit_median": 176,
+      "fields_per_unit_p90": 620.9,
+      "fields_per_unit_max": 1620
+    },
+    "shype_subid": {
+      "unique_units": 502,
+      "fields_per_unit_median": 176,
+      "fields_per_unit_p90": 620.9,
+      "fields_per_unit_max": 1620
+    }
+  },
+  "performance": {
+    "final_field_rate_per_second": 1606,
+    "field_checkpoint_size": 1000,
+    "field_chunks": 129,
+    "svar_tiles": 56
+  },
+  "outputs": {
+    "spatial_links": "work/akervatten_mvp_v0a/c_full_linkage/akervatten_c_spatial_links_skane.parquet",
+    "summary": "work/akervatten_mvp_v0a/c_full_linkage/c_summary.json"
+  },
+  "next_checkpoint": "STOPPUNKT D historical hydrological feature engineering"
+}
