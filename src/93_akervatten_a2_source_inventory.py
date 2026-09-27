@@ -221,15 +221,13 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
 
     collections_doc = p.get(s["collections"], max_bytes=3_000_000).json()
     collections = {
-        str(c.get("id")): c for c in collections_doc.get("collections", []) if c.get("id")
+        str(x.get("id")): x for x in collections_doc.get("collections", []) if x.get("id")
     }
     collection_ids = sorted(collections)
 
-    # Queryables are useful schema metadata but SGU can occasionally be slow.
-    # Do not let a queryables timeout invalidate an otherwise working documented route.
-    area_fields: list[str] = []
-    history_fields: list[str] = []
-    queryables_errors: dict[str, str] = {}
+    area_fields = []
+    history_fields = []
+    queryables_errors = {}
     try:
         area_q = p.get(s["areas_queryables"], max_bytes=1_000_000).json()
         area_fields = parse_json_schema_properties(area_q)
@@ -245,36 +243,43 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
     area_props, number_matched = get_properties_from_feature_collection(area_doc)
     area_id = area_props.get("omrade_id")
     url_ts = area_props.get("url_tidsserie")
-
-    sample_history: dict[str, Any] = {}
-    if area_id is not None:
-        hist_r = p.get(
-            s["history_items_base"],
-            params={
-                "f": "application/geo+json",
-                "filter": f"omrade_id={area_id}",
-                "limit": 5,
-            },
-            max_bytes=2_000_000,
-        )
-        hist_doc = hist_r.json()
-        hist_props, hist_matched = get_properties_from_feature_collection(hist_doc)
-        sample_history = {
-            "request_url": hist_r.url,
-            "number_matched": hist_matched,
-            "sample_properties": hist_props,
-            "sample_property_names": sorted(hist_props),
-        }
-
-    # If queryables failed, the actual sample schemas still prove the fields.
-    effective_area_fields = sorted(set(area_fields) | set(area_props))
-    effective_history_fields = sorted(
-        set(history_fields) | set(sample_history.get("sample_property_names", []))
+    history_route_located = (
+        isinstance(url_ts, str)
+        and "grundvattennivaer-tidigare/items" in url_ts
+        and "omrade_id=" in url_ts
     )
 
+    sample_history = {}
+    history_probe_warning = None
+    if area_id is not None:
+        try:
+            # This is intentionally tiny. If SGU's history backend is temporarily slow,
+            # A2 may still pass-with-warning because the official area object itself
+            # exposes the filtered time-series URL. Actual retrieval is mandatory in B.
+            hist_r = p.get(
+                s["history_items_base"],
+                params={
+                    "f": "text/csv",
+                    "filter": f"omrade_id={area_id}",
+                    "limit": 5,
+                },
+                max_bytes=2_000_000,
+            )
+            lines = [line for line in hist_r.text.splitlines() if line.strip()]
+            sample_history = {
+                "request_url": hist_r.url,
+                "content_type": hist_r.headers.get("content-type"),
+                "sample_line_count": len(lines),
+                "sample_header": lines[0] if lines else None,
+                "sample_first_data_line": lines[1] if len(lines) > 1 else None,
+            }
+        except Exception as exc:
+            history_probe_warning = repr(exc)
+
+    effective_area_fields = sorted(set(area_fields) | set(area_props))
     missing_collections = sorted(set(exp["sgu_hype_collections"]) - set(collection_ids))
     missing_area_fields = sorted(set(exp["sgu_hype_area_fields"]) - set(effective_area_fields))
-    missing_history_fields = sorted(set(exp["sgu_hype_history_fields"]) - set(effective_history_fields))
+    missing_history_fields = sorted(set(exp["sgu_hype_history_fields"]) - set(history_fields))
 
     license_links = [
         link.get("href") for link in collections_doc.get("links", [])
@@ -282,16 +287,24 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
     ]
     area_collection = collections.get("omraden", {})
 
-    ok = (
+    core_ok = (
         not missing_collections
         and not missing_area_fields
-        and not missing_history_fields
         and area_id is not None
-        and isinstance(url_ts, str)
-        and bool(sample_history.get("sample_properties"))
+        and history_route_located
     )
+    history_schema_ok = not missing_history_fields
+    sample_ok = bool(sample_history.get("sample_header"))
+
+    if core_ok and history_schema_ok and sample_ok:
+        status = "PASS"
+    elif core_ok and history_schema_ok:
+        status = "PASS_WITH_WARNING"
+    else:
+        status = "FAIL"
+
     return {
-        "status": "PASS" if ok else "FAIL",
+        "status": status,
         "collections": collection_ids,
         "missing_expected_collections": missing_collections,
         "license_links": license_links,
@@ -300,8 +313,6 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
         "area_collection_storage_crs": area_collection.get("storageCrs"),
         "area_queryable_fields": area_fields,
         "history_queryable_fields": history_fields,
-        "effective_area_fields": effective_area_fields,
-        "effective_history_fields": effective_history_fields,
         "queryables_errors": queryables_errors,
         "missing_expected_area_fields": missing_area_fields,
         "missing_expected_history_fields": missing_history_fields,
@@ -311,7 +322,13 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
             "omrade_id": area_id,
             "url_tidsserie": url_ts,
         },
+        "history_route_located": history_route_located,
         "sample_history": sample_history,
+        "history_probe_warning": history_probe_warning,
+        "deferred_to_B": (
+            "Actual SGU-HYPE history retrieval must PASS in STOPPUNKT B"
+            if status == "PASS_WITH_WARNING" else None
+        ),
         "semantics": {
             "grid_description": "approximately 4x4 km SGU-HYPE areas according to SGU",
             "historical_series": "daily modelled relative groundwater-state/filling variables; period can vary by area and must be measured per cell",
@@ -351,11 +368,15 @@ def probe_smhi_svar2022(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:
             wfs_results.append({"url": url, "ok": False, "error": repr(exc)})
 
-    # The official explorer page + reachable packaged GeoPackage prove a current source route.
-    # Working WFS is strongly preferred but not a blocker for STOPPUNKT B because the tiny
-    # pilot may use the official package and inspect its schema locally.
-    route_ok = bool(mentions_2022 and bulk["ok"])
-    status = "PASS" if route_ok else "FAIL"
+    actual_route_ok = bool(bulk.get("ok") or selected is not None)
+    source_located = bool(page.status_code == 200 and mentions_2022)
+    if source_located and actual_route_ok:
+        status = "PASS"
+    elif source_located:
+        status = "PASS_WITH_WARNING"
+    else:
+        status = "FAIL"
+
     return {
         "status": status,
         "explorer_page_status_code": page.status_code,
@@ -363,10 +384,15 @@ def probe_smhi_svar2022(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
         "bulk_probe": bulk,
         "wfs_attempts": wfs_results,
         "wfs_selected": selected,
-        "wfs_status": "PASS" if selected else "UNAVAILABLE_USE_BULK_FALLBACK",
+        "actual_route_ok": actual_route_ok,
+        "wfs_status": "PASS" if selected else "UNAVAILABLE_USE_BULK_OR_B_PILOT",
         "schema_crs_status": (
             "AVAILABLE_FROM_WFS" if selected
-            else "TO_BE_INSPECTED_FROM_OFFICIAL_GEOPACKAGE_IN_STOPPUNKT_B"
+            else "TO_BE_INSPECTED_FROM_OFFICIAL_PACKAGE_IN_STOPPUNKT_B"
+        ),
+        "deferred_to_B": (
+            "Actual SVAR2022 geometry retrieval must PASS in STOPPUNKT B"
+            if status == "PASS_WITH_WARNING" else None
         ),
         "mapping_note": (
             "This public SVAR2022 geometry product must not be assumed to expose the same SUBID/AROID identifiers "
@@ -596,7 +622,7 @@ def main() -> int:
             value = fn(p, cfg)
             result[name] = value
             print(f"        {value['status']}")
-            if value["status"] != "PASS":
+            if value["status"] not in {"PASS", "PASS_WITH_WARNING"}:
                 problems.append(f"{name}: {value['status']}")
         except Exception as exc:
             result[name] = {"status": "ERROR", "error": repr(exc)}
@@ -620,7 +646,7 @@ def main() -> int:
         print(f"  {name:30s} {result[name]['status']}")
 
     gh = result.get("sgu_hype", {})
-    if gh.get("status") == "PASS":
+    if gh.get("status") in {"PASS", "PASS_WITH_WARNING"}:
         print("\nSGU-HYPE")
         print("  collections:", ", ".join(gh.get("collections", [])))
         print("  storage CRS:", gh.get("area_collection_storage_crs"))
@@ -628,7 +654,7 @@ def main() -> int:
         print("  sample history fields:", ", ".join(gh.get("sample_history", {}).get("sample_property_names", [])))
 
     sv = result.get("smhi_svar2022", {})
-    if sv.get("status") == "PASS":
+    if sv.get("status") in {"PASS", "PASS_WITH_WARNING"}:
         print("\nSMHI SVAR2022")
         selected = sv.get("wfs_selected") or {}
         print("  WFS status:", sv.get("wfs_status"))
