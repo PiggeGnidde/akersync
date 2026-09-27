@@ -26,6 +26,23 @@ def norm_id(v: Any) -> str:
     return re.sub(r"\.0$", "", s)
 
 
+def requested_ids_in_cell(v: Any, requested: set[str]) -> set[str]:
+    """Recognize both bare IDs and NADIA labels such as 'Subid 101'."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return set()
+    s = norm_id(v)
+    hits = set()
+    if s in requested:
+        hits.add(s)
+
+    # NADIA writes the basin identity as labels such as "Subid 101".
+    for m in re.finditer(r"(?i)\bsub[\s_-]*id\s*[:=#-]?\s*(\d+)\b", str(v)):
+        sid = norm_id(m.group(1))
+        if sid in requested:
+            hits.add(sid)
+    return hits
+
+
 def read_excel_any(path: Path) -> dict[str, pd.DataFrame]:
     sig = path.read_bytes()[:8]
     ole = bytes.fromhex("D0CF11E0A1B11AE1")
@@ -45,8 +62,11 @@ def read_excel_any(path: Path) -> dict[str, pd.DataFrame]:
 def score_sheet(raw: pd.DataFrame, requested: set[str]) -> tuple[int,int,set[str]]:
     best = (-1, -1, set())
     for row_idx in range(min(100, len(raw))):
-        vals = [norm_id(v) for v in raw.iloc[row_idx].tolist() if pd.notna(v)]
-        hits = set(vals) & requested
+        row_values = [v for v in raw.iloc[row_idx].tolist() if pd.notna(v)]
+        vals = [norm_id(v) for v in row_values]
+        hits = set()
+        for v in row_values:
+            hits |= requested_ids_in_cell(v, requested)
         score = len(hits) * 100
         texts = " ".join(vals).lower()
         if any(x in texts for x in ("datum","date","tid","time")):
@@ -86,8 +106,13 @@ def main() -> int:
     all_text_hits = set()
     for name, raw in sheets.items():
         score, header_row, hits = score_sheet(raw, expected_set)
-        all_text_hits |= hits
         candidates.append((score, name, header_row, hits))
+
+        # IDs may occur in NADIA title/header blocks as "Subid 101",
+        # not as bare numeric cells. Scan the full sheet for those labels.
+        for v in raw.to_numpy().ravel():
+            if pd.notna(v):
+                all_text_hits |= requested_ids_in_cell(v, expected_set)
     candidates.sort(reverse=True, key=lambda x: x[0])
 
     print("\nTOP SHEETS")
@@ -162,7 +187,7 @@ def main() -> int:
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
 
     print("\nRESULT")
-    print("  IDs seen:", ",".join(sorted(all_text_hits)) or "(none)")
+    print("  requested SUBIDs seen:", ",".join(sorted(all_text_hits, key=lambda x: int(x))) or "(none)")
     for e in daily_evidence:
         print(
             f"  daily-series evidence: sheet={e['sheet']!r}, "
