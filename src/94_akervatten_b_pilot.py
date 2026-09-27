@@ -114,7 +114,9 @@ def read_local_paths(path: Path) -> dict[str, Any]:
 
 def stable_hash(blockid: str, skifte: str) -> int:
     key = f"{blockid}|{skifte}".encode("utf-8")
-    return int.from_bytes(hashlib.sha256(key).digest()[:8], "big", signed=False)
+    # Keep the deterministic hash inside signed int64 so GDAL/GeoPackage
+    # can serialize it safely if it ever leaks into an exported table.
+    return int.from_bytes(hashlib.sha256(key).digest()[:8], "big", signed=False) & ((1 << 63) - 1)
 
 
 def build_deterministic_sample(
@@ -165,11 +167,19 @@ def build_deterministic_sample(
         # 1) dry archetype, 2) wet archetype, 3) non-old-robust quality-edge case.
         for mode in ("dry", "wet", "edge"):
             if mode == "dry":
-                z = q[q["dry_axis"].notna()].sort_values(
+                # Prefer a physically dry archetype with robust local inputs.
+                base = q[q["old_robust"].fillna(False) & q["dry_axis"].notna()]
+                if base.empty:
+                    base = q[q["dry_axis"].notna()]
+                z = base.sort_values(
                     ["dry_axis", "_hash"], ascending=[False, True]
                 )
             elif mode == "wet":
-                z = q[q["wet_axis"].notna()].sort_values(
+                # Prefer a physically wet archetype with robust local inputs.
+                base = q[q["old_robust"].fillna(False) & q["wet_axis"].notna()]
+                if base.empty:
+                    base = q[q["wet_axis"].notna()]
+                z = base.sort_values(
                     ["wet_axis", "_hash"], ascending=[False, True]
                 )
             else:
@@ -234,7 +244,9 @@ def load_pilot_geometries(sample: pd.DataFrame, skiften_path: Path) -> gpd.GeoDa
     pts = g.to_crs(3006).copy()
     pts["geometry"] = pts.geometry.representative_point()
     pts = pts[KEY + ["geometry"]]
-    out = gpd.GeoDataFrame(sample.merge(pts, on=KEY, validate="one_to_one"), crs=pts.crs)
+    # Internal sampling helpers are not product/output fields.
+    sample_export = sample.drop(columns=["_hash"], errors="ignore")
+    out = gpd.GeoDataFrame(sample_export.merge(pts, on=KEY, validate="one_to_one"), crs=pts.crs)
     w = out.to_crs(4326)
     out["lon"] = w.geometry.x.values
     out["lat"] = w.geometry.y.values
