@@ -225,10 +225,21 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
     }
     collection_ids = sorted(collections)
 
-    area_q = p.get(s["areas_queryables"], max_bytes=1_000_000).json()
-    hist_q = p.get(s["history_queryables"], max_bytes=1_000_000).json()
-    area_fields = parse_json_schema_properties(area_q)
-    history_fields = parse_json_schema_properties(hist_q)
+    # Queryables are useful schema metadata but SGU can occasionally be slow.
+    # Do not let a queryables timeout invalidate an otherwise working documented route.
+    area_fields: list[str] = []
+    history_fields: list[str] = []
+    queryables_errors: dict[str, str] = {}
+    try:
+        area_q = p.get(s["areas_queryables"], max_bytes=1_000_000).json()
+        area_fields = parse_json_schema_properties(area_q)
+    except Exception as exc:
+        queryables_errors["areas"] = repr(exc)
+    try:
+        hist_q = p.get(s["history_queryables"], max_bytes=1_000_000).json()
+        history_fields = parse_json_schema_properties(hist_q)
+    except Exception as exc:
+        queryables_errors["history"] = repr(exc)
 
     area_doc = p.get(s["areas_sample"], max_bytes=2_000_000).json()
     area_props, number_matched = get_properties_from_feature_collection(area_doc)
@@ -255,16 +266,22 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
             "sample_property_names": sorted(hist_props),
         }
 
+    # If queryables failed, the actual sample schemas still prove the fields.
+    effective_area_fields = sorted(set(area_fields) | set(area_props))
+    effective_history_fields = sorted(
+        set(history_fields) | set(sample_history.get("sample_property_names", []))
+    )
+
     missing_collections = sorted(set(exp["sgu_hype_collections"]) - set(collection_ids))
-    missing_area_fields = sorted(set(exp["sgu_hype_area_fields"]) - set(area_fields))
-    missing_history_fields = sorted(set(exp["sgu_hype_history_fields"]) - set(history_fields))
+    missing_area_fields = sorted(set(exp["sgu_hype_area_fields"]) - set(effective_area_fields))
+    missing_history_fields = sorted(set(exp["sgu_hype_history_fields"]) - set(effective_history_fields))
 
     license_links = [
         link.get("href") for link in collections_doc.get("links", [])
         if link.get("rel") == "license"
     ]
-
     area_collection = collections.get("omraden", {})
+
     ok = (
         not missing_collections
         and not missing_area_fields
@@ -283,6 +300,9 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
         "area_collection_storage_crs": area_collection.get("storageCrs"),
         "area_queryable_fields": area_fields,
         "history_queryable_fields": history_fields,
+        "effective_area_fields": effective_area_fields,
+        "effective_history_fields": effective_history_fields,
+        "queryables_errors": queryables_errors,
         "missing_expected_area_fields": missing_area_fields,
         "missing_expected_history_fields": missing_history_fields,
         "sample_area": {
@@ -297,7 +317,6 @@ def probe_sgu_hype(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
             "historical_series": "daily modelled relative groundwater-state/filling variables; period can vary by area and must be measured per cell",
         },
     }
-
 
 def probe_smhi_svar2022(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
     s = cfg["sources"]["smhi_svar2022"]
