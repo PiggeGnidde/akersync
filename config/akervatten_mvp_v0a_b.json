@@ -21,7 +21,10 @@
     "smhi_svar_typename": "SMHI_vatten:Vattenforekomstavrinningsomraden_2022",
     "smhi_shype_dir": "https://data-download.smhi.se/data/hydrology/s-hype2022/",
     "smhi_shype_coupling": "https://data-download.smhi.se/data/hydrology/s-hype2022/s-hype2022_kopplingstabell.csv",
-    "smhi_svar_zip": "https://opendata-download.smhi.se/svar/SVAR2022_Vattenforekomstavrinningsomraden.zip"
+    "smhi_svar_zip": "https://opendata-download.smhi.se/svar/SVAR2022_Vattenforekomstavrinningsomraden.zip",
+    "smhi_vattenwebb_flowstatistics": "https://vattenwebb.smhi.se/webservices/download/api/v1/excel/land/basins/flowstatistics",
+    "smhi_nadia": "https://vattenwebb.smhi.se/nadia/",
+    "smhi_realtime_delivery_note": "https://www.smhi.se/data/sok-oppna-data-i-utforskaren/hydrologisk-modell-s-hype-prognos-och-analysdata-realtid"
   },
   "pilot_rules": {
     "municipality_column": "kommun",
@@ -34,8 +37,9 @@
     "no full-Skane scaling in B",
     "SGU small-magasin values are screening values, not individual well yield",
     "SGU-HYPE is modelled regional groundwater context",
-    "S-HYPE is modelled catchment/outlet flow, not a field-specific withdrawal right",
     "physical/hydrological screening is not legal water-withdrawal right",
-    "no MarkTorka/MarkVata/composite score is frozen in B"
+    "no MarkTorka/MarkVata/composite score is frozen in B",
+    "S-HYPE realtime delivery requiring authentication/payment is not used or bypassed",
+    "current open Vattenwebb/NADIA model data are the intended surface-water source"
   ]
 }
