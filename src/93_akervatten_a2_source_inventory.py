@@ -452,88 +452,105 @@ def probe_licenses(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def render_markdown(result: dict[str, Any]) -> str:
+    def status(name: str) -> str:
+        return str(result.get(name, {}).get("status", "MISSING"))
+
     lines = [
         "# ÅkerVatten MVP v0a · STOPPUNKT A2 official source inventory",
         "",
-        f"**Overall status: {result['status']}**",
+        f"**Overall status: {result.get('status','UNKNOWN')}**",
         "",
         "No large public source dataset was downloaded by this inventory.",
         "",
-        "## SGU — Grundvattentillgång i små magasin",
+        "## Probe summary",
         "",
     ]
-    sm = result["sgu_smallmag"]
-    lines += [
-        f"- Status: **{sm['status']}**",
-        f"- WCS coverages: {', '.join(sm['wcs']['coverage_ids']) or 'none detected'}",
-        f"- WCS formats: {', '.join(sm['wcs']['formats']) or 'not reported'}",
-        f"- Bulk route probe: {sm['bulk_probe']['status_code']} via {sm['bulk_probe']['method']}",
-        "- Semantics: regional/local screening; not a field-specific well-yield claim.",
-        "",
-        "## SGU — Grundvattenmagasin",
-        "",
-    ]
-    gm = result["sgu_groundwater_magazines"]
-    lines += [
-        f"- Status: **{gm['status']}**",
-        f"- OGC collections: {', '.join(gm['collections']) or 'none'}",
-        "",
-        "## SGU-HYPE",
-        "",
-    ]
-    gh = result["sgu_hype"]
-    lines += [
-        f"- Status: **{gh['status']}**",
-        f"- Collections: {', '.join(gh['collections'])}",
-        f"- Area storage CRS: {gh.get('area_collection_storage_crs')}",
-        f"- Sample area ID: {gh['sample_area'].get('omrade_id')}",
-        f"- Sample time-series URL present: {'yes' if gh['sample_area'].get('url_tidsserie') else 'no'}",
-        f"- History fields: {', '.join(gh['history_queryable_fields'])}",
-        "",
-        "## SMHI — SVAR2022 geometry",
-        "",
-    ]
-    sv = result["smhi_svar2022"]
-    lines += [
-        f"- Status: **{sv['status']}**",
-        f"- WFS feature types: {', '.join(x.get('name','') for x in sv['wfs']['feature_types'])}",
-        f"- WFS CRS: {', '.join(sv['wfs']['crs']) or 'not reported'}",
-        f"- Bulk route probe: {sv['bulk_probe']['status_code']} via {sv['bulk_probe']['method']}",
-        "",
-        "## SMHI — S-HYPE / Vattenwebb / NADIA",
-        "",
-    ]
-    sh = result["smhi_shype"]
-    lines += [
-        f"- Status: **{sh['status']}**",
-        "- Documented bulk identifiers: SUBID / AROID.",
-        "- Documented flow variables include local, total, station-corrected total and natural flow.",
-        f"- Geometry ↔ current S-HYPE identifier mapping: **{sh['identifier_geometry_mapping_status']}**",
-        f"- Note: {sh['identifier_geometry_mapping_note']}",
-        "",
-        "## Licenses",
-        "",
-        f"- SGU: {result['licenses']['sgu']['detected_license']}",
-        f"- SMHI: {result['licenses']['smhi']['detected_license']}",
-        "",
-        "## A2 decision",
-        "",
-    ]
-    if result["status"] == "PASS":
+    for name in (
+        "sgu_smallmag",
+        "sgu_groundwater_magazines",
+        "sgu_hype",
+        "smhi_svar2022",
+        "smhi_shype",
+        "licenses",
+    ):
+        item = result.get(name, {})
+        line = f"- **{name}**: {item.get('status','MISSING')}"
+        if item.get("error"):
+            line += f" — {item['error']}"
+        lines.append(line)
+
+    sm = result.get("sgu_smallmag", {})
+    lines += ["", "## SGU — Grundvattentillgång i små magasin", ""]
+    if sm.get("status") == "PASS":
+        lines += [
+            f"- WCS coverages: {', '.join(sm.get('wcs',{}).get('coverage_ids',[])) or 'none detected'}",
+            f"- WCS formats: {', '.join(sm.get('wcs',{}).get('formats',[])) or 'not reported'}",
+            f"- Bulk route probe: {sm.get('bulk_probe',{}).get('status_code')} via {sm.get('bulk_probe',{}).get('method')}",
+            "- Semantics: regional/local screening; not a field-specific well-yield claim.",
+        ]
+
+    gm = result.get("sgu_groundwater_magazines", {})
+    lines += ["", "## SGU — Grundvattenmagasin", ""]
+    if gm.get("status") == "PASS":
+        lines.append(f"- OGC collections: {', '.join(gm.get('collections',[])) or 'none'}")
+
+    gh = result.get("sgu_hype", {})
+    lines += ["", "## SGU-HYPE", ""]
+    if gh.get("status") in {"PASS","FAIL"}:
+        lines += [
+            f"- Collections: {', '.join(gh.get('collections',[])) or 'not available'}",
+            f"- Area storage CRS: {gh.get('area_collection_storage_crs')}",
+            f"- Sample area ID: {gh.get('sample_area',{}).get('omrade_id')}",
+            f"- Sample time-series URL present: {'yes' if gh.get('sample_area',{}).get('url_tidsserie') else 'no'}",
+            f"- Effective history fields: {', '.join(gh.get('effective_history_fields',[])) or 'not available'}",
+        ]
+        if gh.get("queryables_errors"):
+            lines.append(f"- Queryables warnings: {gh['queryables_errors']}")
+
+    sv = result.get("smhi_svar2022", {})
+    lines += ["", "## SMHI — SVAR2022 geometry", ""]
+    if sv.get("status") in {"PASS","FAIL"}:
+        selected = sv.get("wfs_selected") or {}
+        lines += [
+            f"- Official explorer/bulk route: {'reachable' if sv.get('bulk_probe',{}).get('ok') else 'not confirmed'}",
+            f"- WFS status: {sv.get('wfs_status')}",
+            f"- Selected WFS feature types: {', '.join(x.get('name','') for x in selected.get('feature_types',[])) or 'none'}",
+            f"- Selected WFS CRS: {', '.join(selected.get('crs',[])) or 'not reported'}",
+            f"- Schema/CRS plan: {sv.get('schema_crs_status')}",
+        ]
+
+    sh = result.get("smhi_shype", {})
+    lines += ["", "## SMHI — S-HYPE / Vattenwebb / NADIA", ""]
+    if sh.get("status") in {"PASS","FAIL"}:
+        lines += [
+            "- Documented bulk identifiers: SUBID / AROID.",
+            "- Documented flow variables include local, total, station-corrected total and natural flow.",
+            f"- Geometry ↔ current S-HYPE identifier mapping: **{sh.get('identifier_geometry_mapping_status')}**",
+            f"- Note: {sh.get('identifier_geometry_mapping_note')}",
+        ]
+
+    lic = result.get("licenses", {})
+    lines += ["", "## Licenses", ""]
+    if lic.get("status") == "PASS":
+        lines += [
+            f"- SGU: {lic.get('sgu',{}).get('detected_license')}",
+            f"- SMHI: {lic.get('smhi',{}).get('detected_license')}",
+        ]
+
+    lines += ["", "## A2 decision", ""]
+    if result.get("status") == "PASS":
         lines += [
             "Official source routes, schemas and licenses are sufficiently inventoried to proceed to STOPPUNKT B.",
             "",
             "The 100-field pilot must explicitly prove the current S-HYPE geometry-to-SUBID/AROID linkage before any full-Skåne join.",
         ]
     else:
-        lines += [
-            "Do not proceed to STOPPUNKT B until the failed source probes are understood.",
-        ]
+        lines.append("Do not proceed to STOPPUNKT B until the failed source probes are understood.")
+
     lines += ["", "## Guardrails", ""]
-    for g in result["guardrails"]:
+    for g in result.get("guardrails", []):
         lines.append("- " + g)
     return "\n".join(lines) + "\n"
-
 
 def main() -> int:
     ap = argparse.ArgumentParser()
