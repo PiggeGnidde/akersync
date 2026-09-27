@@ -1,0 +1,69 @@
+{
+  "schema_version": "akervatten-mvp-v0a-f-component-candidates",
+  "paths": {
+    "e_freeze": "config/akervatten_mvp_v0a_e_freeze.json",
+    "d_fields": "work/akervatten_mvp_v0a/d_history/akervatten_d_history_features_skane.parquet",
+    "d_groundwater_units": "work/akervatten_mvp_v0a/d_history/groundwater_history_features.parquet",
+    "d_surface_units": "work/akervatten_mvp_v0a/d_history/surfacewater_history_features.parquet",
+    "soil": "C:\\AkerSyncRepo\\data\\derived\\soil_features_skiften.csv",
+    "hydrology": "C:\\AkerSyncRepo\\data\\derived\\hydrology_features_skiften.csv"
+  },
+  "output": {
+    "work_dir": "work/akervatten_mvp_v0a/f_component_candidates"
+  },
+  "transform": {
+    "percentile_min": 0,
+    "percentile_max": 100,
+    "tie_method": "average",
+    "strict_primary_complete": true
+  },
+  "aggregation": {
+    "MarkTorka": {
+      "sand_mean": 0.5,
+      "twi_mean": 0.5
+    },
+    "MarkVata": {
+      "clay_mean": 0.5,
+      "twi_mean": 0.5
+    },
+    "GrundvattenTillgang": {
+      "sgu_smallmag_value": 1
+    },
+    "GrundvattenTorka": {
+      "gw_small_situation_le10_max_run_days": 0.5,
+      "gw_small_situation_summer_p10": 0.5
+    },
+    "YtvattenTorka": {
+      "sw_MLQ_MQ_ratio_total": 0.5,
+      "sw_MLQ_total_lps_km2_upstream": 0.5
+    }
+  },
+  "validation": {
+    "top_fraction": 0.1,
+    "extremes_per_component": 20,
+    "min_expected_coverage": {
+      "MarkTorka": 0.95,
+      "MarkVata": 0.95,
+      "GrundvattenTillgang": 0.999,
+      "GrundvattenTorka": 0.999,
+      "YtvattenTorka": 0.999
+    }
+  },
+  "semantics": {
+    "MarkTorka": "0=less drought-prone soil/topographic setting; 100=more drought-prone",
+    "MarkVata": "0=less wetness-prone soil/topographic setting; 100=more wetness-prone",
+    "GrundvattenTillgang": "0=lower modelled small-aquifer availability; 100=higher modelled availability",
+    "GrundvattenTorka": "0=less historically groundwater-drought-prone; 100=more historically drought-prone",
+    "YtvattenTorka": "0=less historically low-flow-prone; 100=more historically low-flow-prone"
+  },
+  "guardrails": [
+    "STOPPUNKT F creates candidate component transforms only",
+    "no combined ÅkerVatten index is created",
+    "groundwater and surface-water empirical percentiles are defined unit-weighted before field join",
+    "local soil/TWI empirical percentiles are defined field-weighted",
+    "multi-feature candidate components use explicit equal weights only as the F baseline",
+    "strict scores are missing when any frozen primary feature is missing; no silent weight renormalization",
+    "component scales are empirical relative scales, not physical probabilities",
+    "physical and hydrological screening is not legal water-withdrawal right"
+  ]
+}
