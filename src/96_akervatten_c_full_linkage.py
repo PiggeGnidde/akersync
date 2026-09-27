@@ -316,7 +316,10 @@ def fetch_svar_tiles(
         points[["field_seq"]].copy(),
         geometry=gpd.points_from_xy(points["x3006"], points["y3006"]),
         crs=3006,
-    )
+    ).reset_index(drop=True)
+    probe_points = pgeo.copy()
+    # STOPPUNKT B's negotiation helper names its identity column pilot_order.
+    probe_points["pilot_order"] = probe_points["field_seq"]
     plan = tile_plan(tuple(float(v) for v in pgeo.total_bounds), tile_size)
 
     urls = bcfg["sources"].get(
@@ -329,7 +332,7 @@ def fetch_svar_tiles(
     working = []
     probes = []
     for url in urls:
-        probe = B._probe_wfs_service(dl, url, hint, pgeo, 250.0)
+        probe = B._probe_wfs_service(dl, url, hint, probe_points, 250.0)
         probes.append(probe)
         if probe and probe.get("status") == "WORKING":
             working.append(probe)
@@ -493,6 +496,7 @@ def process_field_chunk(
     svar: gpd.GeoDataFrame,
     flow_map: pd.DataFrame,
 ) -> pd.DataFrame:
+    chunk = chunk.reset_index(drop=True)
     pts = gpd.GeoDataFrame(
         chunk[["field_seq"]].copy(),
         geometry=gpd.points_from_xy(chunk["x3006"], chunk["y3006"]),
