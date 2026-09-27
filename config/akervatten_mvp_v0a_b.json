@@ -26,7 +26,13 @@
     "smhi_nadia": "https://vattenwebb.smhi.se/nadia/",
     "smhi_realtime_delivery_note": "https://www.smhi.se/data/sok-oppna-data-i-utforskaren/hydrologisk-modell-s-hype-prognos-och-analysdata-realtid",
     "smhi_svar_subcatch_wfs": "https://opendata-view.smhi.se/SMHI_vatten/Delavrinningsomraden_2022/wfs",
-    "smhi_svar_subcatch_typename_hint": "Delavrinningsomraden_2022"
+    "smhi_svar_subcatch_typename_hint": "Delavrinningsomraden_2022",
+    "smhi_svar_subcatch_wfs_candidates": [
+      "https://opendata-view.smhi.se/SMHI_vatten/Delavrinningsomraden_2022/wfs",
+      "https://opendata-view.smhi.se/SMHI_vatten/Delavrinningsomraden_2022_SE4/wfs",
+      "https://opendata-view.smhi.se/SMHI_vatten/Delavrinningsomraden_2022_SE5_INT/wfs",
+      "https://opendata-view.smhi.se/SMHI_vatten/Delavrinningsomraden_2022_SE5/wfs"
+    ]
   },
   "pilot_rules": {
     "municipality_column": "kommun",
