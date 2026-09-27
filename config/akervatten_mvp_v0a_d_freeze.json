@@ -1,0 +1,75 @@
+{
+  "schema_version": "akervatten-mvp-v0a-stoppunkt-d-freeze",
+  "status": "PASS",
+  "role": "historical raw-feature baseline",
+  "population": {
+    "fields": 128636,
+    "sgu_hype_units": 786,
+    "shype_units": 502
+  },
+  "coverage": {
+    "sgu_units_parsed": {
+      "matched": 786,
+      "total": 786
+    },
+    "sgu_units_long_history": {
+      "matched": 786,
+      "total": 786
+    },
+    "surface_units_with_mlq": {
+      "matched": 502,
+      "total": 502
+    },
+    "fields_with_groundwater_history": {
+      "matched": 128636,
+      "total": 128636
+    },
+    "fields_with_surface_mlq": {
+      "matched": 128636,
+      "total": 128636
+    }
+  },
+  "sgu_probe": {
+    "rows": 24004,
+    "date_start": "1961-01-01",
+    "date_end": "2026-09-20",
+    "history_years": 65.7
+  },
+  "surface_reference_period": "1981-2010",
+  "raw_feature_distributions_field_weighted": {
+    "gw_small_situation_le10_max_run_days": {
+      "p10": 212,
+      "p50": 235,
+      "p90": 542
+    },
+    "gw_small_fill_summer_p10": {
+      "p10": 5,
+      "p50": 6,
+      "p90": 9
+    },
+    "sw_MLQ_MQ_ratio_total": {
+      "p10": 0.02633,
+      "p50": 0.05833,
+      "p90": 0.2393
+    },
+    "sw_MLQ_total_m3s": {
+      "p10": 0.006768,
+      "p50": 0.03171,
+      "p90": 1.198
+    },
+    "sw_MLQ_total_lps_km2_upstream": {
+      "p10": 0.09349,
+      "p50": 0.5548,
+      "p90": 2.382
+    }
+  },
+  "nadia_d2": {
+    "required_for_d_freeze": false,
+    "prepared_subids": 502,
+    "batches": 11,
+    "batch_size_max": 50,
+    "period": "1991-2025",
+    "timestep": "daily"
+  },
+  "next_checkpoint": "STOPPUNKT E component-level risk transforms and validation"
+}
