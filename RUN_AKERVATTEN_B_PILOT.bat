@@ -29,10 +29,10 @@ if errorlevel 1 (
 )
 
 echo [preflight] Python dependencies...
-py -3 -c "import pandas,numpy,geopandas,rasterio,requests,pyproj,xarray"
+py -3 -c "import pandas,numpy,geopandas,rasterio,requests,pyproj,openpyxl"
 if errorlevel 1 (
   echo.
-  echo FAIL: B pilot requires pandas numpy geopandas rasterio requests pyproj xarray.
+  echo FAIL: B pilot requires pandas numpy geopandas rasterio requests pyproj openpyxl.
   echo Paste the complete import error back to the coding chat; do not install random packages yet.
   exit /b 1
 )
@@ -51,7 +51,7 @@ echo.
 echo ====================================================================================================
 echo RUN_AKERVATTEN_B_PILOT: PASS
 echo ====================================================================================================
-echo STOPPUNKT B is ready for review. No score has been frozen.
+echo STOPPUNKT B core chain is ready for review. NADIA daily-series validation may still be pending. No score has been frozen.
 exit /b 0
 
 :fail
