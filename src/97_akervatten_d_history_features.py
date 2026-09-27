@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+import io
 import json
 import math
 import os
@@ -122,7 +123,7 @@ def read_sgu_csv(path: Path) -> pd.DataFrame:
         for sep in (",", ";", "\t"):
             try:
                 df = pd.read_csv(
-                    pd.io.common.StringIO(text),
+                    io.StringIO(text),
                     sep=sep,
                     dtype=str,
                     low_memory=False,
@@ -394,6 +395,11 @@ def find_flowstats_headers(raw: pd.DataFrame) -> tuple[int, int, list[str | None
                 break
         if found:
             current = found
+        elif txt:
+            # A non-empty label not recognized as one of the documented
+            # six statistics starts a different group; do not let the
+            # previous MQ/MLQ label bleed into it.
+            current = None
         labels.append(current)
     return header_row, stat_row, labels
 
