@@ -523,13 +523,17 @@ def prepare_surface_units(c_links: pd.DataFrame, flow: pd.DataFrame) -> tuple[pd
         raise RuntimeError(f"C Subid disagrees with flowstats after Aroid mapping: {bad.to_dict('records')}")
 
     if "AREA_UPSTREAM" in out.columns:
-        area = pd.to_numeric(out["AREA_UPSTREAM"], errors="coerce")
+        # SVAR2022 AREA_UPSTREAM is stored in m². Convert explicitly to km²
+        # before deriving specific discharge in l/s/km².
+        area_m2 = pd.to_numeric(out["AREA_UPSTREAM"], errors="coerce")
+        area_km2 = area_m2 / 1_000_000.0
+        out["sw_area_upstream_km2"] = area_km2
         for stat in ("MQ", "MLQ"):
             for kind in ("total", "stationscorr", "natural"):
                 c = f"sw_{stat}_{kind}_m3s"
                 if c in out.columns:
                     out[f"sw_{stat}_{kind}_lps_km2_upstream"] = (
-                        1000.0 * out[c] / area.where(area > 0)
+                        1000.0 * out[c] / area_km2.where(area_km2 > 0)
                     )
 
     if "sw_MLQ_total_m3s" in out.columns and "sw_MLQ_natural_m3s" in out.columns:
