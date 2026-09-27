@@ -493,10 +493,26 @@ def read_svar_bulk_for_pilot(zip_path: Path, bbox3006: tuple[float,float,float,f
     )
 
 def download_vattenwebb_excel(dl: Downloader, url: str, path: Path) -> Path:
+    """Download SMHI Vattenwebb flow statistics.
+
+    The official UI labels this resource XLS (legacy BIFF), not XLSX.
+    Migrate the earlier incorrectly suffixed cache if present.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    old_xlsx = path.with_suffix(".xlsx")
+    ole_magic = bytes.fromhex("D0CF11E0A1B11AE1")
+    if not path.exists() and old_xlsx.exists() and old_xlsx.stat().st_size > 0:
+        with old_xlsx.open("rb") as fh:
+            sig = fh.read(8)
+        if sig == ole_magic:
+            old_xlsx.replace(path)
+            print(f"  cache migrated: {old_xlsx.name} -> {path.name}")
+
     if path.exists() and path.stat().st_size > 0:
         print(f"  cache: {path.name} ({path.stat().st_size/1024/1024:.1f} MB)")
         return path
+
     r = dl.get(url, stream=True, timeout=300)
     tmp = path.with_suffix(path.suffix + ".part")
     total = 0
@@ -566,19 +582,18 @@ def _xlsx_sheet_paths(z: zipfile.ZipFile) -> list[tuple[str, str]]:
             continue
         target = relmap[rid].replace("\\\\", "/")
         if target.startswith("/"):
-            path = target.lstrip("/")
+            spath = target.lstrip("/")
         elif target.startswith("xl/"):
-            path = target
+            spath = target
         else:
-            path = str(PurePosixPath("xl") / target)
-        out.append((name, path))
+            spath = str(PurePosixPath("xl") / target)
+        out.append((name, spath))
     return out
 
 
 def _xlsx_rows(z: zipfile.ZipFile, sheet_path: str, shared: list[str]) -> list[list[Any]]:
     root = ET.fromstring(z.read(sheet_path))
     rows: list[list[Any]] = []
-
     for row_el in root.iter():
         if not (row_el.tag.endswith("}row") or row_el.tag == "row"):
             continue
@@ -590,7 +605,6 @@ def _xlsx_rows(z: zipfile.ZipFile, sheet_path: str, shared: list[str]) -> list[l
             idx = _xlsx_col_index(ref)
             ctype = cell.attrib.get("t")
             value = None
-
             if ctype == "inlineStr":
                 parts = []
                 for el in cell.iter():
@@ -614,9 +628,7 @@ def _xlsx_rows(z: zipfile.ZipFile, sheet_path: str, shared: list[str]) -> list[l
                         value = raw == "1"
                     else:
                         value = raw
-
             vals[idx] = value
-
         if vals:
             width = max(vals) + 1
             row = [None] * width
@@ -628,81 +640,103 @@ def _xlsx_rows(z: zipfile.ZipFile, sheet_path: str, shared: list[str]) -> list[l
     return rows
 
 
+def _find_flowstats_header(frames: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, dict[str, Any]]:
+    candidates = []
+    for sheet, raw in frames.items():
+        for row_idx in range(min(100, len(raw))):
+            vals = [
+                str(v).strip().upper()
+                for v in raw.iloc[row_idx].tolist()
+                if pd.notna(v) and str(v).strip()
+            ]
+            score = 0
+            if "SUBID" in vals:
+                score += 5
+            if "AROID" in vals:
+                score += 5
+            if any("SUBID" in v for v in vals):
+                score += 2
+            if any("AROID" in v for v in vals):
+                score += 2
+            if any("MEDEL" in v or v in {"MQ","MLQ","MHQ"} for v in vals):
+                score += 1
+            if score:
+                candidates.append((score, sheet, row_idx))
+
+    if not candidates:
+        raise RuntimeError(
+            "Could not locate SUBID/AROID header in Vattenwebb workbook. "
+            f"sheets={list(frames)}"
+        )
+
+    candidates.sort(reverse=True)
+    _, sheet, header_row = candidates[0]
+    raw = frames[sheet]
+    header = raw.iloc[header_row].tolist()
+
+    columns = []
+    seen = {}
+    for i, value in enumerate(header):
+        base = str(value).strip() if pd.notna(value) and str(value).strip() else f"unnamed_{i}"
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        columns.append(base if n == 0 else f"{base}_{n+1}")
+
+    df = raw.iloc[header_row + 1:].copy()
+    df.columns = columns[:len(df.columns)]
+    df = df.dropna(how="all").reset_index(drop=True)
+
+    return df, {
+        "sheet": sheet,
+        "header_row_zero_based": int(header_row),
+        "rows": int(len(df)),
+        "columns": list(df.columns),
+        "sheets": list(frames),
+    }
+
+
 def read_vattenwebb_flowstatistics(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Read SMHI's XLSX without requiring openpyxl.
+    """Read SMHI's workbook after sniffing the actual Excel container format."""
+    with path.open("rb") as fh:
+        sig = fh.read(8)
 
-    XLSX is a ZIP of XML files, so the pilot uses only Python stdlib here.
-    """
-    with zipfile.ZipFile(path) as z:
-        shared = _xlsx_shared_strings(z)
-        sheets = _xlsx_sheet_paths(z)
-        if not sheets:
-            raise RuntimeError("Vattenwebb workbook contains no readable worksheets")
+    ole_magic = bytes.fromhex("D0CF11E0A1B11AE1")
 
-        candidates = []
-        parsed: dict[str, list[list[Any]]] = {}
-
-        for sheet_name, sheet_path in sheets:
-            rows = _xlsx_rows(z, sheet_path, shared)
-            parsed[sheet_name] = rows
-            for row_idx, row in enumerate(rows[:100]):
-                vals = [
-                    str(v).strip().upper()
-                    for v in row
-                    if v is not None and str(v).strip()
-                ]
-                score = 0
-                if "SUBID" in vals:
-                    score += 5
-                if "AROID" in vals:
-                    score += 5
-                if any("SUBID" in v for v in vals):
-                    score += 2
-                if any("AROID" in v for v in vals):
-                    score += 2
-                if any("MEDEL" in v or v in {"MQ","MLQ","MHQ"} for v in vals):
-                    score += 1
-                if score:
-                    candidates.append((score, sheet_name, row_idx))
-
-        if not candidates:
+    if sig == ole_magic:
+        try:
+            import xlrd  # noqa: F401
+        except ImportError as exc:
             raise RuntimeError(
-                "Could not locate SUBID/AROID header in Vattenwebb workbook. "
-                f"sheets={[name for name,_ in sheets]}"
-            )
+                "SMHI flowstatistics is legacy binary XLS (OLE2/BIFF). "
+                "Install the dedicated reader with: py -3 -m pip install xlrd"
+            ) from exc
 
-        candidates.sort(reverse=True)
-        _, sheet_name, header_row = candidates[0]
-        rows = parsed[sheet_name]
-        header = rows[header_row]
-
-        columns = []
-        seen = {}
-        for i, value in enumerate(header):
-            base = str(value).strip() if value is not None and str(value).strip() else f"unnamed_{i}"
-            n = seen.get(base, 0)
-            seen[base] = n + 1
-            columns.append(base if n == 0 else f"{base}_{n+1}")
-
-        data_rows = []
-        for row in rows[header_row + 1:]:
-            if not row or not any(v is not None and str(v).strip() for v in row):
-                continue
-            padded = list(row) + [None] * max(0, len(columns) - len(row))
-            data_rows.append(padded[:len(columns)])
-
-        df = pd.DataFrame(data_rows, columns=columns)
-        df = df.dropna(how="all").copy()
-
-        info = {
-            "sheet": sheet_name,
-            "header_row_zero_based": int(header_row),
-            "rows": int(len(df)),
-            "columns": list(df.columns),
-            "sheets": [name for name,_ in sheets],
-            "xlsx_reader": "stdlib_zipfile_xml",
-        }
+        sheets = pd.read_excel(path, sheet_name=None, header=None, engine="xlrd", dtype=object)
+        df, info = _find_flowstats_header(sheets)
+        info["excel_format"] = "XLS_OLE2_BIFF"
+        info["excel_reader"] = "pandas_xlrd"
         return df, info
+
+    if sig[:4] == b"PK\x03\x04":
+        frames = {}
+        with zipfile.ZipFile(path) as z:
+            shared = _xlsx_shared_strings(z)
+            for sheet_name, sheet_path in _xlsx_sheet_paths(z):
+                rows = _xlsx_rows(z, sheet_path, shared)
+                width = max((len(r) for r in rows), default=0)
+                frames[sheet_name] = pd.DataFrame(
+                    [r + [None] * (width - len(r)) for r in rows]
+                )
+        df, info = _find_flowstats_header(frames)
+        info["excel_format"] = "XLSX_ZIP_XML"
+        info["excel_reader"] = "stdlib_zipfile_xml"
+        return df, info
+
+    preview = path.read_bytes()[:80]
+    raise RuntimeError(
+        "Unknown Vattenwebb workbook format. "
+        f"first_8_bytes={sig.hex()} preview={preview!r}"
+    )
 
 def choose_model_id_column(df: pd.DataFrame) -> str | None:
     for wanted in ("SUBID", "AROID"):
@@ -1011,7 +1045,7 @@ def main() -> int:
     flowstats_path = download_vattenwebb_excel(
         dl,
         cfg["sources"]["smhi_vattenwebb_flowstatistics"],
-        raw/"smhi"/"vattenwebb_flowstatistics.xlsx",
+        raw/"smhi"/"vattenwebb_flowstatistics.xls",
     )
     flowstats, flowstats_info = read_vattenwebb_flowstatistics(flowstats_path)
     print("  workbook sheet:", flowstats_info["sheet"])
