@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+import importlib.util
+import unittest
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location(
+    "akervatten_b", ROOT / "src/94_akervatten_b_pilot.py"
+)
+assert spec and spec.loader
+B = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(B)
+
+
+class TestAkerVattenBPilot(unittest.TestCase):
+    def test_deterministic_sample_exact_n(self):
+        rows = []
+        for m in ("A","B"):
+            for i in range(10):
+                rows.append({
+                    "blockid": f"{m}{i}",
+                    "skiftesbeteckning": "1",
+                    "kommun": m,
+                    "sand_mean": 20+i,
+                    "clay_mean": 30-i,
+                    "silt_mean": 50,
+                })
+        soil = pd.DataFrame(rows)
+        hydro = soil[["blockid","skiftesbeteckning"]].copy()
+        hydro["twi_mean"] = np.linspace(5,12,len(hydro))
+        hydro["twi_p50"] = hydro["twi_mean"]
+        hydro["twi_p90"] = hydro["twi_mean"]+2
+        hydro["twi_n_cells"] = 30
+        status = soil[["blockid","skiftesbeteckning"]].copy()
+        status["a1b_data_status"] = "OLD_ROBUST"
+        status["old_robust"] = True
+        status.loc[status.index % 4 == 0, "a1b_data_status"] = "AVAILABLE_BUT_NOT_OLD_ROBUST"
+        status.loc[status.index % 4 == 0, "old_robust"] = False
+
+        a = B.build_deterministic_sample(soil, hydro, status, 8, "kommun")
+        b = B.build_deterministic_sample(soil, hydro, status, 8, "kommun")
+        self.assertEqual(len(a), 8)
+        self.assertEqual(
+            list(map(tuple,a[["blockid","skiftesbeteckning"]].values)),
+            list(map(tuple,b[["blockid","skiftesbeteckning"]].values)),
+        )
+        self.assertFalse(a[["blockid","skiftesbeteckning"]].duplicated().any())
+
+    def test_discover_svar_mapping(self):
+        joined = pd.DataFrame({
+            "pilot_order":[1,2,3],
+            "VAROID":["A","B","C"],
+        })
+        coupling = pd.DataFrame({
+            "AROID":["A","B","C"],
+            "SUBID":["11","12","13"],
+            "HARO":["1","1","1"],
+        })
+        q = B.discover_svar_mapping(joined, coupling, 0.95)
+        self.assertEqual(q["best"]["polygon_column"], "VAROID")
+        self.assertEqual(q["best"]["coupling_column"], "AROID")
+        self.assertEqual(q["best"]["match_fraction"], 1.0)
+
+    def test_apply_svar_mapping_adds_subid(self):
+        joined = pd.DataFrame({"pilot_order":[1,2],"VAROID":["A","B"]})
+        coupling = pd.DataFrame({"AROID":["A","B"],"SUBID":["11","12"],"HARO":["1","1"]})
+        mapping = {"best":{"polygon_column":"VAROID","coupling_column":"AROID"}}
+        out = B.apply_svar_mapping(joined,coupling,mapping)
+        self.assertEqual(out["SUBID"].tolist(),["11","12"])
+
+
+if __name__ == "__main__":
+    unittest.main()
