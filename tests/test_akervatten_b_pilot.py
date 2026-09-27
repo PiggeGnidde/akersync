@@ -72,6 +72,37 @@ class TestAkerVattenBPilot(unittest.TestCase):
         out = B.apply_svar_mapping(joined,coupling,mapping)
         self.assertEqual(out["SUBID"].tolist(),["11","12"])
 
+    def test_stable_hash_fits_signed_int64(self):
+        h = B.stable_hash("61793327245", "99")
+        self.assertGreaterEqual(h, 0)
+        self.assertLessEqual(h, (1 << 63) - 1)
+
+    def test_dry_wet_prefer_old_robust(self):
+        soil = pd.DataFrame({
+            "blockid":["1","2","3","4"],
+            "skiftesbeteckning":["A","A","A","A"],
+            "kommun":["X","X","X","X"],
+            "sand_mean":[99,80,1,20],
+            "clay_mean":[1,20,99,80],
+            "silt_mean":[0,0,0,0],
+        })
+        hydro = soil[["blockid","skiftesbeteckning"]].copy()
+        hydro["twi_mean"]=[1,2,99,80]
+        hydro["twi_p50"]=hydro["twi_mean"]
+        hydro["twi_p90"]=hydro["twi_mean"]
+        hydro["twi_n_cells"]=30
+        status = soil[["blockid","skiftesbeteckning"]].copy()
+        status["a1b_data_status"]=[
+            "AVAILABLE_BUT_NOT_OLD_ROBUST","OLD_ROBUST",
+            "AVAILABLE_BUT_NOT_OLD_ROBUST","OLD_ROBUST"
+        ]
+        status["old_robust"]=[False,True,False,True]
+
+        out = B.build_deterministic_sample(soil,hydro,status,3,"kommun")
+        picked=set(out["blockid"])
+        self.assertIn("2", picked)
+        self.assertIn("4", picked)
+
 
 if __name__ == "__main__":
     unittest.main()
