@@ -1,8 +1,10 @@
 {
   "schema_version": "akervatten-mvp-v0a-a2-source-inventory",
   "network": {
-    "timeout_seconds": 30,
-    "user_agent": "AkerVatten-MVP-v0a-source-inventory/1.0"
+    "timeout_seconds": 60,
+    "user_agent": "AkerVatten-MVP-v0a-source-inventory/1.0",
+    "retries": 3,
+    "retry_backoff_seconds": 2
   },
   "sources": {
     "sgu_smallmag": {
@@ -25,7 +27,11 @@
     "smhi_svar2022": {
       "explorer_page": "https://www.smhi.se/data/sok-oppna-data-i-utforskaren/vattenforekomstavrinningsomraden-svar2022",
       "bulk_zip": "https://opendata-download.smhi.se/svar/SVAR2022_Vattenforekomstavrinningsomraden.zip",
-      "wfs_capabilities": "https://opendata-view.smhi.se/SMHI_vatten/Vattenforekomstavrinningsomraden_2022/wfs?service=WFS&request=GetCapabilities"
+      "wfs_capabilities": "https://opendata-view.smhi.se/SMHI_vatten/Vattenforekomstavrinningsomraden_2022/wfs?service=WFS&request=GetCapabilities",
+      "wfs_fallbacks": [
+        "https://opendata-view.smhi.se/SMHI_vatten/Vattenforekomstavrinningsomraden_2022_SE4/wfs?service=WFS&request=GetCapabilities",
+        "https://opendata-view.smhi.se/SMHI_vatten/Vattenforekomstavrinningsomraden_2022_SE5_INT/wfs?service=WFS&request=GetCapabilities"
+      ]
     },
     "smhi_shype": {
       "overview": "https://www.smhi.se/data/sjoar-och-vattendrag/vattenwebb",
@@ -39,8 +45,14 @@
     }
   },
   "expected": {
-    "sgu_hype_collections": ["omraden", "grundvattennivaer-tidigare"],
-    "sgu_hype_area_fields": ["omrade_id", "url_tidsserie"],
+    "sgu_hype_collections": [
+      "omraden",
+      "grundvattennivaer-tidigare"
+    ],
+    "sgu_hype_area_fields": [
+      "omrade_id",
+      "url_tidsserie"
+    ],
     "sgu_hype_history_fields": [
       "datum",
       "omrade_id",
@@ -55,6 +67,11 @@
       "subid eller aroid",
       "Från år",
       "Till och med år"
+    ],
+    "smhi_docs_terms": [
+      "S-HYPE",
+      "SUBID",
+      "vattenflöde"
     ]
   },
   "guardrails": [
