@@ -20,7 +20,8 @@
     "smhi_svar_wfs": "https://opendata-view.smhi.se/SMHI_vatten/Vattenforekomstavrinningsomraden_2022/wfs",
     "smhi_svar_typename": "SMHI_vatten:Vattenforekomstavrinningsomraden_2022",
     "smhi_shype_dir": "https://data-download.smhi.se/data/hydrology/s-hype2022/",
-    "smhi_shype_coupling": "https://data-download.smhi.se/data/hydrology/s-hype2022/s-hype2022_kopplingstabell.csv"
+    "smhi_shype_coupling": "https://data-download.smhi.se/data/hydrology/s-hype2022/s-hype2022_kopplingstabell.csv",
+    "smhi_svar_zip": "https://opendata-download.smhi.se/svar/SVAR2022_Vattenforekomstavrinningsomraden.zip"
   },
   "pilot_rules": {
     "municipality_column": "kommun",
