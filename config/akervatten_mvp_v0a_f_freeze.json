@@ -1,0 +1,80 @@
+{
+  "schema_version": "akervatten-mvp-v0a-stoppunkt-f-freeze",
+  "status": "PASS",
+  "scope": "five separate 0-100 empirical component scales; no combined index",
+  "population_fields": 128636,
+  "components": {
+    "MarkTorka": {
+      "formula": "0.5*pct_field(sand_mean, high) + 0.5*pct_field(twi_mean, low)",
+      "coverage_fields": 124380,
+      "coverage_pct": 96.691,
+      "p10": 20.94,
+      "p50": 51.22,
+      "p90": 78.27
+    },
+    "MarkVata": {
+      "mineral_branch": "min(pct_field(clay_mean, high), pct_field(twi_mean, high))",
+      "organic_branch": "missing->missing; zero->0; positive organic_ge20_share_pct -> ECDF percentile among positive values only",
+      "formula": "max(mineral_branch, organic_branch)",
+      "missing_policy": "strict: both mineral and organic branches required",
+      "coverage": {
+        "FULL": 124380,
+        "MISSING_ORGANIC_BRANCH": 0,
+        "MISSING_MINERAL_BRANCH": 1557,
+        "MISSING_BOTH": 2699
+      },
+      "coverage_pct": 96.691,
+      "p10": 6.02,
+      "p50": 34.96,
+      "p90": 74.1,
+      "unique_values": 67155,
+      "distinctness_vs_MarkTorka": {
+        "spearman": -0.798,
+        "top10_high_overlap": 0.002,
+        "both_ge80_pct": 0.006,
+        "sum_std": 14.903,
+        "sum_range": 150.168
+      }
+    },
+    "GrundvattenTillgang": {
+      "formula": "pct_field(sgu_smallmag_value, high)",
+      "coverage_fields": 128632,
+      "coverage_pct": 99.997,
+      "p10": 9.99,
+      "p50": 49.99,
+      "p90": 89.99
+    },
+    "GrundvattenTorka": {
+      "percentile_population": "786 unique SGU-HYPE units",
+      "formula": "0.5*pct_unit(gw_small_situation_le10_max_run_days, high) + 0.5*pct_unit(gw_small_situation_summer_p10, low)",
+      "unit_coverage": "786/786",
+      "field_coverage": "128636/128636",
+      "field_output_p10": 27.29,
+      "field_output_p50": 48.73,
+      "field_output_p90": 80.73
+    },
+    "YtvattenTorka": {
+      "percentile_population": "502 unique S-HYPE units",
+      "formula": "0.5*pct_unit(sw_MLQ_MQ_ratio_total, low) + 0.5*pct_unit(sw_MLQ_total_lps_km2_upstream, low)",
+      "unit_coverage": "502/502",
+      "field_coverage": "128636/128636",
+      "field_output_p10": 12.48,
+      "field_output_p50": 58.18,
+      "field_output_p90": 90.42
+    }
+  },
+  "cross_component_spearman": {
+    "MarkTorka__MarkVata": -0.798,
+    "MarkTorka__GrundvattenTillgang": 0.285,
+    "MarkVata__YtvattenTorka": 0.26,
+    "MarkTorka__YtvattenTorka": -0.259,
+    "GrundvattenTillgang__YtvattenTorka": -0.241,
+    "MarkVata__GrundvattenTillgang": -0.233,
+    "GrundvattenTillgang__GrundvattenTorka": -0.187,
+    "MarkVata__GrundvattenTorka": 0.089,
+    "MarkTorka__GrundvattenTorka": -0.066,
+    "GrundvattenTorka__YtvattenTorka": 0.058
+  },
+  "combined_index": "NOT_DEFINED_OR_FROZEN",
+  "next_checkpoint": "product interpretation / mapping / validation of five frozen components; any composite index requires separate checkpoint"
+}
