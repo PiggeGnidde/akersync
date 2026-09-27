@@ -33,7 +33,16 @@ py -3 -c "import pandas,numpy,geopandas,rasterio,requests,pyproj"
 if errorlevel 1 (
   echo.
   echo FAIL: B pilot requires pandas numpy geopandas rasterio requests pyproj.
-  echo Paste the complete import error back to the coding chat; do not install random packages yet.
+  echo Paste the complete import error back to the coding chat.
+  exit /b 1
+)
+
+py -3 -c "import xlrd" >nul 2>nul
+if errorlevel 1 (
+  echo.
+  echo FAIL: SMHI Vattenwebb flowstatistics is legacy XLS and requires xlrd.
+  echo Install exactly this reader with:
+  echo     py -3 -m pip install xlrd
   exit /b 1
 )
 
