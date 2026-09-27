@@ -50,6 +50,22 @@ class TestAkerVattenA2SourceInventory(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(missing, [])
 
+    def test_render_markdown_survives_probe_error(self):
+        result = {
+            "status": "FAIL",
+            "guardrails": [],
+            "sgu_smallmag": {"status": "PASS", "wcs": {"coverage_ids": [], "formats": []}, "bulk_probe": {}},
+            "sgu_groundwater_magazines": {"status": "PASS", "collections": []},
+            "sgu_hype": {"status": "ERROR", "error": "timeout"},
+            "smhi_svar2022": {"status": "FAIL", "bulk_probe": {}, "wfs_status": "UNAVAILABLE_USE_BULK_FALLBACK"},
+            "smhi_shype": {"status": "FAIL"},
+            "licenses": {"status": "PASS", "sgu": {"detected_license": "CC0"}, "smhi": {"detected_license": "CC BY 4.0"}},
+        }
+        text = A2.render_markdown(result)
+        self.assertIn("sgu_hype", text)
+        self.assertIn("timeout", text)
+        self.assertIn("Overall status: FAIL", text)
+
 
 if __name__ == "__main__":
     unittest.main()
