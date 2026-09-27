@@ -1,0 +1,66 @@
+{
+  "schema_version": "akervatten-mvp-v0a-d-history-features",
+  "paths": {
+    "b_config": "config/akervatten_mvp_v0a_b.json",
+    "c_links": "work/akervatten_mvp_v0a/c_full_linkage/akervatten_c_spatial_links_skane.parquet",
+    "c_summary": "work/akervatten_mvp_v0a/c_full_linkage/c_summary.json",
+    "b_flowstats_cache": "data/raw/akervatten/b_pilot/smhi/vattenwebb_flowstatistics.xls",
+    "b_sgu_history_cache": "data/raw/akervatten/b_pilot/sgu/history"
+  },
+  "output": {
+    "raw_dir": "data/raw/akervatten/d_history",
+    "work_dir": "work/akervatten_mvp_v0a/d_history"
+  },
+  "network": {
+    "timeout_seconds": 180,
+    "retries": 3,
+    "retry_backoff_seconds": 3
+  },
+  "sgu_hype": {
+    "progress_every_areas": 25,
+    "max_file_mb": 20,
+    "low_thresholds": [
+      10,
+      20
+    ],
+    "irrigation_months": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "min_history_years_small": 50
+  },
+  "shype_flowstats": {
+    "documented_reference_period": "1981-2010",
+    "required_statistics": [
+      "MQ",
+      "MLQ"
+    ]
+  },
+  "field_join": {
+    "chunk_size": 5000
+  },
+  "nadia_d2_prep": {
+    "first_year": 1991,
+    "last_year": 2025,
+    "timestep": "dygn",
+    "batch_size_subids": 50
+  },
+  "acceptance": {
+    "min_sgu_unit_parse_fraction": 0.99,
+    "min_sgu_small_long_history_fraction": 0.95,
+    "min_surface_unit_mapping_fraction": 0.99,
+    "min_field_groundwater_feature_fraction": 0.99,
+    "min_field_surface_feature_fraction": 0.99
+  },
+  "guardrails": [
+    "STOPPUNKT D computes historical raw features, not a frozen ÅkerVatten score",
+    "SGU-HYPE percentile-like variables are relative historical indicators, not groundwater volume",
+    "SMHI flow statistics are modelled S-HYPE statistics and are not legal withdrawal limits",
+    "physical and hydrological screening is not legal water-withdrawal right",
+    "legal_water_right=NOT_ASSESSED_IN_V0A",
+    "all per-area downloads and field chunks must be resumable"
+  ]
+}
