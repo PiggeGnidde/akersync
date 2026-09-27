@@ -1,0 +1,158 @@
+{
+  "schema_version": "akervatten-mvp-v0a-stoppunkt-g-freeze",
+  "status": "PASS",
+  "population_fields": 128636,
+  "score_ranges": {
+    "MarkTorka": {
+      "n": 124380,
+      "min": 0.07,
+      "p10": 20.94,
+      "p50": 51.22,
+      "p90": 78.27,
+      "max": 99.62
+    },
+    "MarkVata": {
+      "n": 124380,
+      "min": 0,
+      "p10": 6.02,
+      "p50": 34.96,
+      "p90": 74.1,
+      "max": 99.92
+    },
+    "GrundvattenTillgang": {
+      "n": 128632,
+      "min": 0,
+      "p10": 9.99,
+      "p50": 49.99,
+      "p90": 89.99,
+      "max": 100
+    },
+    "GrundvattenTorka": {
+      "n": 128636,
+      "min": 0.48,
+      "p10": 27.29,
+      "p50": 48.73,
+      "p90": 80.73,
+      "max": 96.21
+    },
+    "YtvattenTorka": {
+      "n": 128636,
+      "min": 0.1,
+      "p10": 12.48,
+      "p50": 58.18,
+      "p90": 90.42,
+      "max": 98.7
+    }
+  },
+  "hydrological_invariants": {
+    "GrundvattenTorka": {
+      "units": 786,
+      "expected": 786,
+      "inconsistent_units": 0
+    },
+    "YtvattenTorka": {
+      "units": 502,
+      "expected": 502,
+      "inconsistent_units": 0
+    }
+  },
+  "top_bottom10_driver_medians": {
+    "MarkTorka": {
+      "sand_mean": {
+        "low": 43.93,
+        "high": 69
+      },
+      "twi_mean": {
+        "low": 10.047,
+        "high": 6.587
+      }
+    },
+    "MarkVata": {
+      "twi_mean": {
+        "low": 6.144,
+        "high": 9.905
+      },
+      "clay_mean": {
+        "low": 5.1,
+        "high": 17.44
+      },
+      "organic_ge20_share_pct": {
+        "low": 0,
+        "high": 0
+      }
+    },
+    "GrundvattenTillgang": {
+      "sgu_smallmag_value": {
+        "low": 966,
+        "high": 2834
+      }
+    },
+    "GrundvattenTorka": {
+      "gw_small_situation_le10_max_run_days": {
+        "low": 188,
+        "high": 538
+      },
+      "gw_small_situation_summer_p10": {
+        "low": 9,
+        "high": 8
+      }
+    },
+    "YtvattenTorka": {
+      "sw_MLQ_MQ_ratio_total": {
+        "low": 0.274,
+        "high": 0.013
+      },
+      "sw_MLQ_total_lps_km2_upstream": {
+        "low": 2.918,
+        "high": 0.093
+      }
+    }
+  },
+  "contrast_counts": {
+    "dry_soil_good_gw": {
+      "n": 2695,
+      "pct": 2.095
+    },
+    "dry_soil_poor_gw": {
+      "n": 974,
+      "pct": 0.757
+    },
+    "high_wet_and_dry": {
+      "n": 7,
+      "pct": 0.005
+    },
+    "gw_drought_and_surface_drought": {
+      "n": 2819,
+      "pct": 2.191
+    }
+  },
+  "display_bands": [
+    {
+      "min": 0,
+      "max": 20,
+      "label": "Mycket låg"
+    },
+    {
+      "min": 20,
+      "max": 40,
+      "label": "Låg"
+    },
+    {
+      "min": 40,
+      "max": 60,
+      "label": "Måttlig"
+    },
+    {
+      "min": 60,
+      "max": 80,
+      "label": "Hög"
+    },
+    {
+      "min": 80,
+      "max": 100,
+      "label": "Mycket hög"
+    }
+  ],
+  "combined_index": "NOT_DEFINED_OR_FROZEN",
+  "next_step": "product integration/UI of five frozen components"
+}
