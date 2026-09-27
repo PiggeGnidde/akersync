@@ -524,19 +524,153 @@ def discover_wfs_typename(dl: Downloader, base_url: str, hint: str) -> tuple[str
     }
 
 
-def fetch_svar_subcatchments_for_points(
+def _wfs_params(mode: str, typename: str, bbox_txt: str) -> dict[str, Any]:
+    if mode == "WFS2_GML":
+        return {
+            "service": "WFS", "version": "2.0.0", "request": "GetFeature",
+            "typeNames": typename, "srsName": "EPSG:3006",
+            "bbox": bbox_txt, "count": 50,
+        }
+    if mode == "WFS2_JSON":
+        return {
+            "service": "WFS", "version": "2.0.0", "request": "GetFeature",
+            "typeNames": typename, "outputFormat": "application/json",
+            "srsName": "EPSG:3006", "bbox": bbox_txt, "count": 50,
+        }
+    if mode == "WFS11_GML":
+        return {
+            "service": "WFS", "version": "1.1.0", "request": "GetFeature",
+            "typeName": typename, "srsName": "EPSG:3006",
+            "bbox": bbox_txt, "maxFeatures": 50,
+        }
+    if mode == "WFS11_JSON":
+        return {
+            "service": "WFS", "version": "1.1.0", "request": "GetFeature",
+            "typeName": typename, "outputFormat": "application/json",
+            "srsName": "EPSG:3006", "bbox": bbox_txt, "maxFeatures": 50,
+        }
+    raise ValueError(mode)
+
+
+def _read_wfs_response(content: bytes, content_type: str | None) -> gpd.GeoDataFrame:
+    head = content.lstrip()[:100].lower()
+    if b"exceptionreport" in head or b"serviceexception" in head:
+        preview = content[:800].decode("utf-8", errors="replace")
+        raise RuntimeError(f"WFS exception response: {preview}")
+
+    ctype = (content_type or "").lower()
+    if "json" in ctype or content.lstrip().startswith(b"{"):
+        doc = json.loads(content.decode("utf-8"))
+        feats = doc.get("features") or []
+        if not feats:
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:3006")
+        g = gpd.GeoDataFrame.from_features(feats)
+    else:
+        # GeoPandas/GDAL can read GeoServer's default GML directly from memory.
+        g = gpd.read_file(io.BytesIO(content))
+
+    if g.empty:
+        return g
+    if g.crs is None:
+        g = g.set_crs(3006)
+    else:
+        # Some GeoJSON readers assume EPSG:4326 even when GeoServer returned
+        # projected coordinates. Detect impossible lon/lat magnitudes.
+        minx, miny, maxx, maxy = g.total_bounds
+        if str(g.crs).upper().endswith("4326") and (
+            abs(minx) > 180 or abs(maxx) > 180 or abs(miny) > 90 or abs(maxy) > 90
+        ):
+            g = g.set_crs(3006, allow_override=True)
+    return g
+
+
+def _probe_wfs_service(
     dl: Downloader,
     base_url: str,
     typename_hint: str,
     points3006: gpd.GeoDataFrame,
     halfwidth_m: float,
+) -> dict[str, Any] | None:
+    try:
+        typename, caps = discover_wfs_typename(dl, base_url, typename_hint)
+    except Exception as exc:
+        return {"base_url": base_url, "status": "CAPABILITIES_FAIL", "error": repr(exc)}
+
+    p = points3006.to_crs(3006)
+    # Probe a spread of fields because regional services legitimately return
+    # zero features outside their district.
+    probe_positions = sorted(set(np.linspace(0, len(p)-1, min(12, len(p)), dtype=int).tolist()))
+    attempts = []
+
+    for mode in ("WFS2_GML", "WFS11_GML", "WFS2_JSON", "WFS11_JSON"):
+        for pos in probe_positions:
+            geom = p.iloc[pos].geometry
+            x, y = float(geom.x), float(geom.y)
+            h = float(halfwidth_m)
+            # Plain EPSG:3006 is deliberate. The earlier URN-form BBOX caused
+            # server-side HTTP 500 on this SMHI GeoServer.
+            bbox_txt = f"{x-h:.3f},{y-h:.3f},{x+h:.3f},{y+h:.3f},EPSG:3006"
+            params = _wfs_params(mode, typename, bbox_txt)
+            try:
+                r = dl.s.get(
+                    base_url, params=params, timeout=60,
+                    allow_redirects=True,
+                )
+                if r.status_code >= 400:
+                    attempts.append({
+                        "mode": mode, "pilot_order": int(p.iloc[pos]["pilot_order"]),
+                        "status": int(r.status_code),
+                    })
+                    continue
+                piece = _read_wfs_response(r.content, r.headers.get("content-type"))
+                attempts.append({
+                    "mode": mode, "pilot_order": int(p.iloc[pos]["pilot_order"]),
+                    "status": int(r.status_code), "rows": int(len(piece)),
+                })
+                if not piece.empty:
+                    aro_col = next((x for x in piece.columns if str(x).upper() == "ARO_UUID"), None)
+                    if aro_col is None:
+                        attempts.append({
+                            "mode": mode, "reason": "missing_ARO_UUID",
+                            "columns": list(map(str, piece.columns)),
+                        })
+                        continue
+                    return {
+                        "base_url": base_url,
+                        "status": "WORKING",
+                        "typename": typename,
+                        "mode": mode,
+                        "capabilities_url": caps["capabilities_url"],
+                        "attempts": attempts,
+                    }
+            except Exception as exc:
+                attempts.append({
+                    "mode": mode, "pilot_order": int(p.iloc[pos]["pilot_order"]),
+                    "error": repr(exc),
+                })
+
+    return {
+        "base_url": base_url,
+        "status": "NO_WORKING_GETFEATURE_MODE",
+        "typename": typename,
+        "capabilities_url": caps["capabilities_url"],
+        "attempts": attempts,
+    }
+
+
+def fetch_svar_subcatchments_for_points(
+    dl: Downloader,
+    base_urls: list[str] | str,
+    typename_hint: str,
+    points3006: gpd.GeoDataFrame,
+    halfwidth_m: float,
     out_path: Path,
 ) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
-    """Fetch only small WFS windows around the 100 pilot points.
+    """Fetch SVAR2022 Delavrinningsområden around the 100 pilot points.
 
-    This avoids the server-side 500 seen for a large Skåne bbox and, crucially,
-    uses SVAR2022 Delavrinningsområden rather than the aggregated
-    Vattenförekomstavrinningsområden product.
+    The service is first negotiated on a small set of fields. We prefer default
+    GML and try WFS 2.0/1.1 plus JSON fallbacks. This avoids hard-coding a
+    GeoServer output format that may currently return HTTP 500.
     """
     if out_path.exists() and out_path.stat().st_size > 0:
         g = gpd.read_file(out_path)
@@ -545,14 +679,41 @@ def fetch_svar_subcatchments_for_points(
             return g, {
                 "mode": "WFS_POINT_WINDOWS_CACHE",
                 "source_file": str(out_path),
-                "selected_type_name": "cached",
                 "queries": 0,
                 "unique_polygons": int(len(g)),
                 "source_crs": str(g.crs),
             }
 
-    typename, caps = discover_wfs_typename(dl, base_url, typename_hint)
+    urls = [base_urls] if isinstance(base_urls, str) else list(base_urls)
     p = points3006.to_crs(3006)
+
+    service_probes = []
+    working = []
+    print("  negotiating SMHI WFS GetFeature mode...")
+    for url in urls:
+        probe = _probe_wfs_service(dl, url, typename_hint, p, halfwidth_m)
+        service_probes.append(probe)
+        if probe and probe.get("status") == "WORKING":
+            working.append(probe)
+            print(f"    WORKING: {url} · {probe['mode']} · {probe['typename']}")
+        else:
+            print(f"    unavailable: {url} · {probe.get('status') if probe else 'ERROR'}")
+
+    if not working:
+        concise = [
+            {
+                "url": q.get("base_url"),
+                "status": q.get("status"),
+                "last_attempts": q.get("attempts", [])[-6:],
+                "error": q.get("error"),
+            }
+            for q in service_probes if q
+        ]
+        raise RuntimeError(
+            "No working SMHI Delavrinningsomraden GetFeature mode after "
+            f"WFS2/WFS1.1 + GML/JSON negotiation. diagnostics={concise}"
+        )
+
     pieces = []
     failures = []
 
@@ -560,36 +721,38 @@ def fetch_svar_subcatchments_for_points(
         geom = row.geometry
         x, y = float(geom.x), float(geom.y)
         h = float(halfwidth_m)
-        bbox_txt = f"{x-h:.3f},{y-h:.3f},{x+h:.3f},{y+h:.3f},urn:ogc:def:crs:EPSG::3006"
-        params = {
-            "service": "WFS",
-            "version": "2.0.0",
-            "request": "GetFeature",
-            "typeNames": typename,
-            "outputFormat": "application/json",
-            "srsName": "EPSG:3006",
-            "bbox": bbox_txt,
-            "count": 50,
-        }
-        try:
-            r = dl.get(base_url, params=params, timeout=180)
-            doc = r.json()
-            feats = doc.get("features") or []
-            if feats:
-                gj = {"type": "FeatureCollection", "features": feats}
-                piece = gpd.GeoDataFrame.from_features(gj["features"], crs="EPSG:3006")
+        bbox_txt = f"{x-h:.3f},{y-h:.3f},{x+h:.3f},{y+h:.3f},EPSG:3006"
+        got = False
+        point_errors = []
+
+        for svc in working:
+            params = _wfs_params(svc["mode"], svc["typename"], bbox_txt)
+            try:
+                r = dl.get(svc["base_url"], params=params, timeout=180)
+                piece = _read_wfs_response(r.content, r.headers.get("content-type"))
                 if not piece.empty:
                     pieces.append(piece)
-            else:
-                failures.append({"pilot_order": int(getattr(row, "pilot_order")), "reason": "zero_features"})
-        except Exception as exc:
-            failures.append({"pilot_order": int(getattr(row, "pilot_order")), "reason": repr(exc)})
+                    got = True
+                    break
+            except Exception as exc:
+                point_errors.append({
+                    "url": svc["base_url"], "mode": svc["mode"], "error": repr(exc)
+                })
+
+        if not got:
+            failures.append({
+                "pilot_order": int(getattr(row, "pilot_order")),
+                "reason": "zero_features_or_errors",
+                "errors": point_errors,
+            })
 
         if i % 20 == 0 or i == len(p):
             print(f"  WFS point windows: {i}/{len(p)}")
 
     if not pieces:
-        raise RuntimeError(f"No SVAR2022 delavrinningsområden fetched. failures={failures[:10]}")
+        raise RuntimeError(
+            f"No SVAR2022 delavrinningsområden fetched. failures={failures[:10]}"
+        )
 
     g = gpd.GeoDataFrame(pd.concat(pieces, ignore_index=True), crs=pieces[0].crs)
     aro_col = next((x for x in g.columns if str(x).upper() == "ARO_UUID"), None)
@@ -604,16 +767,18 @@ def fetch_svar_subcatchments_for_points(
     g.to_file(out_path, driver="GeoJSON")
 
     return g, {
-        "mode": "OFFICIAL_WFS_POINT_WINDOWS",
-        "capabilities_url": caps["capabilities_url"],
-        "selected_type_name": typename,
+        "mode": "OFFICIAL_WFS_NEGOTIATED_POINT_WINDOWS",
+        "working_services": [
+            {k: svc.get(k) for k in ("base_url","typename","mode","capabilities_url")}
+            for svc in working
+        ],
+        "service_probes": service_probes,
         "queries": int(len(p)),
         "query_halfwidth_m": float(halfwidth_m),
         "failures": failures,
         "unique_polygons": int(len(g)),
         "source_crs": str(g.crs),
     }
-
 
 def prove_aro_uuid_mapping(
     joined: pd.DataFrame,
@@ -1205,14 +1370,19 @@ def main() -> int:
     print("\n[5/8] SMHI SVAR2022 Delavrinningsområden spatial linkage")
     svar, svar_source = fetch_svar_subcatchments_for_points(
         dl,
-        cfg["sources"]["smhi_svar_subcatch_wfs"],
+        cfg["sources"].get(
+            "smhi_svar_subcatch_wfs_candidates",
+            [cfg["sources"]["smhi_svar_subcatch_wfs"]],
+        ),
         cfg["sources"]["smhi_svar_subcatch_typename_hint"],
         points,
         float(cfg["pilot_rules"]["svar_point_query_halfwidth_m"]),
         raw/"smhi"/"svar2022_delavrinningsomraden_pilot.geojson",
     )
     print("  source mode:", svar_source["mode"])
-    print("  selected type:", svar_source["selected_type_name"])
+    if svar_source.get("working_services"):
+        for svc in svar_source["working_services"]:
+            print("  working WFS:", svc["base_url"], "·", svc["mode"], "·", svc["typename"])
     print("  source CRS:", svar_source["source_crs"])
     print("  unique polygons fetched:", len(svar))
     print("  polygon columns:", ", ".join(str(c) for c in svar.columns))
