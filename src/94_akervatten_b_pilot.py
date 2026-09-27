@@ -491,6 +491,85 @@ def read_svar_bulk_for_pilot(zip_path: Path, bbox3006: tuple[float,float,float,f
         f"Attempts={attempts}"
     )
 
+def download_vattenwebb_excel(dl: Downloader, url: str, path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and path.stat().st_size > 0:
+        print(f"  cache: {path.name} ({path.stat().st_size/1024/1024:.1f} MB)")
+        return path
+    r = dl.get(url, stream=True, timeout=300)
+    tmp = path.with_suffix(path.suffix + ".part")
+    total = 0
+    with tmp.open("wb") as fh:
+        for chunk in r.iter_content(1024 * 1024):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > 100 * 1024 * 1024:
+                fh.close()
+                tmp.unlink(missing_ok=True)
+                raise RuntimeError("Vattenwebb flowstatistics workbook unexpectedly exceeds 100 MB")
+            fh.write(chunk)
+    tmp.replace(path)
+    print(f"  downloaded: {path.name} ({path.stat().st_size/1024/1024:.1f} MB)")
+    return path
+
+
+def read_vattenwebb_flowstatistics(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Find the basin table/header dynamically in SMHI's workbook."""
+    xl = pd.ExcelFile(path)
+    candidates = []
+
+    for sheet in xl.sheet_names:
+        raw = pd.read_excel(path, sheet_name=sheet, header=None, nrows=80)
+        for row_idx in range(len(raw)):
+            vals = [
+                str(v).strip().upper()
+                for v in raw.iloc[row_idx].tolist()
+                if pd.notna(v) and str(v).strip()
+            ]
+            score = 0
+            if "SUBID" in vals:
+                score += 5
+            if "AROID" in vals:
+                score += 5
+            if any("SUBID" in v for v in vals):
+                score += 2
+            if any("AROID" in v for v in vals):
+                score += 2
+            if any("MEDEL" in v or v in {"MQ","MLQ","MHQ"} for v in vals):
+                score += 1
+            if score:
+                candidates.append((score, sheet, row_idx))
+
+    if not candidates:
+        raise RuntimeError(
+            f"Could not locate SUBID/AROID header in Vattenwebb workbook. sheets={xl.sheet_names}"
+        )
+
+    candidates.sort(reverse=True)
+    _, sheet, header_row = candidates[0]
+    df = pd.read_excel(path, sheet_name=sheet, header=header_row, dtype=str)
+    df.columns = [str(x).strip() for x in df.columns]
+    df = df.dropna(how="all").copy()
+
+    info = {
+        "sheet": sheet,
+        "header_row_zero_based": int(header_row),
+        "rows": int(len(df)),
+        "columns": list(df.columns),
+        "sheets": list(xl.sheet_names),
+    }
+    return df, info
+
+
+def choose_model_id_column(df: pd.DataFrame) -> str | None:
+    for wanted in ("SUBID", "AROID"):
+        for c in df.columns:
+            if c.upper() == wanted:
+                return c
+    return None
+
+
 def read_coupling_table(path: Path) -> pd.DataFrame:
     # SMHI CSV may use semicolon and Swedish/UTF-8 variants.
     raw = path.read_bytes()
@@ -527,9 +606,12 @@ def norm_id(s: pd.Series) -> pd.Series:
 
 def discover_svar_mapping(joined: pd.DataFrame, coupling: pd.DataFrame,
                           min_fraction: float) -> dict[str, Any]:
-    targets = [c for c in coupling.columns if c.upper() in {"SUBID", "AROID"}]
+    targets = [
+        c for c in coupling.columns
+        if c.upper() in {"SUBID", "AROID", "VAROID", "MS_CD", "ARO_UUID"}
+    ]
     if not targets:
-        raise RuntimeError(f"Coupling table lacks SUBID/AROID columns: {list(coupling.columns)}")
+        raise RuntimeError(f"Model table lacks recognized identifier columns: {list(coupling.columns)}")
 
     ignore = set(KEY + [
         "pilot_order","sand_mean","clay_mean","silt_mean","twi_mean","twi_p50","twi_p90",
@@ -570,7 +652,7 @@ def apply_svar_mapping(joined: pd.DataFrame, coupling: pd.DataFrame,
     tc = best["coupling_column"]
     c = coupling.copy()
     c["_joinid"] = norm_id(c[tc])
-    keep = ["_joinid"] + [x for x in coupling.columns if x.upper() in {"SUBID","AROID","HARO"}]
+    keep = ["_joinid"] + [x for x in coupling.columns if x != "_joinid"]
     c = c[keep].drop_duplicates("_joinid")
     x = joined.copy()
     x["_joinid"] = norm_id(x[pc])
@@ -783,47 +865,53 @@ def main() -> int:
     n_svar = int(svar_join["index_right"].notna().sum())
     print(f"  polygon matches: {n_svar}/{len(points)}")
 
-    print("\n[6/8] Current S-HYPE coupling table and ID proof")
-    coupling_path = dl.download(
-        cfg["sources"]["smhi_shype_coupling"],
-        raw/"smhi"/"s-hype2022_kopplingstabell.csv",
-        max_bytes=20*1024*1024,
+    print("\n[6/8] Open Vattenwebb flow statistics and ID proof")
+    flowstats_path = download_vattenwebb_excel(
+        dl,
+        cfg["sources"]["smhi_vattenwebb_flowstatistics"],
+        raw/"smhi"/"vattenwebb_flowstatistics.xlsx",
     )
-    coupling = read_coupling_table(coupling_path)
-    print("  coupling rows:", len(coupling))
-    print("  coupling columns:", ", ".join(coupling.columns))
+    flowstats, flowstats_info = read_vattenwebb_flowstatistics(flowstats_path)
+    print("  workbook sheet:", flowstats_info["sheet"])
+    print("  rows:", len(flowstats))
+    print("  columns:", ", ".join(flowstats.columns))
+
     mapping = discover_svar_mapping(
-        svar_join, coupling,
+        svar_join, flowstats,
         float(cfg["pilot_rules"]["mapping_min_match_fraction"]),
     )
     print("  best mapping:", mapping["best"])
-    svar_mapped = apply_svar_mapping(svar_join, coupling, mapping)
-    subid_col = next((c for c in svar_mapped.columns if c.upper()=="SUBID"), None)
-    if subid_col is None:
-        raise RuntimeError("No SUBID after SVAR/coupling mapping")
-    n_subid = int(svar_mapped[subid_col].notna().sum())
-    print(f"  SUBID mapped fields: {n_subid}/{len(svar_mapped)}")
+    svar_mapped = apply_svar_mapping(svar_join, flowstats, mapping)
 
-    print("\n[7/8] Actual current S-HYPE flow series")
-    analysis_url, analysis_name = latest_analysis_url(dl, cfg["sources"]["smhi_shype_dir"])
-    nc_path = dl.download(
-        analysis_url,
-        raw/"smhi"/analysis_name,
-        max_bytes=50*1024*1024,
-    )
-    subids = (
-        svar_mapped[subid_col].dropna().astype(str)
+    model_id_col = choose_model_id_column(svar_mapped)
+    if model_id_col is None:
+        raise RuntimeError(
+            "SVAR/Vattenwebb mapping succeeded but no SUBID/AROID column is present afterwards"
+        )
+    n_model_id = int(svar_mapped[model_id_col].notna().sum())
+    print(f"  {model_id_col} mapped fields: {n_model_id}/{len(svar_mapped)}")
+
+    print("\n[7/8] Documented NADIA daily-series handoff")
+    nadia_ids = (
+        svar_mapped[model_id_col].dropna().astype(str)
         .str.replace(r"\.0$", "", regex=True)
-        .drop_duplicates().sort_values().head(int(cfg["pilot_rules"]["shype_ids_to_extract"])).tolist()
+        .drop_duplicates().sort_values()
+        .head(int(cfg["pilot_rules"]["shype_ids_to_extract"])).tolist()
     )
-    shype_manifest = extract_shype_flow(
-        nc_path, subids,
-        work/"shype_current_flow_samples.parquet",
+    if len(nadia_ids) < 3:
+        raise RuntimeError("Fewer than 3 mapped Vattenwebb basin IDs available for NADIA test")
+
+    nadia_handoff = work/"nadia_ids_for_manual_check.txt"
+    nadia_handoff.write_text(
+        "NADIA URL: " + cfg["sources"]["smhi_nadia"] + "\n"
+        + "IDs (" + model_id_col + "): " + ",".join(nadia_ids) + "\n"
+        + "Requested validation: daily model data for a short period, e.g. 2025.\n"
+        + "This manual handoff is deliberate: no undocumented NADIA backend endpoint is reverse-engineered.\n",
+        encoding="utf-8",
     )
-    print("  flow variable:", shype_manifest["flow_variable"], shype_manifest["flow_units"])
-    print("  matched SUBIDs:", ", ".join(shype_manifest["matched_subids"]))
-    print("  rows:", shype_manifest["n_rows"])
-    print("  period:", shype_manifest["time_start"], "->", shype_manifest["time_end"])
+    print("  NADIA URL:", cfg["sources"]["smhi_nadia"])
+    print("  sample IDs:", ",".join(nadia_ids))
+    print("  NOTE: daily-series retrieval remains a manual/documented-UI validation before STOPPUNKT B is fully frozen.")
 
     print("\n[8/8] QA and pilot output")
     # Compact field result. Keep geometry separately in GPKG.
@@ -832,7 +920,7 @@ def main() -> int:
     out = out.merge(hype_join[hype_cols], on="pilot_order", how="left", validate="one_to_one")
     svar_keep = ["pilot_order"]
     for c in svar_mapped.columns:
-        if c.upper() in {"SUBID","AROID","HARO","VAROID","MS_CD","VERSION_SVAR"} and c not in svar_keep:
+        if c.upper() in {"SUBID","AROID","HARO","VAROID","MS_CD","VERSION_SVAR","ARO_UUID"} and c not in svar_keep:
             svar_keep.append(c)
     out = out.merge(
         svar_mapped[svar_keep].drop_duplicates("pilot_order"),
@@ -846,11 +934,12 @@ def main() -> int:
         "smallmag_matched": n_small,
         "sgu_hype_matched": n_hype,
         "svar_matched": n_svar,
-        "subid_matched": n_subid,
+        "shype_model_id_column": model_id_col,
+        "shype_model_id_matched": n_model_id,
         "smallmag_pct": 100*n_small/len(out),
         "sgu_hype_pct": 100*n_hype/len(out),
         "svar_pct": 100*n_svar/len(out),
-        "subid_pct": 100*n_subid/len(out),
+        "shype_model_id_pct": 100*n_model_id/len(out),
     }
 
     problems = []
@@ -864,14 +953,12 @@ def main() -> int:
         problems.append("fewer than 3 actual SGU-HYPE history series fetched")
     if n_svar < 95:
         problems.append(f"SVAR2022 coverage only {n_svar}/100")
-    if n_subid < 95:
-        problems.append(f"S-HYPE SUBID coverage only {n_subid}/100")
-    if len(shype_manifest["matched_subids"]) < min(3, len(subids)):
-        problems.append("fewer than 3 actual S-HYPE current flow series extracted")
+    if n_model_id < 95:
+        problems.append(f"S-HYPE/Vattenwebb model-ID coverage only {n_model_id}/100")
 
     manifest = {
         "schema_version": "akervatten-mvp-v0a-b-pilot-result",
-        "status": "PASS" if not problems else "FAIL",
+        "status": "PASS_WITH_WARNING" if not problems else "FAIL",
         "coverage": coverage,
         "sample_rules": {
             "design": "per municipality: dry archetype + wet archetype + non-old-robust edge case, deterministic fill to 100",
@@ -880,11 +967,18 @@ def main() -> int:
         "sgu_history_samples": history_manifest,
         "svar_source": svar_source,
         "svar_to_shype_mapping": mapping,
-        "shype_current_analysis": {
-            "url": analysis_url,
-            "file": analysis_name,
-            "sha256": sha256(nc_path),
-            **shype_manifest,
+        "vattenwebb_flowstatistics": {
+            "url": cfg["sources"]["smhi_vattenwebb_flowstatistics"],
+            "file": str(flowstats_path),
+            "sha256": sha256(flowstats_path),
+            **flowstats_info,
+        },
+        "nadia_daily_series": {
+            "url": cfg["sources"]["smhi_nadia"],
+            "id_column": model_id_col,
+            "sample_ids": nadia_ids,
+            "status": "MANUAL_DOCUMENTED_UI_VALIDATION_REQUIRED",
+            "handoff_file": str(nadia_handoff),
         },
         "guardrails": cfg["guardrails"],
         "problems": problems,
@@ -906,6 +1000,8 @@ def main() -> int:
     print("\nOutputs:", work)
     print("="*118)
     print(f"AKERVATTEN STOPPUNKT B 100-FIELD PILOT: {manifest['status']}")
+    if not problems:
+        print("Daily S-HYPE/NADIA series still require documented-UI validation before B can be frozen as full PASS.")
     print("="*118)
     return 0 if not problems else 2
 
