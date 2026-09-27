@@ -119,6 +119,35 @@ class TestAkerVattenBPilot(unittest.TestCase):
         self.assertEqual(q["best"]["polygon_column"], "VAROID")
         self.assertEqual(q["best"]["coupling_column"], "AROID")
 
+    def test_strict_aro_uuid_to_aroid_mapping(self):
+        joined = pd.DataFrame({
+            "pilot_order":[1,2,3],
+            "ARO_UUID":["abc-def","ghi-jkl","mno-pqr"],
+            "crop_code":["2","20","3"],
+        })
+        flowstats = pd.DataFrame({
+            "Aroid":["ABC-DEF","GHI-JKL","MNO-PQR"],
+            "Subid":["101","102","103"],
+        })
+        mapping, out = B.prove_aro_uuid_mapping(joined, flowstats, 0.95)
+        self.assertEqual(mapping["best"]["polygon_column"], "ARO_UUID")
+        self.assertEqual(mapping["best"]["coupling_column"], "Aroid")
+        self.assertEqual(mapping["best"]["match_fraction"], 1.0)
+        self.assertEqual(out["Subid"].tolist(), ["101","102","103"])
+
+    def test_strict_aro_uuid_mapping_rejects_wrong_ids(self):
+        joined = pd.DataFrame({
+            "pilot_order":[1,2,3],
+            "ARO_UUID":["A","B","C"],
+            "crop_code":["2","20","3"],
+        })
+        flowstats = pd.DataFrame({
+            "Aroid":["X","Y","Z"],
+            "Subid":["2","20","3"],
+        })
+        with self.assertRaises(RuntimeError):
+            B.prove_aro_uuid_mapping(joined, flowstats, 0.95)
+
 
 if __name__ == "__main__":
     unittest.main()
