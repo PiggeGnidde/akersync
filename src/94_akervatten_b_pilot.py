@@ -23,7 +23,8 @@ import math
 import re
 import time
 import zipfile
-from pathlib import Path
+import xml.etree.ElementTree as ET
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import geopandas as gpd
@@ -514,53 +515,194 @@ def download_vattenwebb_excel(dl: Downloader, url: str, path: Path) -> Path:
     return path
 
 
+def _xlsx_col_index(cell_ref: str) -> int:
+    letters = re.match(r"([A-Z]+)", cell_ref.upper())
+    if not letters:
+        return 0
+    n = 0
+    for ch in letters.group(1):
+        n = n * 26 + (ord(ch) - ord("A") + 1)
+    return n - 1
+
+
+def _xlsx_shared_strings(z: zipfile.ZipFile) -> list[str]:
+    name = "xl/sharedStrings.xml"
+    if name not in z.namelist():
+        return []
+    root = ET.fromstring(z.read(name))
+    out = []
+    for si in root:
+        if si.tag.endswith("}si") or si.tag == "si":
+            parts = []
+            for el in si.iter():
+                if el.tag.endswith("}t") or el.tag == "t":
+                    parts.append(el.text or "")
+            out.append("".join(parts))
+    return out
+
+
+def _xlsx_sheet_paths(z: zipfile.ZipFile) -> list[tuple[str, str]]:
+    workbook = ET.fromstring(z.read("xl/workbook.xml"))
+    rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+
+    relmap = {}
+    for rel in rels:
+        rid = rel.attrib.get("Id")
+        target = rel.attrib.get("Target")
+        if rid and target:
+            relmap[rid] = target
+
+    out = []
+    for el in workbook.iter():
+        if not (el.tag.endswith("}sheet") or el.tag == "sheet"):
+            continue
+        name = el.attrib.get("name", "")
+        rid = None
+        for k, v in el.attrib.items():
+            if k.endswith("}id") or k == "r:id":
+                rid = v
+                break
+        if not rid or rid not in relmap:
+            continue
+        target = relmap[rid].replace("\\\\", "/")
+        if target.startswith("/"):
+            path = target.lstrip("/")
+        elif target.startswith("xl/"):
+            path = target
+        else:
+            path = str(PurePosixPath("xl") / target)
+        out.append((name, path))
+    return out
+
+
+def _xlsx_rows(z: zipfile.ZipFile, sheet_path: str, shared: list[str]) -> list[list[Any]]:
+    root = ET.fromstring(z.read(sheet_path))
+    rows: list[list[Any]] = []
+
+    for row_el in root.iter():
+        if not (row_el.tag.endswith("}row") or row_el.tag == "row"):
+            continue
+        vals: dict[int, Any] = {}
+        for cell in row_el:
+            if not (cell.tag.endswith("}c") or cell.tag == "c"):
+                continue
+            ref = cell.attrib.get("r", "A1")
+            idx = _xlsx_col_index(ref)
+            ctype = cell.attrib.get("t")
+            value = None
+
+            if ctype == "inlineStr":
+                parts = []
+                for el in cell.iter():
+                    if el.tag.endswith("}t") or el.tag == "t":
+                        parts.append(el.text or "")
+                value = "".join(parts)
+            else:
+                v_el = None
+                for el in cell:
+                    if el.tag.endswith("}v") or el.tag == "v":
+                        v_el = el
+                        break
+                if v_el is not None:
+                    raw = v_el.text or ""
+                    if ctype == "s":
+                        try:
+                            value = shared[int(raw)]
+                        except Exception:
+                            value = raw
+                    elif ctype == "b":
+                        value = raw == "1"
+                    else:
+                        value = raw
+
+            vals[idx] = value
+
+        if vals:
+            width = max(vals) + 1
+            row = [None] * width
+            for idx, value in vals.items():
+                row[idx] = value
+            rows.append(row)
+        else:
+            rows.append([])
+    return rows
+
+
 def read_vattenwebb_flowstatistics(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Find the basin table/header dynamically in SMHI's workbook."""
-    xl = pd.ExcelFile(path)
-    candidates = []
+    """Read SMHI's XLSX without requiring openpyxl.
 
-    for sheet in xl.sheet_names:
-        raw = pd.read_excel(path, sheet_name=sheet, header=None, nrows=80)
-        for row_idx in range(len(raw)):
-            vals = [
-                str(v).strip().upper()
-                for v in raw.iloc[row_idx].tolist()
-                if pd.notna(v) and str(v).strip()
-            ]
-            score = 0
-            if "SUBID" in vals:
-                score += 5
-            if "AROID" in vals:
-                score += 5
-            if any("SUBID" in v for v in vals):
-                score += 2
-            if any("AROID" in v for v in vals):
-                score += 2
-            if any("MEDEL" in v or v in {"MQ","MLQ","MHQ"} for v in vals):
-                score += 1
-            if score:
-                candidates.append((score, sheet, row_idx))
+    XLSX is a ZIP of XML files, so the pilot uses only Python stdlib here.
+    """
+    with zipfile.ZipFile(path) as z:
+        shared = _xlsx_shared_strings(z)
+        sheets = _xlsx_sheet_paths(z)
+        if not sheets:
+            raise RuntimeError("Vattenwebb workbook contains no readable worksheets")
 
-    if not candidates:
-        raise RuntimeError(
-            f"Could not locate SUBID/AROID header in Vattenwebb workbook. sheets={xl.sheet_names}"
-        )
+        candidates = []
+        parsed: dict[str, list[list[Any]]] = {}
 
-    candidates.sort(reverse=True)
-    _, sheet, header_row = candidates[0]
-    df = pd.read_excel(path, sheet_name=sheet, header=header_row, dtype=str)
-    df.columns = [str(x).strip() for x in df.columns]
-    df = df.dropna(how="all").copy()
+        for sheet_name, sheet_path in sheets:
+            rows = _xlsx_rows(z, sheet_path, shared)
+            parsed[sheet_name] = rows
+            for row_idx, row in enumerate(rows[:100]):
+                vals = [
+                    str(v).strip().upper()
+                    for v in row
+                    if v is not None and str(v).strip()
+                ]
+                score = 0
+                if "SUBID" in vals:
+                    score += 5
+                if "AROID" in vals:
+                    score += 5
+                if any("SUBID" in v for v in vals):
+                    score += 2
+                if any("AROID" in v for v in vals):
+                    score += 2
+                if any("MEDEL" in v or v in {"MQ","MLQ","MHQ"} for v in vals):
+                    score += 1
+                if score:
+                    candidates.append((score, sheet_name, row_idx))
 
-    info = {
-        "sheet": sheet,
-        "header_row_zero_based": int(header_row),
-        "rows": int(len(df)),
-        "columns": list(df.columns),
-        "sheets": list(xl.sheet_names),
-    }
-    return df, info
+        if not candidates:
+            raise RuntimeError(
+                "Could not locate SUBID/AROID header in Vattenwebb workbook. "
+                f"sheets={[name for name,_ in sheets]}"
+            )
 
+        candidates.sort(reverse=True)
+        _, sheet_name, header_row = candidates[0]
+        rows = parsed[sheet_name]
+        header = rows[header_row]
+
+        columns = []
+        seen = {}
+        for i, value in enumerate(header):
+            base = str(value).strip() if value is not None and str(value).strip() else f"unnamed_{i}"
+            n = seen.get(base, 0)
+            seen[base] = n + 1
+            columns.append(base if n == 0 else f"{base}_{n+1}")
+
+        data_rows = []
+        for row in rows[header_row + 1:]:
+            if not row or not any(v is not None and str(v).strip() for v in row):
+                continue
+            padded = list(row) + [None] * max(0, len(columns) - len(row))
+            data_rows.append(padded[:len(columns)])
+
+        df = pd.DataFrame(data_rows, columns=columns)
+        df = df.dropna(how="all").copy()
+
+        info = {
+            "sheet": sheet_name,
+            "header_row_zero_based": int(header_row),
+            "rows": int(len(df)),
+            "columns": list(df.columns),
+            "sheets": [name for name,_ in sheets],
+            "xlsx_reader": "stdlib_zipfile_xml",
+        }
+        return df, info
 
 def choose_model_id_column(df: pd.DataFrame) -> str | None:
     for wanted in ("SUBID", "AROID"):
