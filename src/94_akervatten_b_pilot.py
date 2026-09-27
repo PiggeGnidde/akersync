@@ -308,6 +308,12 @@ def sample_smallmag(points3006: gpd.GeoDataFrame, tifs: list[Path]) -> pd.DataFr
 
 def get_sgu_hype_areas(dl: Downloader, url: str, bbox_wgs84: tuple[float,float,float,float],
                        out_path: Path) -> gpd.GeoDataFrame:
+    if out_path.exists() and out_path.stat().st_size > 0:
+        print(f"  cache: {out_path.name}")
+        g = gpd.read_file(out_path)
+        if not g.empty:
+            return g
+
     params = {
         "f": "application/geo+json",
         "bbox": ",".join(f"{v:.7f}" for v in bbox_wgs84),
@@ -353,25 +359,36 @@ def fetch_sgu_history_samples(dl: Downloader, joined: pd.DataFrame, n_cells: int
         .head(n_cells)
     )
     rows = []
+    raw_dir.mkdir(parents=True, exist_ok=True)
     for r in unique.itertuples(index=False):
         url = str(r.url_tidsserie)
         oid = str(r.omrade_id)
-        print(f"  SGU-HYPE history area {oid}")
-        resp = dl.get(url, timeout=180)
-        ctype = (resp.headers.get("content-type") or "").lower()
-        suffix = ".csv" if ("csv" in ctype or "text" in ctype) else ".dat"
-        path = raw_dir / f"sgu_hype_{oid}{suffix}"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(resp.content)
-        text = resp.text
+
+        cached = sorted(raw_dir.glob(f"sgu_hype_{oid}.*"))
+        if cached:
+            path = cached[0]
+            raw = path.read_bytes()
+            text = raw.decode("utf-8-sig", errors="replace")
+            print(f"  SGU-HYPE history area {oid} (cache)")
+            ctype = "cached"
+        else:
+            print(f"  SGU-HYPE history area {oid}")
+            resp = dl.get(url, timeout=180)
+            ctype = resp.headers.get("content-type")
+            suffix = ".csv" if ("csv" in (ctype or "").lower() or "text" in (ctype or "").lower()) else ".dat"
+            path = raw_dir / f"sgu_hype_{oid}{suffix}"
+            path.write_bytes(resp.content)
+            raw = resp.content
+            text = resp.text
+
         lines = [x for x in text.splitlines() if x.strip()]
         if len(lines) < 2:
             raise RuntimeError(f"SGU-HYPE history area {oid}: response has <2 non-empty lines")
         rows.append({
             "omrade_id": oid,
             "url": url,
-            "bytes": len(resp.content),
-            "content_type": resp.headers.get("content-type"),
+            "bytes": len(raw),
+            "content_type": ctype,
             "sha256": sha256(path),
             "header": lines[0],
             "first_data_line": lines[1],
@@ -379,7 +396,6 @@ def fetch_sgu_history_samples(dl: Downloader, joined: pd.DataFrame, n_cells: int
     if len(rows) < min(n_cells, joined["omrade_id"].dropna().nunique()):
         raise RuntimeError("Could not retrieve required SGU-HYPE history samples")
     return rows
-
 
 def extract_svar_bulk(zip_path: Path, extract_dir: Path) -> list[Path]:
     extract_dir.mkdir(parents=True, exist_ok=True)
