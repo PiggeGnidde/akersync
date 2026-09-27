@@ -781,7 +781,8 @@ def norm_id(s: pd.Series) -> pd.Series:
 
 
 def discover_svar_mapping(joined: pd.DataFrame, coupling: pd.DataFrame,
-                          min_fraction: float) -> dict[str, Any]:
+                          min_fraction: float,
+                          polygon_columns: list[str] | None = None) -> dict[str, Any]:
     targets = [
         c for c in coupling.columns
         if c.upper() in {"SUBID", "AROID", "VAROID", "MS_CD", "ARO_UUID"}
@@ -789,11 +790,17 @@ def discover_svar_mapping(joined: pd.DataFrame, coupling: pd.DataFrame,
     if not targets:
         raise RuntimeError(f"Model table lacks recognized identifier columns: {list(coupling.columns)}")
 
-    ignore = set(KEY + [
-        "pilot_order","sand_mean","clay_mean","silt_mean","twi_mean","twi_p50","twi_p90",
-        "twi_n_cells","lon","lat","x3006","y3006","geometry","index_right"
-    ])
-    polygon_cols = [c for c in joined.columns if c not in ignore]
+    if polygon_columns is None:
+        raise RuntimeError(
+            "discover_svar_mapping requires explicit polygon_columns to prevent "
+            "field-attribute leakage into identifier matching"
+        )
+    polygon_cols = [
+        c for c in polygon_columns
+        if c in joined.columns and c != "geometry"
+    ]
+    if not polygon_cols:
+        raise RuntimeError("No explicit SVAR polygon columns available for identifier mapping")
     tests = []
     for pc in polygon_cols:
         vals = norm_id(joined[pc])
@@ -1037,6 +1044,7 @@ def main() -> int:
     print("  source CRS:", svar_source["source_crs"])
     print("  polygons in pilot bbox:", len(svar))
     print("  polygon columns:", ", ".join(str(c) for c in svar.columns))
+    svar_polygon_columns = [str(c) for c in svar.columns if str(c) != "geometry"]
     svar_join = spatial_join_points(points, svar, "SMHI SVAR2022")
     n_svar = int(svar_join["index_right"].notna().sum())
     print(f"  polygon matches: {n_svar}/{len(points)}")
@@ -1055,6 +1063,7 @@ def main() -> int:
     mapping = discover_svar_mapping(
         svar_join, flowstats,
         float(cfg["pilot_rules"]["mapping_min_match_fraction"]),
+        polygon_columns=svar_polygon_columns,
     )
     print("  best mapping:", mapping["best"])
     svar_mapped = apply_svar_mapping(svar_join, flowstats, mapping)
