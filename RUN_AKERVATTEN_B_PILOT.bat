@@ -29,10 +29,10 @@ if errorlevel 1 (
 )
 
 echo [preflight] Python dependencies...
-py -3 -c "import pandas,numpy,geopandas,rasterio,requests,pyproj,openpyxl"
+py -3 -c "import pandas,numpy,geopandas,rasterio,requests,pyproj"
 if errorlevel 1 (
   echo.
-  echo FAIL: B pilot requires pandas numpy geopandas rasterio requests pyproj openpyxl.
+  echo FAIL: B pilot requires pandas numpy geopandas rasterio requests pyproj.
   echo Paste the complete import error back to the coding chat; do not install random packages yet.
   exit /b 1
 )
