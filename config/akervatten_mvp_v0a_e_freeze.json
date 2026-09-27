@@ -1,0 +1,110 @@
+{
+  "schema_version": "akervatten-mvp-v0a-stoppunkt-e-freeze",
+  "status": "PASS",
+  "freezes": "primary raw-feature candidate set and directional semantics only",
+  "components": {
+    "MarkTorka": {
+      "primary": [
+        {
+          "column": "sand_mean",
+          "direction": "higher_more_drought_prone"
+        },
+        {
+          "column": "twi_mean",
+          "direction": "lower_more_drought_prone"
+        }
+      ],
+      "deferred": [
+        "slope/relief"
+      ]
+    },
+    "MarkVata": {
+      "primary": [
+        {
+          "column": "clay_mean",
+          "direction": "higher_more_wetness_prone"
+        },
+        {
+          "column": "twi_mean",
+          "direction": "higher_more_wetness_prone"
+        }
+      ],
+      "note": "not defined as inverse of MarkTorka"
+    },
+    "GrundvattenTillgang": {
+      "primary": [
+        {
+          "column": "sgu_smallmag_value",
+          "direction": "higher_more_modelled_availability"
+        }
+      ]
+    },
+    "GrundvattenTorka": {
+      "primary": [
+        {
+          "column": "gw_small_situation_le10_max_run_days",
+          "direction": "higher_more_drought_prone"
+        },
+        {
+          "column": "gw_small_situation_summer_p10",
+          "direction": "lower_more_drought_prone"
+        }
+      ],
+      "diagnostics": [
+        "gw_small_situation_le20_max_run_days",
+        "gw_small_fill_summer_p10",
+        "gw_small_fill_le10_max_run_days"
+      ]
+    },
+    "YtvattenTorka": {
+      "primary": [
+        {
+          "column": "sw_MLQ_MQ_ratio_total",
+          "direction": "lower_more_drought_prone"
+        },
+        {
+          "column": "sw_MLQ_total_lps_km2_upstream",
+          "direction": "lower_more_drought_prone"
+        }
+      ],
+      "diagnostics": [
+        "sw_MLQ_MQ_ratio_natural",
+        "sw_MLQ_natural_lps_km2_upstream"
+      ]
+    }
+  },
+  "evidence": {
+    "groundwater_seasonality_strata_oriented_rho": {
+      "Q1_low_seasonality": -0.477,
+      "Q2": -0.385,
+      "Q3": 0.009,
+      "Q4_high_seasonality": 0.508
+    },
+    "groundwater_low_situation_common_start_years": [
+      {
+        "year": 2025,
+        "units": 420
+      },
+      {
+        "year": 2018,
+        "units": 220
+      },
+      {
+        "year": 1976,
+        "units": 100
+      }
+    ],
+    "surface_primary_pair": {
+      "spearman_oriented": 0.924,
+      "top10_overlap": 0.647
+    }
+  },
+  "primary_coverage_pct": {
+    "sand_mean": 96.702,
+    "twi_mean": 99.97,
+    "sgu_smallmag_value": 99.997,
+    "groundwater_history": 100,
+    "surfacewater_history": 100
+  },
+  "next_checkpoint": "STOPPUNKT F transparent separate 0-100 component transforms"
+}
