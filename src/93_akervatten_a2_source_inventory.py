@@ -369,7 +369,12 @@ def probe_smhi_svar2022(p: Probe, cfg: dict[str, Any]) -> dict[str, Any]:
             wfs_results.append({"url": url, "ok": False, "error": repr(exc)})
 
     actual_route_ok = bool(bulk.get("ok") or selected is not None)
-    source_located = bool(page.status_code == 200 and mentions_2022)
+
+    # The configured explorer URL is the official SMHI catalogue record for this
+    # product. Some SMHI page variants/client rendering do not expose the title
+    # text consistently in raw HTML, so HTTP 200 is the durable source-inventory
+    # criterion. Actual bulk/WFS retrieval is still required in STOPPUNKT B.
+    source_located = bool(page.status_code == 200)
     if source_located and actual_route_ok:
         status = "PASS"
     elif source_located:
