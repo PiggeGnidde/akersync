@@ -60,7 +60,7 @@ class TestAkerVattenBPilot(unittest.TestCase):
             "SUBID":["11","12","13"],
             "HARO":["1","1","1"],
         })
-        q = B.discover_svar_mapping(joined, coupling, 0.95)
+        q = B.discover_svar_mapping(joined, coupling, 0.95, polygon_columns=["VAROID"])
         self.assertEqual(q["best"]["polygon_column"], "VAROID")
         self.assertEqual(q["best"]["coupling_column"], "AROID")
         self.assertEqual(q["best"]["match_fraction"], 1.0)
@@ -102,6 +102,22 @@ class TestAkerVattenBPilot(unittest.TestCase):
         picked=set(out["blockid"])
         self.assertIn("2", picked)
         self.assertIn("4", picked)
+
+    def test_mapping_rejects_field_attribute_leakage(self):
+        joined = pd.DataFrame({
+            "pilot_order":[1,2,3],
+            "VAROID":["A","B","C"],
+            "crop_code":["2","20","3"],
+        })
+        coupling = pd.DataFrame({
+            "AROID":["A","B","C"],
+            "SUBID":["2","20","3"],
+        })
+        q = B.discover_svar_mapping(
+            joined, coupling, 0.95, polygon_columns=["VAROID"]
+        )
+        self.assertEqual(q["best"]["polygon_column"], "VAROID")
+        self.assertEqual(q["best"]["coupling_column"], "AROID")
 
 
 if __name__ == "__main__":
