@@ -633,7 +633,10 @@ def main() -> int:
     if "skiften" not in local_paths:
         raise RuntimeError(f"'skiften' missing in {paths['local_paths_json']}")
     points = load_pilot_geometries(sample, Path(local_paths["skiften"]))
-    points.to_file(work/"pilot_fields_100.gpkg", layer="pilot_fields", driver="GPKG")
+    pilot_gpkg = work/"pilot_fields_100.gpkg"
+    # A failed previous write may leave a partial GeoPackage. Recreate deterministically.
+    pilot_gpkg.unlink(missing_ok=True)
+    points.to_file(pilot_gpkg, layer="pilot_fields", driver="GPKG")
 
     print("\n[2/8] SGU small-magasin raster")
     zip_path = dl.download(
