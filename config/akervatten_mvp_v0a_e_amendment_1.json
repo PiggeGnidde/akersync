@@ -1,0 +1,17 @@
+{
+  "schema_version": "akervatten-mvp-v0a-e-amendment-1-markvata-organic",
+  "status": "FROZEN_CANDIDATE_AMENDMENT",
+  "parent_freeze": "config/akervatten_mvp_v0a_e_freeze.json",
+  "component": "MarkVata",
+  "added_raw_feature": {
+    "column": "organic_ge20_share_pct",
+    "direction": "higher_more_wetness_evidence",
+    "transform_contract": "missing->missing; zero->0; positive->empirical percentile among positive values only"
+  },
+  "candidate_structure": {
+    "mineral_branch": "min(clay_percentile, twi_percentile)",
+    "organic_branch": "zero-aware positive-only organic percentile",
+    "combination": "max(mineral_branch, organic_branch)"
+  },
+  "freeze_scope": "raw feature and directional/transform semantics only; no final score freeze"
+}
