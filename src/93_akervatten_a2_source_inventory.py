@@ -40,18 +40,28 @@ def localname(tag: str) -> str:
 
 
 class Probe:
-    def __init__(self, timeout: int, user_agent: str):
+    def __init__(self, timeout: int, user_agent: str, retries: int = 3, backoff_seconds: float = 2.0):
         self.timeout = timeout
+        self.retries = max(1, int(retries))
+        self.backoff_seconds = float(backoff_seconds)
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
     def get(self, url: str, *, params: dict[str, Any] | None = None, max_bytes: int = 2_000_000):
-        r = self.session.get(url, params=params, timeout=self.timeout, allow_redirects=True)
-        r.raise_for_status()
-        content = r.content
-        if len(content) > max_bytes:
-            raise RuntimeError(f"Response too large for source-inventory probe: {len(content):,} bytes from {r.url}")
-        return r
+        last_exc = None
+        for attempt in range(1, self.retries + 1):
+            try:
+                r = self.session.get(url, params=params, timeout=self.timeout, allow_redirects=True)
+                r.raise_for_status()
+                content = r.content
+                if len(content) > max_bytes:
+                    raise RuntimeError(f"Response too large for source-inventory probe: {len(content):,} bytes from {r.url}")
+                return r
+            except (requests.RequestException, RuntimeError) as exc:
+                last_exc = exc
+                if attempt < self.retries:
+                    time.sleep(self.backoff_seconds * attempt)
+        raise RuntimeError(f"GET failed after {self.retries} attempts: {url}: {last_exc}")
 
     def head_or_range(self, url: str) -> dict[str, Any]:
         # Never consume a large body in A2.
@@ -489,6 +499,8 @@ def main() -> int:
     p = Probe(
         timeout=int(cfg["network"]["timeout_seconds"]),
         user_agent=str(cfg["network"]["user_agent"]),
+        retries=int(cfg["network"].get("retries", 3)),
+        backoff_seconds=float(cfg["network"].get("retry_backoff_seconds", 2)),
     )
 
     result: dict[str, Any] = {
