@@ -26,11 +26,11 @@ For the pilot, actual data — not only documentation — are connected end to e
 - SGU-HYPE area / omrade_id;
 - several actual SGU-HYPE historical response files;
 - SMHI SVAR2022 catchment polygons from the official bulk GeoPackage/ZIP (A2 WFS is retained as source-inventory evidence, but B uses bulk + local clipping for reproducibility);
-- current official S-HYPE coupling table;
-- empirical proof of the SVAR polygon identifier -> AROID/SUBID mapping;
-- a current official S-HYPE 30-day NetCDF analysis file and real flow series for several mapped SUBIDs.
+- open Vattenwebb all-Sweden flow-statistics workbook;
+- empirical proof of the SVAR polygon identifier -> current Vattenwebb SUBID/AROID mapping where the workbook supports it;
+- a documented NADIA handoff with several mapped IDs for daily-series validation.
 
-The current 30-day S-HYPE file is used in B only to prove the spatial/identifier/time-series chain. Historical 1991-> low-flow feature production belongs to STOPPUNKT D.
+The separate SMHI realtime S-HYPE delivery is not used in the open-data MVP because direct file access requires authentication. B instead uses the documented Vattenwebb bulk flow-information download. Daily historical series remain available through the documented NADIA interface; B does not reverse-engineer NADIA's private backend endpoint.
 
 ## Why the coupling table matters
 
@@ -52,7 +52,9 @@ B requires:
 - at least 3 actual SGU-HYPE historical series retrieved;
 - >=95% SVAR2022 polygon coverage;
 - >=95% mapping to S-HYPE SUBID;
-- at least 3 actual current S-HYPE flow series extracted.
+- at least 3 mapped Vattenwebb basin IDs emitted for documented NADIA daily-series validation.
+
+Until daily-series retrieval through the documented user-facing route is validated, B reports `PASS_WITH_WARNING`, not a full freeze PASS.
 
 Any failure stops before full-Skåne scaling.
 
@@ -80,3 +82,7 @@ No MarkTorka, MarkVäta or combined score is frozen.
 ## SVAR2022 retrieval decision
 
 STOPPUNKT A proved that SMHI's WFS capabilities are reachable, but a large Skåne GetFeature bbox returned a server-side HTTP 500 during the real pilot. B therefore uses SMHI's official packaged SVAR2022 download and clips locally in EPSG:3006. This is more reproducible and avoids making the pilot depend on a fragile server-side WFS bbox query.
+
+## Access-control finding
+
+The public-facing realtime S-HYPE product description states that realtime files are delivered as a web service against a delivery fee. Direct anonymous access to the coupling CSV returned HTTP 401 during the pilot. The project therefore does not attempt to bypass that control. The open Vattenwebb/NADIA products are used instead.
