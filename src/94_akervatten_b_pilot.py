@@ -381,29 +381,99 @@ def fetch_sgu_history_samples(dl: Downloader, joined: pd.DataFrame, n_cells: int
     return rows
 
 
-def fetch_svar_wfs(dl: Downloader, base_url: str, typename: str,
-                   bbox3006: tuple[float,float,float,float], out_path: Path) -> gpd.GeoDataFrame:
-    # Add a modest margin so boundary polygons are safely included.
+def extract_svar_bulk(zip_path: Path, extract_dir: Path) -> list[Path]:
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    existing = sorted(extract_dir.rglob("*.gpkg")) + sorted(extract_dir.rglob("*.shp"))
+    if existing:
+        return existing
+
+    with zipfile.ZipFile(zip_path) as z:
+        wanted = []
+        for name in z.namelist():
+            lower = name.lower()
+            if lower.endswith((".gpkg", ".shp", ".dbf", ".shx", ".prj", ".cpg")):
+                wanted.append(name)
+        if not wanted:
+            raise RuntimeError(f"No GeoPackage/Shapefile content found in {zip_path}")
+        for name in wanted:
+            z.extract(name, extract_dir)
+
+    return sorted(extract_dir.rglob("*.gpkg")) + sorted(extract_dir.rglob("*.shp"))
+
+
+def read_svar_bulk_for_pilot(zip_path: Path, bbox3006: tuple[float,float,float,float],
+                             extract_dir: Path) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
+    candidates = extract_svar_bulk(zip_path, extract_dir)
+    if not candidates:
+        raise RuntimeError("SVAR2022 bulk extraction produced no vector candidates")
+
     minx,miny,maxx,maxy = bbox3006
     pad = 5000.0
-    bbox_txt = f"{minx-pad:.3f},{miny-pad:.3f},{maxx+pad:.3f},{maxy+pad:.3f},urn:ogc:def:crs:EPSG::3006"
-    params = {
-        "service": "WFS",
-        "version": "2.0.0",
-        "request": "GetFeature",
-        "typeNames": typename,
-        "outputFormat": "application/json",
-        "srsName": "EPSG:3006",
-        "bbox": bbox_txt,
-    }
-    r = dl.get(base_url, params=params, timeout=180)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_bytes(r.content)
-    g = gpd.read_file(out_path)
-    if g.empty:
-        raise RuntimeError("SMHI SVAR2022 WFS bbox returned zero polygons")
-    return g
+    clip = box(minx-pad, miny-pad, maxx+pad, maxy+pad)
 
+    attempts = []
+    for path in candidates:
+        try:
+            if path.suffix.lower() == ".gpkg":
+                try:
+                    layers = gpd.list_layers(path)
+                    layer_names = layers["name"].astype(str).tolist()
+                except Exception:
+                    layer_names = [None]
+            else:
+                layer_names = [None]
+
+            for layer in layer_names:
+                try:
+                    kwargs = {"layer": layer} if layer else {}
+                    g = gpd.read_file(path, **kwargs)
+                    if g.empty or g.crs is None:
+                        attempts.append({
+                            "path": str(path),
+                            "layer": layer,
+                            "status": "empty_or_no_crs",
+                        })
+                        continue
+                    g3006 = g.to_crs(3006)
+                    keep = g3006.geometry.intersects(clip)
+                    sub = g3006.loc[keep].copy()
+                    attempts.append({
+                        "path": str(path),
+                        "layer": layer,
+                        "status": "ok",
+                        "rows_total": int(len(g)),
+                        "rows_pilot_bbox": int(len(sub)),
+                        "crs": str(g.crs),
+                    })
+                    if len(sub):
+                        return sub, {
+                            "mode": "OFFICIAL_BULK_ZIP",
+                            "source_file": str(path),
+                            "layer": layer,
+                            "source_crs": str(g.crs),
+                            "rows_total": int(len(g)),
+                            "rows_pilot_bbox": int(len(sub)),
+                            "attempts": attempts,
+                        }
+                except Exception as exc:
+                    attempts.append({
+                        "path": str(path),
+                        "layer": layer,
+                        "status": "error",
+                        "error": repr(exc),
+                    })
+        except Exception as exc:
+            attempts.append({
+                "path": str(path),
+                "layer": None,
+                "status": "error",
+                "error": repr(exc),
+            })
+
+    raise RuntimeError(
+        "Could not read any SVAR2022 bulk vector layer intersecting the pilot bbox. "
+        f"Attempts={attempts}"
+    )
 
 def read_coupling_table(path: Path) -> pd.DataFrame:
     # SMHI CSV may use semicolon and Swedish/UTF-8 variants.
@@ -674,12 +744,24 @@ def main() -> int:
 
     print("\n[5/8] SMHI SVAR2022 spatial linkage")
     bbox3006 = tuple(float(v) for v in points.total_bounds)
-    svar = fetch_svar_wfs(
-        dl, cfg["sources"]["smhi_svar_wfs"], cfg["sources"]["smhi_svar_typename"],
-        bbox3006,
-        raw/"smhi"/"svar2022_pilot.geojson",
+
+    # Use SMHI's official bulk package as the strict B data path. A2 already
+    # proved WFS capabilities, but GetFeature can return server-side HTTP 500
+    # for a large Skåne bbox. Bulk + local clipping is more reproducible.
+    svar_zip = dl.download(
+        cfg["sources"]["smhi_svar_zip"],
+        raw/"smhi"/"SVAR2022_Vattenforekomstavrinningsomraden.zip",
+        max_bytes=800*1024*1024,
     )
-    print("  polygons downloaded:", len(svar))
+    svar, svar_source = read_svar_bulk_for_pilot(
+        svar_zip, bbox3006,
+        raw/"smhi"/"svar2022_extracted",
+    )
+    print("  source mode:", svar_source["mode"])
+    print("  source file:", svar_source["source_file"])
+    print("  source layer:", svar_source["layer"])
+    print("  source CRS:", svar_source["source_crs"])
+    print("  polygons in pilot bbox:", len(svar))
     print("  polygon columns:", ", ".join(str(c) for c in svar.columns))
     svar_join = spatial_join_points(points, svar, "SMHI SVAR2022")
     n_svar = int(svar_join["index_right"].notna().sum())
@@ -780,6 +862,7 @@ def main() -> int:
             "n_fields": len(out),
         },
         "sgu_history_samples": history_manifest,
+        "svar_source": svar_source,
         "svar_to_shype_mapping": mapping,
         "shype_current_analysis": {
             "url": analysis_url,
