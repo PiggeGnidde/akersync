@@ -1,0 +1,43 @@
+{
+  "schema_version": "akervatten-mvp-v0a-c-full-linkage",
+  "expected_fields": 128636,
+  "chunk_size_fields": 1000,
+  "paths": {
+    "local_paths_json": "C:\\AkerSyncRepo\\config\\local_paths.json",
+    "soil": "C:\\AkerSyncRepo\\data\\derived\\soil_features_skiften.csv",
+    "hydrology": "C:\\AkerSyncRepo\\data\\derived\\hydrology_features_skiften.csv",
+    "a1b_status": "work/akervatten_mvp_v0a/a1b_coverage_schema/a1b_field_data_status.parquet",
+    "b_config": "config/akervatten_mvp_v0a_b.json",
+    "b_smallmag_cache": "data/raw/akervatten/b_pilot/sgu/grundvattentillgang-sma-magasin.zip",
+    "b_flowstats_cache": "data/raw/akervatten/b_pilot/smhi/vattenwebb_flowstatistics.xls"
+  },
+  "network": {
+    "timeout_seconds": 120,
+    "retries": 3,
+    "retry_backoff_seconds": 3
+  },
+  "svar": {
+    "tile_size_m": 20000,
+    "tile_pad_m": 1000,
+    "count_per_tile": 5000,
+    "typename_hint": "Delavrinningsomraden_2022"
+  },
+  "output": {
+    "raw_dir": "data/raw/akervatten/c_full_linkage",
+    "work_dir": "work/akervatten_mvp_v0a/c_full_linkage"
+  },
+  "acceptance": {
+    "min_smallmag_fraction": 0.95,
+    "min_sgu_hype_fraction": 0.99,
+    "min_svar_fraction": 0.99,
+    "min_subid_fraction": 0.99
+  },
+  "guardrails": [
+    "STOPPUNKT C scales only the proven B spatial and identifier linkage",
+    "no historical drought feature engineering in C",
+    "no MarkTorka MarkVata GrundvattenTillgang GrundvattenTorka YtvattenTorka or composite score is frozen in C",
+    "physical and hydrological screening is not legal water-withdrawal right",
+    "all expensive network/source acquisition must be cached and resumable",
+    "field processing must checkpoint every 1000 fields by default"
+  ]
+}
