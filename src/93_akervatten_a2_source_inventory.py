@@ -630,8 +630,10 @@ def main() -> int:
     sv = result.get("smhi_svar2022", {})
     if sv.get("status") == "PASS":
         print("\nSMHI SVAR2022")
-        print("  WFS feature types:", ", ".join(x.get("name","") for x in sv.get("wfs", {}).get("feature_types", [])))
-        print("  CRS:", ", ".join(sv.get("wfs", {}).get("crs", [])))
+        selected = sv.get("wfs_selected") or {}
+        print("  WFS status:", sv.get("wfs_status"))
+        print("  WFS feature types:", ", ".join(x.get("name","") for x in selected.get("feature_types", [])) or "bulk fallback")
+        print("  CRS:", ", ".join(selected.get("crs", [])) or sv.get("schema_crs_status"))
 
     sh = result.get("smhi_shype", {})
     if sh.get("status") == "PASS":
