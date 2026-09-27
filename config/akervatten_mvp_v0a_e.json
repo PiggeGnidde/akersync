@@ -1,0 +1,174 @@
+{
+  "schema_version": "akervatten-mvp-v0a-e-feature-validation",
+  "paths": {
+    "d_fields": "work/akervatten_mvp_v0a/d_history/akervatten_d_history_features_skane.parquet",
+    "d_groundwater_units": "work/akervatten_mvp_v0a/d_history/groundwater_history_features.parquet",
+    "d_surface_units": "work/akervatten_mvp_v0a/d_history/surfacewater_history_features.parquet",
+    "soil": "C:\\AkerSyncRepo\\data\\derived\\soil_features_skiften.csv",
+    "hydrology": "C:\\AkerSyncRepo\\data\\derived\\hydrology_features_skiften.csv"
+  },
+  "output": {
+    "work_dir": "work/akervatten_mvp_v0a/e_feature_validation"
+  },
+  "candidates": {
+    "MarkTorka": [
+      {
+        "name": "sand",
+        "aliases": [
+          "sand_mean"
+        ],
+        "direction": 1,
+        "required": true
+      },
+      {
+        "name": "low_twi",
+        "aliases": [
+          "twi_mean"
+        ],
+        "direction": -1,
+        "required": true
+      },
+      {
+        "name": "slope",
+        "aliases": [
+          "slope_mean",
+          "mean_slope",
+          "slope_deg_mean",
+          "slope_pct_mean"
+        ],
+        "direction": 1,
+        "required": false
+      }
+    ],
+    "MarkVata": [
+      {
+        "name": "clay",
+        "aliases": [
+          "clay_mean"
+        ],
+        "direction": 1,
+        "required": true
+      },
+      {
+        "name": "high_twi",
+        "aliases": [
+          "twi_mean"
+        ],
+        "direction": 1,
+        "required": true
+      },
+      {
+        "name": "flatness",
+        "aliases": [
+          "slope_mean",
+          "mean_slope",
+          "slope_deg_mean",
+          "slope_pct_mean"
+        ],
+        "direction": -1,
+        "required": false
+      }
+    ],
+    "GrundvattenTillgang": [
+      {
+        "name": "smallmag",
+        "aliases": [
+          "sgu_smallmag_value"
+        ],
+        "direction": 1,
+        "required": true
+      }
+    ],
+    "GrundvattenTorka": [
+      {
+        "name": "small_situation_le10_max_run",
+        "aliases": [
+          "gw_small_situation_le10_max_run_days"
+        ],
+        "direction": 1,
+        "required": true
+      },
+      {
+        "name": "small_situation_le20_max_run",
+        "aliases": [
+          "gw_small_situation_le20_max_run_days"
+        ],
+        "direction": 1,
+        "required": false
+      },
+      {
+        "name": "small_situation_summer_p10",
+        "aliases": [
+          "gw_small_situation_summer_p10"
+        ],
+        "direction": -1,
+        "required": true
+      },
+      {
+        "name": "small_fill_summer_p10",
+        "aliases": [
+          "gw_small_fill_summer_p10"
+        ],
+        "direction": -1,
+        "required": true
+      },
+      {
+        "name": "small_fill_le10_max_run",
+        "aliases": [
+          "gw_small_fill_le10_max_run_days"
+        ],
+        "direction": 1,
+        "required": false
+      }
+    ],
+    "YtvattenTorka": [
+      {
+        "name": "mlq_mq_total",
+        "aliases": [
+          "sw_MLQ_MQ_ratio_total"
+        ],
+        "direction": -1,
+        "required": true
+      },
+      {
+        "name": "specific_mlq_total",
+        "aliases": [
+          "sw_MLQ_total_lps_km2_upstream"
+        ],
+        "direction": -1,
+        "required": true
+      },
+      {
+        "name": "mlq_mq_natural",
+        "aliases": [
+          "sw_MLQ_MQ_ratio_natural"
+        ],
+        "direction": -1,
+        "required": false
+      },
+      {
+        "name": "specific_mlq_natural",
+        "aliases": [
+          "sw_MLQ_natural_lps_km2_upstream"
+        ],
+        "direction": -1,
+        "required": false
+      }
+    ]
+  },
+  "validation": {
+    "top_fraction": 0.1,
+    "redundancy_abs_spearman": 0.9,
+    "redundancy_top_overlap": 0.8,
+    "min_required_coverage": 0.95,
+    "extremes_per_tail": 10
+  },
+  "guardrails": [
+    "STOPPUNKT E validates candidate raw features and directional transforms only",
+    "diagnostic ranks/top-deciles are not frozen product scores",
+    "MarkTorka and MarkVata are separate physical components and must not be defined as exact inverses",
+    "field-weighted and hydrological-unit-weighted distributions must both be reported",
+    "no combined ÅkerVatten score is created or frozen in E",
+    "physical and hydrological screening is not legal water-withdrawal right"
+  ]
+}
