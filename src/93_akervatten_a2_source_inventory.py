@@ -522,7 +522,7 @@ def render_markdown(result: dict[str, Any]) -> str:
 
     gh = result.get("sgu_hype", {})
     lines += ["", "## SGU-HYPE", ""]
-    if gh.get("status") in {"PASS","FAIL"}:
+    if gh.get("status") in {"PASS","PASS_WITH_WARNING","FAIL"}:
         lines += [
             f"- Collections: {', '.join(gh.get('collections',[])) or 'not available'}",
             f"- Area storage CRS: {gh.get('area_collection_storage_crs')}",
@@ -535,7 +535,7 @@ def render_markdown(result: dict[str, Any]) -> str:
 
     sv = result.get("smhi_svar2022", {})
     lines += ["", "## SMHI — SVAR2022 geometry", ""]
-    if sv.get("status") in {"PASS","FAIL"}:
+    if sv.get("status") in {"PASS","PASS_WITH_WARNING","FAIL"}:
         selected = sv.get("wfs_selected") or {}
         lines += [
             f"- Official explorer/bulk route: {'reachable' if sv.get('bulk_probe',{}).get('ok') else 'not confirmed'}",
@@ -564,7 +564,7 @@ def render_markdown(result: dict[str, Any]) -> str:
         ]
 
     lines += ["", "## A2 decision", ""]
-    if result.get("status") == "PASS":
+    if result.get("status") in {"PASS", "PASS_WITH_WARNING"}:
         lines += [
             "Official source routes, schemas and licenses are sufficiently inventoried to proceed to STOPPUNKT B.",
             "",
@@ -629,8 +629,19 @@ def main() -> int:
             problems.append(f"{name}: {exc}")
             print(f"        ERROR: {exc}")
 
+    warnings = [
+        f"{name}: {result[name]['status']}"
+        for name, _ in probes
+        if result.get(name, {}).get("status") == "PASS_WITH_WARNING"
+    ]
     result["problems"] = problems
-    result["status"] = "PASS" if not problems else "FAIL"
+    result["warnings"] = warnings
+    if problems:
+        result["status"] = "FAIL"
+    elif warnings:
+        result["status"] = "PASS_WITH_WARNING"
+    else:
+        result["status"] = "PASS"
 
     (work / "source_inventory.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",
@@ -673,6 +684,19 @@ def main() -> int:
         print("\nLICENSES")
         print("  SGU :", lic["sgu"]["detected_license"])
         print("  SMHI:", lic["smhi"]["detected_license"])
+
+    warnings = result.get("warnings", [])
+    if warnings:
+        print("\nWARNINGS / DEFERRED TO STOPPUNKT B")
+        for item in warnings:
+            print("  - " + item)
+        if gh.get("history_probe_warning"):
+            print("  - SGU-HYPE history sample:", gh.get("history_probe_warning"))
+        if sv.get("status") == "PASS_WITH_WARNING":
+            print("  - SMHI SVAR2022 bulk probe:", sv.get("bulk_probe"))
+            for attempt in sv.get("wfs_attempts", []):
+                if not attempt.get("ok"):
+                    print("  - SMHI WFS attempt:", attempt.get("url"), attempt.get("error"))
 
     if problems:
         print("\nPROBLEMS")
