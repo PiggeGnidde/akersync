@@ -1,0 +1,49 @@
+{
+  "schema_version": "akervatten-mvp-v0a-stoppunkt-b-freeze",
+  "status": "PASS",
+  "pilot_fields": 100,
+  "municipalities": 33,
+  "local_status_counts": {
+    "OLD_ROBUST": 66,
+    "AVAILABLE_BUT_NOT_OLD_ROBUST": 30,
+    "DATA_MISSING": 4
+  },
+  "coverage": {
+    "sgu_smallmag": "100/100",
+    "sgu_hype_area": "100/100",
+    "sgu_hype_unique_areas": 97,
+    "sgu_hype_history_series_retrieved": 5,
+    "svar2022_delavrinningsomraden": "100/100",
+    "vattenwebb_aroid_mapping": "100/100",
+    "vattenwebb_subid_mapping": "100/100"
+  },
+  "semantic_contract": {
+    "geometry": "SVAR2022 Delavrinningsområden",
+    "geometry_id": "ARO_UUID",
+    "model_table_id": "Aroid",
+    "model_series_id": "Subid"
+  },
+  "nadia_b2": {
+    "status": "PASS",
+    "year": 2025,
+    "timestep": "daily",
+    "requested_subids": [
+      "101",
+      "103",
+      "106",
+      "107",
+      "11"
+    ],
+    "requested_subids_seen": [
+      "101",
+      "103",
+      "106",
+      "107",
+      "11"
+    ],
+    "sheet": "S-Hype Tidsserier",
+    "detected_date_rows": 489,
+    "detected_numeric_cells": 2447
+  },
+  "next_checkpoint": "STOPPUNKT C full-population spatial/ID linkage"
+}
