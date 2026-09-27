@@ -1,0 +1,146 @@
+{
+  "schema_version": "akervatten-mvp-v0a-g-sanity-validation",
+  "paths": {
+    "f_freeze": "config/akervatten_mvp_v0a_f_freeze.json",
+    "f5_fields": "work/akervatten_mvp_v0a/f_component_candidates/akervatten_f5_final_candidate_components_skane.parquet"
+  },
+  "output": {
+    "work_dir": "work/akervatten_mvp_v0a/g_sanity_validation"
+  },
+  "components": {
+    "MarkTorka": {
+      "score": "mark_torka_candidate_0_100",
+      "unit": "field",
+      "drivers": [
+        "sand_mean",
+        "twi_mean"
+      ],
+      "high_means": "more relative soil/topographic drought sensitivity",
+      "low_means": "less relative soil/topographic drought sensitivity"
+    },
+    "MarkVata": {
+      "score": "mark_vata_candidate_f5_0_100",
+      "unit": "field",
+      "drivers": [
+        "clay_mean",
+        "twi_mean",
+        "organic_ge20_share_pct"
+      ],
+      "high_means": "more relative structural wetness tendency",
+      "low_means": "less relative structural wetness tendency"
+    },
+    "GrundvattenTillgang": {
+      "score": "grundvatten_tillgang_candidate_0_100",
+      "unit": "field",
+      "drivers": [
+        "sgu_smallmag_value"
+      ],
+      "high_means": "higher relative modelled small-aquifer availability",
+      "low_means": "lower relative modelled small-aquifer availability"
+    },
+    "GrundvattenTorka": {
+      "score": "grundvatten_torka_candidate_0_100",
+      "unit": "omrade_id",
+      "expected_unique_units": 786,
+      "drivers": [
+        "gw_small_situation_le10_max_run_days",
+        "gw_small_situation_summer_p10"
+      ],
+      "high_means": "more relative historical groundwater-drought sensitivity",
+      "low_means": "less relative historical groundwater-drought sensitivity"
+    },
+    "YtvattenTorka": {
+      "score": "ytvatten_torka_candidate_0_100",
+      "unit": "Subid",
+      "expected_unique_units": 502,
+      "drivers": [
+        "sw_MLQ_MQ_ratio_total",
+        "sw_MLQ_total_lps_km2_upstream"
+      ],
+      "high_means": "more relative historical low-flow sensitivity",
+      "low_means": "less relative historical low-flow sensitivity"
+    }
+  },
+  "score_bands": [
+    {
+      "min": 0,
+      "max": 20,
+      "label": "Mycket låg"
+    },
+    {
+      "min": 20,
+      "max": 40,
+      "label": "Låg"
+    },
+    {
+      "min": 40,
+      "max": 60,
+      "label": "Måttlig"
+    },
+    {
+      "min": 60,
+      "max": 80,
+      "label": "Hög"
+    },
+    {
+      "min": 80,
+      "max": 100.0000001,
+      "label": "Mycket hög"
+    }
+  ],
+  "extremes": {
+    "fractions": [
+      0.01,
+      0.05,
+      0.1
+    ],
+    "rows_per_tail": 20
+  },
+  "representative_quantiles": [
+    0,
+    0.1,
+    0.5,
+    0.9,
+    1
+  ],
+  "product_copy": {
+    "MarkTorka": {
+      "title": "MarkTorka",
+      "short": "Relativ torkkänslighet i själva marken.",
+      "explanation": "Baserat på sandhalt och topografiskt våthetsindex (TWI) jämfört med skånska åkrar.",
+      "caveat": "Beskriver strukturell känslighet, inte hur torr åkern är idag."
+    },
+    "MarkVata": {
+      "title": "MarkVäta",
+      "short": "Relativ benägenhet för strukturellt våt mark.",
+      "explanation": "Baserat på gemensam evidens från lerhalt och TWI samt en separat organisk-jord-gren.",
+      "caveat": "Beskriver strukturell våthetsbenägenhet, inte aktuell markfukt."
+    },
+    "GrundvattenTillgang": {
+      "title": "GrundvattenTillgång",
+      "short": "Relativ modellerad tillgång i små grundvattenmagasin.",
+      "explanation": "Baserat på SGU:s småmagasinunderlag och jämfört med skånska jordbruksfält.",
+      "caveat": "Är inte brunnskapacitet, vattenvolym eller juridisk uttagsrätt."
+    },
+    "GrundvattenTorka": {
+      "title": "GrundvattenTorka",
+      "short": "Historisk relativ känslighet för låga grundvattennivåer.",
+      "explanation": "Baserat på långvarighet och sommarlåghet i SGU-HYPE:s historiska grundvattensituation.",
+      "caveat": "Beskriver historisk hydrologisk regim, inte dagens grundvattenläge."
+    },
+    "YtvattenTorka": {
+      "title": "YtvattenTorka",
+      "short": "Historisk relativ känslighet för låga ytvattenflöden.",
+      "explanation": "Baserat på MLQ/MQ och specifikt MLQ i S-HYPE-delavrinningsområdet.",
+      "caveat": "Är inte tillgänglig uttagsvolym, bevattningstillstånd eller prognos för dagens flöde."
+    }
+  },
+  "guardrails": [
+    "G validates frozen F outputs and does not modify component formulas",
+    "0-100 values are relative empirical component scales, not probabilities",
+    "hydrological components must be constant within their frozen hydrological unit",
+    "extreme and group profiles are sanity checks, not calibration targets",
+    "no combined ÅkerVatten index is created",
+    "physical/hydrological screening is not legal water-withdrawal right"
+  ]
+}
