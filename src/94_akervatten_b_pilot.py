@@ -492,6 +492,180 @@ def read_svar_bulk_for_pilot(zip_path: Path, bbox3006: tuple[float,float,float,f
         f"Attempts={attempts}"
     )
 
+def _xml_localname(tag: str) -> str:
+    return tag.split("}", 1)[-1] if "}" in tag else tag
+
+
+def discover_wfs_typename(dl: Downloader, base_url: str, hint: str) -> tuple[str, dict[str, Any]]:
+    r = dl.get(
+        base_url,
+        params={"service": "WFS", "request": "GetCapabilities", "version": "2.0.0"},
+        timeout=180,
+    )
+    root = ET.fromstring(r.content)
+    names = []
+    for ft in root.iter():
+        if _xml_localname(ft.tag) != "FeatureType":
+            continue
+        for child in ft:
+            if _xml_localname(child.tag) == "Name" and (child.text or "").strip():
+                names.append((child.text or "").strip())
+                break
+
+    matches = [n for n in names if hint.lower() in n.lower()]
+    if not matches:
+        raise RuntimeError(
+            f"Could not find WFS feature type matching {hint!r}; available={names[:30]}"
+        )
+    return matches[0], {
+        "capabilities_url": r.url,
+        "feature_types": names,
+        "selected_type_name": matches[0],
+    }
+
+
+def fetch_svar_subcatchments_for_points(
+    dl: Downloader,
+    base_url: str,
+    typename_hint: str,
+    points3006: gpd.GeoDataFrame,
+    halfwidth_m: float,
+    out_path: Path,
+) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
+    """Fetch only small WFS windows around the 100 pilot points.
+
+    This avoids the server-side 500 seen for a large Skåne bbox and, crucially,
+    uses SVAR2022 Delavrinningsområden rather than the aggregated
+    Vattenförekomstavrinningsområden product.
+    """
+    if out_path.exists() and out_path.stat().st_size > 0:
+        g = gpd.read_file(out_path)
+        if not g.empty and any(str(x).upper() == "ARO_UUID" for x in g.columns):
+            print(f"  cache: {out_path.name}")
+            return g, {
+                "mode": "WFS_POINT_WINDOWS_CACHE",
+                "source_file": str(out_path),
+                "selected_type_name": "cached",
+                "queries": 0,
+                "unique_polygons": int(len(g)),
+                "source_crs": str(g.crs),
+            }
+
+    typename, caps = discover_wfs_typename(dl, base_url, typename_hint)
+    p = points3006.to_crs(3006)
+    pieces = []
+    failures = []
+
+    for i, row in enumerate(p.itertuples(index=False), start=1):
+        geom = row.geometry
+        x, y = float(geom.x), float(geom.y)
+        h = float(halfwidth_m)
+        bbox_txt = f"{x-h:.3f},{y-h:.3f},{x+h:.3f},{y+h:.3f},urn:ogc:def:crs:EPSG::3006"
+        params = {
+            "service": "WFS",
+            "version": "2.0.0",
+            "request": "GetFeature",
+            "typeNames": typename,
+            "outputFormat": "application/json",
+            "srsName": "EPSG:3006",
+            "bbox": bbox_txt,
+            "count": 50,
+        }
+        try:
+            r = dl.get(base_url, params=params, timeout=180)
+            doc = r.json()
+            feats = doc.get("features") or []
+            if feats:
+                gj = {"type": "FeatureCollection", "features": feats}
+                piece = gpd.GeoDataFrame.from_features(gj["features"], crs="EPSG:3006")
+                if not piece.empty:
+                    pieces.append(piece)
+            else:
+                failures.append({"pilot_order": int(getattr(row, "pilot_order")), "reason": "zero_features"})
+        except Exception as exc:
+            failures.append({"pilot_order": int(getattr(row, "pilot_order")), "reason": repr(exc)})
+
+        if i % 20 == 0 or i == len(p):
+            print(f"  WFS point windows: {i}/{len(p)}")
+
+    if not pieces:
+        raise RuntimeError(f"No SVAR2022 delavrinningsområden fetched. failures={failures[:10]}")
+
+    g = gpd.GeoDataFrame(pd.concat(pieces, ignore_index=True), crs=pieces[0].crs)
+    aro_col = next((x for x in g.columns if str(x).upper() == "ARO_UUID"), None)
+    if aro_col is None:
+        raise RuntimeError(
+            f"Delavrinningsområden WFS lacks ARO_UUID; columns={list(g.columns)}"
+        )
+    g = g.drop_duplicates(subset=[aro_col]).reset_index(drop=True)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.unlink(missing_ok=True)
+    g.to_file(out_path, driver="GeoJSON")
+
+    return g, {
+        "mode": "OFFICIAL_WFS_POINT_WINDOWS",
+        "capabilities_url": caps["capabilities_url"],
+        "selected_type_name": typename,
+        "queries": int(len(p)),
+        "query_halfwidth_m": float(halfwidth_m),
+        "failures": failures,
+        "unique_polygons": int(len(g)),
+        "source_crs": str(g.crs),
+    }
+
+
+def prove_aro_uuid_mapping(
+    joined: pd.DataFrame,
+    flowstats: pd.DataFrame,
+    min_fraction: float,
+) -> tuple[dict[str, Any], pd.DataFrame]:
+    aro_uuid_col = next((c for c in joined.columns if str(c).upper() == "ARO_UUID"), None)
+    aroid_col = next((c for c in flowstats.columns if str(c).upper() == "AROID"), None)
+    subid_col = next((c for c in flowstats.columns if str(c).upper() == "SUBID"), None)
+    if aro_uuid_col is None:
+        raise RuntimeError(f"SVAR delavrinningsområde join lacks ARO_UUID; columns={list(joined.columns)}")
+    if aroid_col is None or subid_col is None:
+        raise RuntimeError(
+            f"Vattenwebb table must contain Aroid and Subid; columns={list(flowstats.columns)}"
+        )
+
+    left = norm_id(joined[aro_uuid_col])
+    right = norm_id(flowstats[aroid_col])
+    valid = set(right.dropna())
+    non_null = int(left.notna().sum())
+    matched = int(left.isin(valid).sum())
+    frac = matched / non_null if non_null else 0.0
+
+    mapping = {
+        "best": {
+            "polygon_column": aro_uuid_col,
+            "coupling_column": aroid_col,
+            "n_non_null": non_null,
+            "n_match": matched,
+            "match_fraction": frac,
+        },
+        "semantic_contract": "SVAR2022 Delavrinningsområden ARO_UUID <-> Vattenwebb Aroid",
+        "sample_aro_uuid": left.dropna().head(5).tolist(),
+        "sample_vattenwebb_aroid": right.dropna().head(5).tolist(),
+    }
+
+    if frac < min_fraction:
+        raise RuntimeError(
+            f"ARO_UUID->Aroid mapping reached only {frac:.1%}, required {min_fraction:.0%}; "
+            f"sample ARO_UUID={mapping['sample_aro_uuid']}; "
+            f"sample Aroid={mapping['sample_vattenwebb_aroid']}"
+        )
+
+    model = flowstats.copy()
+    model["_joinid"] = norm_id(model[aroid_col])
+    model = model.drop_duplicates("_joinid")
+    x = joined.copy()
+    x["_joinid"] = left
+    x = x.merge(model, on="_joinid", how="left", validate="many_to_one", suffixes=("","_vattenwebb"))
+    return mapping, x
+
+
 def download_vattenwebb_excel(dl: Downloader, url: str, path: Path) -> Path:
     """Download SMHI Vattenwebb flow statistics.
 
@@ -660,6 +834,11 @@ def _find_flowstats_header(frames: dict[str, pd.DataFrame]) -> tuple[pd.DataFram
                 score += 2
             if any("MEDEL" in v or v in {"MQ","MLQ","MHQ"} for v in vals):
                 score += 1
+            sheet_upper = sheet.upper()
+            if any(token in sheet_upper for token in ("FLÖD", "FLOD", "FLOW", "STAT")):
+                score += 10
+            if "REGLER" in sheet_upper:
+                score -= 2
             if score:
                 candidates.append((score, sheet, row_idx))
 
@@ -1023,29 +1202,21 @@ def main() -> int:
     )
     print("  history files:", len(history_manifest))
 
-    print("\n[5/8] SMHI SVAR2022 spatial linkage")
-    bbox3006 = tuple(float(v) for v in points.total_bounds)
-
-    # Use SMHI's official bulk package as the strict B data path. A2 already
-    # proved WFS capabilities, but GetFeature can return server-side HTTP 500
-    # for a large Skåne bbox. Bulk + local clipping is more reproducible.
-    svar_zip = dl.download(
-        cfg["sources"]["smhi_svar_zip"],
-        raw/"smhi"/"SVAR2022_Vattenforekomstavrinningsomraden.zip",
-        max_bytes=800*1024*1024,
-    )
-    svar, svar_source = read_svar_bulk_for_pilot(
-        svar_zip, bbox3006,
-        raw/"smhi"/"svar2022_extracted",
+    print("\n[5/8] SMHI SVAR2022 Delavrinningsområden spatial linkage")
+    svar, svar_source = fetch_svar_subcatchments_for_points(
+        dl,
+        cfg["sources"]["smhi_svar_subcatch_wfs"],
+        cfg["sources"]["smhi_svar_subcatch_typename_hint"],
+        points,
+        float(cfg["pilot_rules"]["svar_point_query_halfwidth_m"]),
+        raw/"smhi"/"svar2022_delavrinningsomraden_pilot.geojson",
     )
     print("  source mode:", svar_source["mode"])
-    print("  source file:", svar_source["source_file"])
-    print("  source layer:", svar_source["layer"])
+    print("  selected type:", svar_source["selected_type_name"])
     print("  source CRS:", svar_source["source_crs"])
-    print("  polygons in pilot bbox:", len(svar))
+    print("  unique polygons fetched:", len(svar))
     print("  polygon columns:", ", ".join(str(c) for c in svar.columns))
-    svar_polygon_columns = [str(c) for c in svar.columns if str(c) != "geometry"]
-    svar_join = spatial_join_points(points, svar, "SMHI SVAR2022")
+    svar_join = spatial_join_points(points, svar, "SMHI SVAR2022 Delavrinningsområden")
     n_svar = int(svar_join["index_right"].notna().sum())
     print(f"  polygon matches: {n_svar}/{len(points)}")
 
@@ -1057,16 +1228,16 @@ def main() -> int:
     )
     flowstats, flowstats_info = read_vattenwebb_flowstatistics(flowstats_path)
     print("  workbook sheet:", flowstats_info["sheet"])
+    print("  workbook sheets:", ", ".join(flowstats_info["sheets"]))
     print("  rows:", len(flowstats))
     print("  columns:", ", ".join(flowstats.columns))
 
-    mapping = discover_svar_mapping(
+    mapping, svar_mapped = prove_aro_uuid_mapping(
         svar_join, flowstats,
         float(cfg["pilot_rules"]["mapping_min_match_fraction"]),
-        polygon_columns=svar_polygon_columns,
     )
-    print("  best mapping:", mapping["best"])
-    svar_mapped = apply_svar_mapping(svar_join, flowstats, mapping)
+    print("  semantic mapping:", mapping["semantic_contract"])
+    print("  mapping result:", mapping["best"])
 
     model_id_col = choose_model_id_column(svar_mapped)
     if model_id_col is None:
@@ -1105,7 +1276,7 @@ def main() -> int:
     out = out.merge(hype_join[hype_cols], on="pilot_order", how="left", validate="one_to_one")
     svar_keep = ["pilot_order"]
     for c in svar_mapped.columns:
-        if c.upper() in {"SUBID","AROID","HARO","VAROID","MS_CD","VERSION_SVAR","ARO_UUID"} and c not in svar_keep:
+        if c.upper() in {"SUBID","AROID","HARO","VAROID","MS_CD","VERSION_SVAR","ARO_UUID","MAINDOWN","BARONR","COUNTRY"} and c not in svar_keep:
             svar_keep.append(c)
     out = out.merge(
         svar_mapped[svar_keep].drop_duplicates("pilot_order"),
