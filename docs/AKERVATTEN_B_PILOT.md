@@ -25,7 +25,7 @@ For the pilot, actual data — not only documentation — are connected end to e
 - SGU Grundvattentillgång i små magasin raster values;
 - SGU-HYPE area / omrade_id;
 - several actual SGU-HYPE historical response files;
-- SMHI SVAR2022 catchment polygons;
+- SMHI SVAR2022 catchment polygons from the official bulk GeoPackage/ZIP (A2 WFS is retained as source-inventory evidence, but B uses bulk + local clipping for reproducibility);
 - current official S-HYPE coupling table;
 - empirical proof of the SVAR polygon identifier -> AROID/SUBID mapping;
 - a current official S-HYPE 30-day NetCDF analysis file and real flow series for several mapped SUBIDs.
@@ -76,3 +76,7 @@ including:
 - b_pilot_manifest.json
 
 No MarkTorka, MarkVäta or combined score is frozen.
+
+## SVAR2022 retrieval decision
+
+STOPPUNKT A proved that SMHI's WFS capabilities are reachable, but a large Skåne GetFeature bbox returned a server-side HTTP 500 during the real pilot. B therefore uses SMHI's official packaged SVAR2022 download and clips locally in EPSG:3006. This is more reproducible and avoids making the pilot depend on a fragile server-side WFS bbox query.
