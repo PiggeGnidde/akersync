@@ -86,3 +86,30 @@ STOPPUNKT A proved that SMHI's WFS capabilities are reachable, but a large Skån
 ## Access-control finding
 
 The public-facing realtime S-HYPE product description states that realtime files are delivered as a web service against a delivery fee. Direct anonymous access to the coupling CSV returned HTTP 401 during the pilot. The project therefore does not attempt to bypass that control. The open Vattenwebb/NADIA products are used instead.
+
+
+## 2026-09-27 correction: correct SVAR layer for S-HYPE
+
+The first B implementation used `Vattenförekomstavrinningsområden_2022`.
+That product is an aggregation around water bodies and is identified by `VAROID`.
+It is not the correct direct key to S-HYPE model basins.
+
+The correct hydrological geometry for the S-HYPE linkage is
+`Delavrinningsområden_2022`. The official SVAR 2022:1.2 product
+description defines `ARO_UUID` as the catchment identifier.
+
+B therefore now fetches small official WFS windows around the 100 pilot
+field points from `Delavrinningsomraden_2022` and accepts only the
+semantic identifier contract:
+
+    SVAR2022 Delavrinningsområden ARO_UUID
+        <->
+    Vattenwebb Aroid
+        ->
+    Vattenwebb Subid
+
+No cross-column "best match" search is used for the acceptance decision.
+
+The previously downloaded
+`SVAR2022_Vattenforekomstavrinningsomraden.zip` is retained only as a
+cached public artifact; it is no longer the B S-HYPE linkage source.
