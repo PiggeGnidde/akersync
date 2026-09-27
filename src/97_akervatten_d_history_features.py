@@ -542,6 +542,16 @@ def prepare_surface_units(c_links: pd.DataFrame, flow: pd.DataFrame) -> tuple[pd
                         1000.0 * out[c] / area_km2.where(area_km2 > 0)
                     )
 
+    # Derive MLQ/MQ ratios here as well, even if the upstream parser
+    # already supplied them. This keeps the unit-linkage layer self-contained
+    # and makes minimal/test flow tables valid.
+    for kind in ("total", "stationscorr", "natural"):
+        mq = f"sw_MQ_{kind}_m3s"
+        mlq = f"sw_MLQ_{kind}_m3s"
+        ratio = f"sw_MLQ_MQ_ratio_{kind}"
+        if mq in out.columns and mlq in out.columns:
+            out[ratio] = out[mlq] / out[mq].where(out[mq] > 0)
+
     if "sw_MLQ_total_m3s" in out.columns and "sw_MLQ_natural_m3s" in out.columns:
         out["sw_MLQ_total_to_natural_ratio"] = (
             out["sw_MLQ_total_m3s"]
