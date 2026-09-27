@@ -148,6 +148,17 @@ class TestAkerVattenBPilot(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             B.prove_aro_uuid_mapping(joined, flowstats, 0.95)
 
+    def test_wfs_params_use_plain_epsg3006_bbox(self):
+        bbox = "1,2,3,4,EPSG:3006"
+        p2 = B._wfs_params("WFS2_GML", "ns:layer", bbox)
+        self.assertEqual(p2["bbox"], bbox)
+        self.assertEqual(p2["srsName"], "EPSG:3006")
+        self.assertNotIn("outputFormat", p2)
+
+        p11 = B._wfs_params("WFS11_GML", "ns:layer", bbox)
+        self.assertEqual(p11["version"], "1.1.0")
+        self.assertEqual(p11["typeName"], "ns:layer")
+
 
 if __name__ == "__main__":
     unittest.main()
