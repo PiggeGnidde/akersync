@@ -1,0 +1,91 @@
+{
+  "schema_version": "akervatten-h2-product-dimensions-v0a",
+  "paths": {
+    "h0_direct": "work/akervatten_mvp_v0a/h0_large_groundwater/h0_direct_magazine_matches.parquet",
+    "h0_subarea": "work/akervatten_mvp_v0a/h0_large_groundwater/h0_subarea_matches.parquet",
+    "h0_recharge": "work/akervatten_mvp_v0a/h0_large_groundwater/h0_recharge_matches.parquet",
+    "h0_fields": "work/akervatten_mvp_v0a/h0_large_groundwater/akervatten_h0_large_groundwater_fields_skane.parquet",
+    "f5_components": "work/akervatten_mvp_v0a/f_component_candidates/akervatten_f5_final_candidate_components_skane.parquet"
+  },
+  "output": {
+    "work_dir": "work/akervatten_mvp_v0a/h2_product_dimensions"
+  },
+  "product_dimensions": [
+    {
+      "id": "mark_torka",
+      "title": "MarkTorka",
+      "kind": "relative_score",
+      "meaning": "Relativ strukturell torkkänslighet i marken.",
+      "decision_semantic": "descriptive_not_decisive"
+    },
+    {
+      "id": "mark_vata",
+      "title": "MarkVäta",
+      "kind": "relative_score",
+      "meaning": "Relativ strukturell våthetsbenägenhet i marken.",
+      "decision_semantic": "descriptive_not_decisive"
+    },
+    {
+      "id": "groundwater_small_availability",
+      "title": "GrundvattenTillgång – små magasin",
+      "kind": "relative_score",
+      "meaning": "Relativ SGU-baserad screening av små grundvattenmagasin.",
+      "decision_semantic": "screening_not_well_yield"
+    },
+    {
+      "id": "groundwater_drought_history",
+      "title": "GrundvattenTorka – historik",
+      "kind": "relative_score",
+      "meaning": "Historisk relativ känslighet för ovanligt låga grundvattennivåer.",
+      "decision_semantic": "historical_not_current_state"
+    },
+    {
+      "id": "surfacewater_drought_history",
+      "title": "YtvattenTorka – historik",
+      "kind": "relative_score",
+      "meaning": "Historisk relativ känslighet för låga ytvattenflöden.",
+      "decision_semantic": "historical_not_current_state"
+    },
+    {
+      "id": "groundwater_large_capacity",
+      "title": "Stora grundvattenmagasin",
+      "kind": "source_classification",
+      "meaning": "SGU-kartlagda magasin, geologi och uttags-/mediankapacitetsklass per magasin/delområde.",
+      "decision_semantic": "hydrogeological_screening_not_legal_right"
+    }
+  ],
+  "future_context_dimensions": [
+    {
+      "id": "water_pressure",
+      "title": "ÅkerKontext · VattenTryck",
+      "status": "NOT_IMPLEMENTED",
+      "concept": [
+        "existing abstractions and competing water uses",
+        "population and seasonal population pressure",
+        "industry and public water supply demand",
+        "agricultural irrigation demand",
+        "ecological/environmental constraints",
+        "possibly permit/vattendom context where open data supports it"
+      ],
+      "guardrail": "contextual demand/competition screening must remain separate from legal permission"
+    }
+  ],
+  "ui_policy": {
+    "composite_water_score": "PROHIBITED_IN_H2",
+    "traffic_light_overall_good_bad": "PROHIBITED_IN_H2",
+    "legal_status_default": "NOT_ASSESSED",
+    "show_source_classes_verbatim": true,
+    "show_multiple_vertical_magazines_separately": true,
+    "allow_highest_mapped_capacity_summary": true,
+    "highest_summary_label": "Högsta kartlagda kapacitetsklass bland träffade magasinsdelområden",
+    "highest_summary_warning": "Sammanfattningen innebär inte tillstånd, hållbart uttag eller garanterad brunnskapacitet."
+  },
+  "guardrails": [
+    "ÅkerPass presents evidence and context; it does not make the water-withdrawal decision.",
+    "No overall water score is created.",
+    "No traffic-light 'good/bad for permission' verdict is created.",
+    "Hydrogeological capacity and legal withdrawal right are separate concepts.",
+    "Competing demand belongs in a separate future context dimension, not inside hydrogeological capacity.",
+    "Multiple vertically stacked magazines remain separately inspectable."
+  ]
+}
