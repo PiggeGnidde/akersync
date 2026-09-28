@@ -1,0 +1,38 @@
+{
+  "schema_version": "akervatten-h0-large-groundwater-freeze",
+  "status": "PASS",
+  "fields_total": 128636,
+  "source_sha256": "eaab89df11dbfeb160ad50e752cb027f1971e555c37c82ef2ae0570e33a95edd",
+  "coverage": {
+    "direct_magazine": {
+      "n": 91662,
+      "pct": 71.26
+    },
+    "recharge_only": {
+      "n": 2364,
+      "pct": 1.84
+    },
+    "none": {
+      "n": 34610,
+      "pct": 26.91
+    },
+    "sedimentary_S1_S3": {
+      "n": 77004,
+      "pct": 59.86
+    },
+    "soil_J1_J3": {
+      "n": 26186,
+      "pct": 20.36
+    },
+    "crystalline_K1": {
+      "n": 6293,
+      "pct": 4.89
+    },
+    "direct_known_withdrawal": {
+      "n": 86234,
+      "pct": 67.04
+    }
+  },
+  "score_created": false,
+  "semantics": "representative-point source inventory; multiple vertically stacked magazines preserved"
+}
