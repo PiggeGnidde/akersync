@@ -1,31 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""VT-A4d: add VISS groundwater-level impact to field fingerprint/UI.
+"""VT-A4d: add VISS groundwater-level impact to ÅkerVatten sidecars/UI.
 
 Final pre-freeze refinement. Only the water-quantity relevant VISS impact
 'Förändrade grundvattennivåer' is added. Chemical impacts remain inventoried
 but are intentionally excluded from VattenTryck.
-
-No composite score. No legal/permit inference. Existing VT-A1/A2 geometry and
-pressure/risk classifications are unchanged.
 """
 from __future__ import annotations
 import json
 from pathlib import Path
+import pandas as pd
 
 ROOT=Path(__file__).resolve().parents[1]
 A1C=ROOT/'data'/'derived'/'akervatten'/'viss_vt_a1c'
 A3=ROOT/'data'/'derived'/'akervatten'/'viss_vt_a3'
 DIST=ROOT/'dist'; DATA=DIST/'data'/'akervatten'; JS=DIST/'assets'/'akervatten_v0a.js'
 MARK='AKERVATTEN_VISS_UI_V0A'
+NEWCOLS=['groundwater_level_impact','groundwater_level_impact_motivation']
 
 def load(p):
     if not p.exists(): raise RuntimeError(f'Missing {p}')
     return json.loads(p.read_text(encoding='utf-8-sig'))
+def stable(o): return json.dumps(o,ensure_ascii=False,separators=(',',':'))+'\n'
 def norm(x): return '' if x is None else str(x).strip().upper()
 
 def main():
     impacts=load(A1C/'measuregroundwaterimpactmotivations.json')
+    fp=pd.read_parquet(A3/'field_viss_fingerprint.parquet').set_index('field_id',drop=False)
     evidence=load(A3/'waterbody_evidence.json')
     level={}
     for r in impacts:
@@ -36,21 +37,25 @@ def main():
     for e,x in level.items(): print(f'  {e}: {x["motivation"]}')
     if len(level)!=1 or 'SE625674-131386' not in level: raise RuntimeError('Expected exactly Bjärehalvön as positive groundwater-level impact')
 
-    # Patch sidecars so impact becomes a durable field-level fingerprint attribute.
-    files=sorted(DATA.glob('fields_*.json'))
-    if not files: raise RuntimeError('No field sidecars; run VT-A4 first')
-    n=hit=0
+    # ÅkerVatten sidecars are columnar schema objects, not fields_*.json row lists.
+    files=sorted(p for p in DATA.glob('*.json') if p.name not in ('skane_index.json','viss_evidence.json'))
+    n=hit=used=0
     for p in files:
-        rows=load(p); changed=False
-        for r in rows:
-            e=str(r.get('dominant_EU_CD') or '')
-            x=level.get(e)
-            r['groundwater_level_impact']=bool(x)
-            r['groundwater_level_impact_motivation']=x['motivation'] if x else ''
-            n+=1; hit+=bool(x); changed=True
-        if changed: p.write_text(json.dumps(rows,ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
+        d=load(p)
+        if not isinstance(d,dict) or d.get('schema_version')!='akervatten-web-field-v0a' or 'fields' not in d or 'columns' not in d: continue
+        oldcols=list(d['columns']); keep=[i for i,c in enumerate(oldcols) if c not in NEWCOLS]
+        newfields={}
+        for fid,row in d['fields'].items():
+            base=[row[i] for i in keep]
+            if fid not in fp.index: raise RuntimeError(f'Field {fid} missing in VT-A3 fingerprint')
+            e=str(fp.loc[fid].dominant_EU_CD or '')
+            x=level.get(e); flag=bool(x)
+            newfields[fid]=base+[flag,x['motivation'] if x else '']
+            n+=1; hit+=int(flag)
+        d['columns']=[oldcols[i] for i in keep]+NEWCOLS; d['fields']=newfields
+        p.write_text(stable(d),encoding='utf-8'); used+=1
+    if n!=128636: raise RuntimeError(f'Sidecar reconciliation failed: expected 128,636 rows, got {n:,} across {used} files')
 
-    # Embed withdrawal evidence plus level-impact evidence synchronously.
     ev={str(x.get('EU_CD') or ''):{'name':x.get('name'),'withdrawal_motivations':x.get('withdrawal_motivations') or [],'quantitative_risk':x.get('quantitative_risk'),'groundwater_level_impact':level.get(str(x.get('EU_CD') or ''))} for x in evidence}
     ev_json=json.dumps(ev,ensure_ascii=False,separators=(',',':')).replace('</','<\\/')
     js=JS.read_text(encoding='utf-8'); st='\n/* '+MARK+' BEGIN */'; en='\n/* '+MARK+' END */'
@@ -69,6 +74,7 @@ function vissRows(r){if(!r.viss_positive_case)return '<div class="akv-large"><di
 const _akvBasePanel=panel;panel=function(r){const html=_akvBasePanel(r);if(!r)return html;const note='<div class="akv-note">Klassningen gäller grundvattenförekomsten som helhet, inte den enskilda åkern. Den visar inte om vatten tas från just denna plats.</div>';return html.replace('<div class="akv-note">Hydrologiskt/hydrogeologiskt underlag',vissRows(r)+note+'<div class="akv-note">Hydrologiskt/hydrogeologiskt underlag');};
 /* AKERVATTEN_VISS_UI_V0A END */'''.replace('__EVIDENCE__',ev_json)
     JS.write_text(js[:a]+'\n'+block+js[b:],encoding='utf-8')
+    print(f'ÅkerVatten sidecar files updated:        {used}')
     print(f'Field sidecar rows updated:              {n:,}')
     print(f'Fields with level-impact flag:           {hit:,}')
     print('Chemical impacts added to VattenTryck:   NO')
