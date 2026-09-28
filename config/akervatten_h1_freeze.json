@@ -1,0 +1,47 @@
+{
+  "schema_version": "akervatten-h1-ystad-loderup-validation-freeze",
+  "status": "PASS",
+  "cases": {
+    "Ystad_GW_availability_MIN": {
+      "field": "61513794526/9C",
+      "omrade_id": "70038",
+      "Subid": "30",
+      "magazine_uid": "B9636A8C-456F-4F7F-B2EC-312403DAB799",
+      "subarea_uid": "21300330-0D2B-4378-88CB-E8EB586384EC",
+      "position": "S1",
+      "rock": "Lersten, mosten, sandsten",
+      "capacity": "<600 l/h",
+      "capacity_upper_lps": 0.1666666667
+    },
+    "Ystad_GW_drought_MAX": {
+      "field": "61453869647/22B",
+      "omrade_id": "72037",
+      "Subid": "25",
+      "magazine_uid": "88C23EC6-5407-41AC-991F-7C86F6E1AAA9",
+      "subarea_uid": "0AB1E372-0E9F-4046-8789-A0EF08D5354C",
+      "position": "S1",
+      "rock": "kalksten",
+      "capacity": "60000-200000 l/h",
+      "capacity_lps": [
+        16.6666666667,
+        55.5555555556
+      ]
+    },
+    "Loderups_Vaxt_address": {
+      "semantics": "public address reference only",
+      "omrade_id": "73036",
+      "Subid": "11",
+      "magazine_uid": "88C23EC6-5407-41AC-991F-7C86F6E1AAA9",
+      "subarea_uid": "0AB1E372-0E9F-4046-8789-A0EF08D5354C",
+      "position": "S1",
+      "rock": "kalksten",
+      "capacity": "60000-200000 l/h",
+      "capacity_lps": [
+        16.6666666667,
+        55.5555555556
+      ]
+    }
+  },
+  "conclusion": "small-magazine availability, historical groundwater drought, and large-magazine capacity are distinct dimensions",
+  "score_created": false
+}
