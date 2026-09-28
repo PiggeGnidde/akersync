@@ -1,14 +1,18 @@
 """ÅkerKontext · VattenTryck — VT-A2 VISS groundwater spatial coverage.
 
 Downloads current VISS groundwater polygons from Länsstyrelsen ArcGIS REST,
-joins the VT-A1 positive pressure/risk cases by EU_CD, and spatially intersects
-those polygons with the local 2025 Skåne field layer from config/local_paths.json.
+joins VT-A1 positive pressure/risk cases by EU_CD, and spatially intersects
+those polygons with the existing local 2025 Skåne field geometry.
 
-Inventory only: no score, no legal inference, no modification of ÅkerVatten web.
+The field source is resolved without requiring a new local config: first an
+optional AKERSYNC_SKIFTEN_PATH environment variable, then legacy local_paths if
+present, then deterministic discovery in the existing ÅkerSync/ÅkerVatten
+working trees. Inventory only: no score, no legal inference, no web changes.
 """
 from __future__ import annotations
 
 import json
+import os
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -23,8 +27,8 @@ A1E = ROOT / "data" / "derived" / "akervatten" / "viss_vt_a1e"
 OUT = ROOT / "data" / "derived" / "akervatten" / "viss_vt_a2"
 EXPECTED_FIELDS = 128_636
 KEY = ["blockid", "skiftesbeteckning"]
+VECTOR_EXT = {".gpkg", ".geojson", ".json", ".shp", ".parquet"}
 
-# Länsstyrelsen VISS2, groundwater layer (polygon). ArcGIS REST query endpoint.
 QUERY_URL = (
     "https://ext-geodata-acc.lansstyrelsen.se/arcgis/rest/services/"
     "VISS2/lst_viss2_vattenforekomster/MapServer/1/query"
@@ -42,20 +46,12 @@ def norm(x):
 
 
 def download_viss_geojson(path: Path) -> None:
-    params = {
-        "where": "1=1",
-        "outFields": "*",
-        "returnGeometry": "true",
-        "outSR": "3006",
-        "f": "geojson",
-    }
+    params = {"where": "1=1", "outFields": "*", "returnGeometry": "true", "outSR": "3006", "f": "geojson"}
     url = QUERY_URL + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": "AkerSync-VISS-VT-A2/0a"})
     with urllib.request.urlopen(req, timeout=240) as r:
         raw = r.read()
-    # ArcGIS may return JSON error despite requested GeoJSON.
-    text = raw.decode("utf-8-sig")
-    doc = json.loads(text)
+    doc = json.loads(raw.decode("utf-8-sig"))
     if isinstance(doc, dict) and doc.get("error"):
         raise RuntimeError(f"ArcGIS error: {doc['error']}")
     if not isinstance(doc, dict) or doc.get("type") != "FeatureCollection":
@@ -73,16 +69,90 @@ def find_col(cols, names):
     return None
 
 
+def read_vector(path: Path) -> gpd.GeoDataFrame:
+    if path.suffix.lower() == ".parquet":
+        return gpd.read_parquet(path)
+    return gpd.read_file(path)
+
+
+def candidate_roots() -> list[Path]:
+    roots = [ROOT]
+    parent = ROOT.parent
+    # Existing project convention uses sibling checkouts such as AkerSync-AkerVatten*.
+    for p in sorted(parent.glob("AkerSync*")):
+        if p.is_dir() and p not in roots:
+            roots.append(p)
+    return roots
+
+
+def resolve_skiften() -> tuple[Path, gpd.GeoDataFrame]:
+    explicit = os.environ.get("AKERSYNC_SKIFTEN_PATH", "").strip()
+    if explicit:
+        p = Path(explicit)
+        q = read_vector(p)
+        print(f"Field source: AKERSYNC_SKIFTEN_PATH -> {p}")
+        return p, q
+
+    if CONFIG.exists():
+        cfg = read_json(CONFIG)
+        value = cfg.get("skiften")
+        if value and Path(value).exists():
+            p = Path(value)
+            q = read_vector(p)
+            print(f"Field source: legacy local_paths.json -> {p}")
+            return p, q
+
+    # Discover only plausibly named vector files; skip caches/build output and VISS itself.
+    candidates: list[Path] = []
+    seen = set()
+    for base in candidate_roots():
+        for p in base.rglob("*"):
+            if not p.is_file() or p.suffix.lower() not in VECTOR_EXT:
+                continue
+            low = str(p).lower()
+            name = p.name.lower()
+            if not any(token in name for token in ("skift", "field", "jordbruk")):
+                continue
+            if any(token in low for token in ("viss_vt_a", "dist\\", "dist/", "node_modules", ".git")):
+                continue
+            key = str(p.resolve()).lower()
+            if key not in seen:
+                seen.add(key)
+                candidates.append(p)
+
+    print(f"Field-source autodiscovery: {len(candidates)} plausible vector files")
+    valid = []
+    for p in candidates:
+        try:
+            q = read_vector(p)
+        except Exception:
+            continue
+        if all(c in q.columns for c in KEY) and "geometry" in q.columns and q.crs is not None:
+            print(f"  candidate: {p} -> {len(q):,} rows")
+            if len(q) == EXPECTED_FIELDS:
+                valid.append((p, q))
+
+    if len(valid) == 1:
+        print(f"Field source selected: {valid[0][0]}")
+        return valid[0]
+    if len(valid) > 1:
+        # Same dataset can exist in several experiment trees. Prefer current/sibling
+        # ÅkerVatten tree deterministically; identical row count/keys are verified below.
+        valid.sort(key=lambda x: (0 if "akervatten" in str(x[0]).lower() else 1, len(str(x[0])), str(x[0])))
+        print(f"Multiple complete sources found; selected deterministically: {valid[0][0]}")
+        return valid[0]
+
+    raise RuntimeError(
+        "Could not auto-discover one complete 128,636-row Skåne field geometry with "
+        "blockid + skiftesbeteckning. No files were changed."
+    )
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     print("=" * 82)
     print("ÅkerKontext · VattenTryck — VT-A2 VISS spatial coverage")
     print("=" * 82)
-
-    cfg = read_json(CONFIG)
-    skifte_path = Path(cfg["skiften"])
-    if not skifte_path.exists():
-        raise RuntimeError(f"Configured skiften file missing: {skifte_path}")
 
     waters = read_json(A1C / "waters.json")
     cases = read_json(A1E / "summary.json")
@@ -94,10 +164,7 @@ def main():
     geo_path = OUT / "viss_groundwater_all.geojson"
     download_viss_geojson(geo_path)
     gw = gpd.read_file(geo_path)
-    if gw.crs is None:
-        gw = gw.set_crs(3006)
-    else:
-        gw = gw.to_crs(3006)
+    gw = gw.set_crs(3006) if gw.crs is None else gw.to_crs(3006)
     eucol = find_col(gw.columns, ["EU_CD", "VISS_EU_CD"])
     if eucol is None:
         raise RuntimeError(f"No EU_CD/VISS_EU_CD in VISS geometry. Columns: {list(gw.columns)}")
@@ -108,7 +175,7 @@ def main():
     print(f"Polygons matching 181 API GW IDs:      {int(matched_api.sum()):,} / {len(gw_ids):,}")
     print(f"Positive-case polygons matched:        {int(matched_cases.sum()):,} / {len(case_ids):,}")
 
-    fields = gpd.read_file(skifte_path)
+    skifte_path, fields = resolve_skiften()
     if fields.crs is None:
         raise RuntimeError("Skiften layer has no CRS")
     fields = fields.to_crs(3006)
@@ -123,8 +190,6 @@ def main():
         raise RuntimeError("Duplicate field IDs in skiften layer")
     print(f"Skåne fields loaded:                   {len(fields):,}")
 
-    # Intersect only polygons represented by the API inventory. A field can overlap
-    # multiple layered groundwater bodies; retain all relations and count unique fields.
     api_poly = gw.loc[matched_api, ["EU_CD_N", "geometry"]].copy()
     api_poly = api_poly[~api_poly.geometry.is_empty & api_poly.geometry.notna()]
     hit_all = gpd.sjoin(fields[["field_id", "geometry"]], api_poly, how="inner", predicate="intersects")
@@ -134,7 +199,6 @@ def main():
     hit_case = gpd.sjoin(fields[["field_id", "geometry"]], case_poly, how="inner", predicate="intersects")
     case_field_ids = set(hit_case["field_id"])
 
-    # Build positive withdrawal categories per water body from exact VISS Y rows.
     cat_by_water = {}
     for r in pressure_rows:
         euid = norm(r.get("WaterEUID"))
@@ -171,8 +235,7 @@ def main():
     for cat in ["agriculture", "municipal", "industry", "generic", "other", "quantitative_risk"]:
         print(f"{cat:38s}{len(field_sets[cat]):>8,} ({100*len(field_sets[cat])/len(fields):.2f}%)")
 
-    # Per-water-body unique field counts.
-    per_water = (hit_case.groupby("EU_CD_N")["field_id"].nunique().rename("fields_intersecting").reset_index())
+    per_water = hit_case.groupby("EU_CD_N")["field_id"].nunique().rename("fields_intersecting").reset_index()
     name_map = {norm(w.get("EU_CD")): str(w.get("Name") or w.get("EU_CD")) for w in waters}
     per_water["name"] = per_water["EU_CD_N"].map(name_map)
     per_water["pressure_categories"] = per_water["EU_CD_N"].map(lambda x: ";".join(sorted(cat_by_water.get(x, set()))))
@@ -180,12 +243,12 @@ def main():
     per_water = per_water.sort_values(["fields_intersecting", "EU_CD_N"], ascending=[False, True])
     per_water.to_csv(OUT / "case_waterbody_field_coverage.csv", index=False, encoding="utf-8-sig")
 
-    # Field relations for later product/web work; many-to-many is intentional.
     rel = hit_case[["field_id", "EU_CD_N"]].drop_duplicates().sort_values(["field_id", "EU_CD_N"])
     rel.to_parquet(OUT / "field_case_relations.parquet", index=False)
 
     summary = {
         "status": "PASS",
+        "field_source": str(skifte_path),
         "fields": len(fields),
         "viss_api_gw_water_bodies": len(gw_ids),
         "viss_polygon_features": len(gw),
