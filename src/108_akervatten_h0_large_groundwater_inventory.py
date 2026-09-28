@@ -369,7 +369,8 @@ def main()->int:
     focus_out=pd.DataFrame()
     if focus_path.exists():
         focus=pd.read_csv(focus_path,dtype={"blockid":str,"skiftesbeteckning":str})
-        focus_out=focus.merge(fields,on=KEY,how="left",validate="one_to_one")
+        hcols=KEY+[c for c in fields.columns if c.startswith("large_gw_")]
+        focus_out=focus.merge(fields[hcols],on=KEY,how="left",validate="one_to_one")
         focus_out.to_csv(work/"h0_external_validation_10_extremes.csv",index=False)
         for r in focus_out.itertuples(index=False):
             d=r._asdict()
