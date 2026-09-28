@@ -1,0 +1,36 @@
+{
+  "schema_version": "akervatten-h0-large-groundwater-inventory-v0a",
+  "source": {
+    "name": "SGU Grundvattenmagasin",
+    "bulk_zip_url": "https://resource.sgu.se/data/oppnadata/grundvattenmagasin/grundvattenmagasin.zip",
+    "official_product_page": "https://www.sgu.se/produkter-och-tjanster/geologiska-data/grundvatten--geologiska-data/grundvattenmagasin/",
+    "product_description": "https://resource.sgu.se/dokument/produkter/grundvattenmagasin-beskrivning.pdf",
+    "storage_crs": "EPSG:3006",
+    "layers": {
+      "magazine": "grundvattenmagasin",
+      "subarea": "magasinsdelomraden",
+      "recharge": "tillrinningsomraden"
+    }
+  },
+  "paths": {
+    "field_points": "work/akervatten_mvp_v0a/c_full_linkage/field_points_3006.parquet",
+    "external_validation_cases": "work/akervatten_mvp_v0a/external_validation/akervatten_external_validation_10_extremes.csv"
+  },
+  "output": {
+    "raw_dir": "raw/akervatten_h0_large_groundwater",
+    "work_dir": "work/akervatten_mvp_v0a/h0_large_groundwater"
+  },
+  "expected_fields": 128636,
+  "spatial_rule": {
+    "method": "representative_point_within",
+    "note": "H0 is an inventory screen. It does not claim the full field polygon lies inside a mapped magazine."
+  },
+  "guardrails": [
+    "No new 0-100 score is created in H0.",
+    "SGU mapped withdrawal opportunity is hydrogeological screening, not a legal right to withdraw water.",
+    "Representative-point intersection is a field screening relation, not a full polygon-overlap statement.",
+    "Multiple vertically stacked magazines at one point are preserved as separate matches.",
+    "Unknown/not-assessed withdrawal classes remain unknown and are never imputed.",
+    "Large-magazine information does not overwrite the frozen small-magazine or historical drought components."
+  ]
+}
