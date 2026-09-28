@@ -1,9 +1,11 @@
 """ÅkerKontext · VattenTryck — VT-A2b robust field↔groundwater join.
 
 Refines VT-A2's permissive `intersects` relation for the 16 positive VISS GW
-cases. For every field/case-polygon candidate it computes true polygon overlap
-area and overlap fraction, plus representative-point membership. It then picks
-a deterministic dominant GW body per field by maximum overlap area.
+cases. Duplicate/source-part geometries are dissolved to exactly one geometry
+per EU_CD before any overlap calculation. For every field/case-waterbody
+candidate it computes true polygon overlap area and overlap fraction, plus
+representative-point membership. It then picks a deterministic dominant GW body
+per field by maximum overlap area.
 
 Important: groundwater bodies can be vertically layered. `dominant` is a
 cartographic/product convenience, not a hydrogeological assertion that other
@@ -18,7 +20,6 @@ import json
 from pathlib import Path
 
 import geopandas as gpd
-import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 A1C = ROOT / "data" / "derived" / "akervatten" / "viss_vt_a1c"
@@ -69,15 +70,33 @@ def main():
         raise RuntimeError("Found zero/negative-area field geometry")
 
     gw_path = A2 / "viss_groundwater_all.geojson"
-    gw = gpd.read_file(gw_path).to_crs(3006)
-    lookup = {str(c).upper(): c for c in gw.columns}
+    gw_raw = gpd.read_file(gw_path).to_crs(3006)
+    lookup = {str(c).upper(): c for c in gw_raw.columns}
     eucol = lookup.get("EU_CD") or lookup.get("VISS_EU_CD")
     if not eucol:
         raise RuntimeError("No EU_CD/VISS_EU_CD in cached groundwater geometry")
-    gw["EU_CD_N"] = gw[eucol].map(norm)
+    gw_raw["EU_CD_N"] = gw_raw[eucol].map(norm)
     case_ids = {norm(x) for x in cases["case_ids"]}
-    gw = gw.loc[gw["EU_CD_N"].isin(case_ids), ["EU_CD_N", "geometry"]].copy()
-    print(f"Positive case polygons: {len(gw):,} / expected {len(case_ids):,}")
+    gw_raw = gw_raw.loc[gw_raw["EU_CD_N"].isin(case_ids), ["EU_CD_N", "geometry"]].copy()
+
+    raw_count = len(gw_raw)
+    raw_unique = gw_raw["EU_CD_N"].nunique()
+    raw_mult = gw_raw.groupby("EU_CD_N").size()
+    print(f"Raw positive-case geometry features:     {raw_count:,}")
+    print(f"Unique positive-case EU_CD in geometry:  {raw_unique:,} / expected {len(case_ids):,}")
+    print("Raw geometry multiplicity per EU_CD:     " + ", ".join(f"{int(k)}x:{int(v)}" for k, v in raw_mult.value_counts().sort_index().items()))
+
+    # Critical normalization: SGU source can contain multiple features for the same
+    # VISS EU_CD (duplicate or multipart/source records). Union them before field
+    # overlap calculations so area and relation counts cannot be double-counted.
+    gw = gw_raw.dissolve(by="EU_CD_N", as_index=False)[["EU_CD_N", "geometry"]]
+    if len(gw) != len(case_ids) or set(gw["EU_CD_N"]) != case_ids:
+        missing = sorted(case_ids - set(gw["EU_CD_N"]))
+        extra = sorted(set(gw["EU_CD_N"]) - case_ids)
+        raise RuntimeError(f"After dissolve expected exactly {len(case_ids)} case EU_CD; got {len(gw)}. Missing={missing}, extra={extra}")
+    if gw["EU_CD_N"].duplicated().any():
+        raise RuntimeError("EU_CD still duplicated after dissolve")
+    print(f"Dissolved case water bodies:             {len(gw):,} / expected {len(case_ids):,}")
 
     # Fast candidate generation. Then calculate actual polygon intersection area.
     cand = gpd.sjoin(fields[["field_id", "field_area_m2", "geometry"]], gw, how="inner", predicate="intersects")
@@ -89,6 +108,10 @@ def main():
     ]
     cand["overlap_fraction"] = cand["overlap_m2"] / cand["field_area_m2"]
     positive = cand[cand["overlap_m2"] > 0].copy()
+
+    # With one dissolved geometry per EU_CD, each field↔EU_CD pair must be unique.
+    if positive.duplicated(["field_id", "EU_CD_N"]).any():
+        raise RuntimeError("Duplicate field↔EU_CD relations remain after geometry dissolve")
 
     # Representative point is guaranteed inside the field polygon (unlike centroid
     # for concave polygons) and is therefore safer for a point-in-polygon diagnostic.
@@ -112,13 +135,12 @@ def main():
     rep_ids = set(rep_hits["field_id"])
     touch_only_ids = intersect_ids - area_ids
 
-    # Coverage at useful overlap thresholds; these are diagnostics, not frozen cutoffs.
     thresholds = [0.01, 0.10, 0.50, 0.90]
     threshold_counts = {
         str(t): int(positive.loc[positive["overlap_fraction"] >= t, "field_id"].nunique()) for t in thresholds
     }
 
-    # Multiplicity matters because aquifers may be layered.
+    # Multiplicity here now means genuinely different EU_CD water bodies, not source duplicates.
     multiplicity = positive.groupby("field_id")["EU_CD_N"].nunique()
     mult_counts = multiplicity.value_counts().sort_index().to_dict()
 
@@ -137,14 +159,14 @@ def main():
 
     print("\nJOIN COMPARISON")
     print("-" * 88)
-    print(f"VT-A2 intersects fields:                 {len(intersect_ids):,}")
+    print(f"VT-A2b intersects fields:                {len(intersect_ids):,}")
     print(f"Positive-area overlap fields:            {len(area_ids):,}")
     print(f"Touch-only fields removed:               {len(touch_only_ids):,}")
     print(f"Representative-point-in-case fields:     {len(rep_ids):,}")
     for t in thresholds:
         print(f"Fields with >= {100*t:>4.0f}% overlap:              {threshold_counts[str(t)]:,}")
 
-    print("\nLAYER MULTIPLICITY (positive-area relations per field)")
+    print("\nLAYER MULTIPLICITY (distinct EU_CD with positive area per field)")
     print("-" * 88)
     for n, count in mult_counts.items():
         print(f"{int(n)} case GW body/bodies: {int(count):,} fields")
@@ -153,7 +175,6 @@ def main():
     print("-" * 88)
     print(per_water.to_string(index=False))
 
-    # Save all non-zero overlap relations; this is the scientifically useful base.
     rel_cols = ["field_id", "EU_CD_N", "overlap_m2", "overlap_fraction", "representative_point_inside"]
     positive[rel_cols].sort_values(["field_id", "overlap_m2"], ascending=[True, False]).to_parquet(
         OUT / "field_case_overlap_relations.parquet", index=False
@@ -164,13 +185,16 @@ def main():
     summary = {
         "status": "PASS",
         "field_source": str(field_source),
-        "positive_case_polygons": len(gw),
+        "raw_positive_case_geometry_features": raw_count,
+        "raw_unique_case_eu_cd": raw_unique,
+        "dissolved_case_water_bodies": len(gw),
         "fields_intersects": len(intersect_ids),
         "fields_positive_area": len(area_ids),
         "fields_touch_only": len(touch_only_ids),
         "fields_representative_point_inside": len(rep_ids),
         "overlap_threshold_field_counts": threshold_counts,
         "positive_relation_multiplicity": {str(int(k)): int(v) for k, v in mult_counts.items()},
+        "geometry_rule": "Dissolve/union all source features by EU_CD before overlap calculations.",
         "dominant_rule": "maximum overlap area; EU_CD lexical tie-break",
         "interpretation": "Retain all positive-area relations; dominant body is product convenience because GW bodies may be layered.",
     }
