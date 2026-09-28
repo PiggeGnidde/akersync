@@ -1,13 +1,13 @@
 """ÅkerKontext · VattenTryck — VT-A2 VISS groundwater spatial coverage.
 
-Downloads current VISS groundwater polygons from Länsstyrelsen ArcGIS REST,
-joins VT-A1 positive pressure/risk cases by EU_CD, and spatially intersects
-those polygons with the existing local 2025 Skåne field geometry.
+Uses SGU's official open-data OGC API for groundwater-occurrence polygons,
+joins VT-A1 VISS pressure/risk cases by EU_CD, and spatially intersects those
+polygons with the existing local 2025 Skåne field geometry.
 
 The field source is resolved without requiring a new local config: first an
 optional AKERSYNC_SKIFTEN_PATH environment variable, then legacy local_paths if
-present, then deterministic discovery in the existing ÅkerSync/ÅkerVatten
-working trees. Inventory only: no score, no legal inference, no web changes.
+present, then deterministic discovery in existing ÅkerSync/ÅkerVatten working
+trees. Inventory only: no score, no legal inference, no web changes.
 """
 from __future__ import annotations
 
@@ -29,9 +29,12 @@ EXPECTED_FIELDS = 128_636
 KEY = ["blockid", "skiftesbeteckning"]
 VECTOR_EXT = {".gpkg", ".geojson", ".json", ".shp", ".parquet"}
 
-QUERY_URL = (
-    "https://ext-geodata-acc.lansstyrelsen.se/arcgis/rest/services/"
-    "VISS2/lst_viss2_vattenforekomster/MapServer/1/query"
+# Official SGU open-data product "Grundvattenförekomster". These are the
+# groundwater bodies used in Swedish water management/VISS. OGC API Features,
+# no API key required, CC0 source data.
+SGU_ITEMS_URL = (
+    "https://api.sgu.se/oppnadata/grundvattenforekomster/ogc/features/v1/"
+    "collections/grundvattenforekomster/items"
 )
 
 
@@ -45,20 +48,47 @@ def norm(x):
     return "" if x is None else str(x).strip().upper()
 
 
-def download_viss_geojson(path: Path) -> None:
-    params = {"where": "1=1", "outFields": "*", "returnGeometry": "true", "outSR": "3006", "f": "geojson"}
-    url = QUERY_URL + "?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"User-Agent": "AkerSync-VISS-VT-A2/0a"})
+def _get_json(url: str) -> dict:
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "AkerSync-VISS-VT-A2/0b", "Accept": "application/geo+json, application/json"},
+    )
     with urllib.request.urlopen(req, timeout=240) as r:
-        raw = r.read()
-    doc = json.loads(raw.decode("utf-8-sig"))
-    if isinstance(doc, dict) and doc.get("error"):
-        raise RuntimeError(f"ArcGIS error: {doc['error']}")
-    if not isinstance(doc, dict) or doc.get("type") != "FeatureCollection":
-        raise RuntimeError("VISS geometry endpoint did not return a GeoJSON FeatureCollection")
+        return json.loads(r.read().decode("utf-8-sig"))
+
+
+def download_viss_geojson(path: Path) -> None:
+    """Download all SGU groundwater-occurrence features via paged OGC API."""
+    url = SGU_ITEMS_URL + "?" + urllib.parse.urlencode({"limit": 10000, "f": "json"})
+    features = []
+    crs = None
+    pages = 0
+    seen_urls = set()
+    while url:
+        if url in seen_urls:
+            raise RuntimeError("SGU OGC pagination loop detected")
+        seen_urls.add(url)
+        doc = _get_json(url)
+        if not isinstance(doc, dict) or doc.get("type") != "FeatureCollection":
+            raise RuntimeError(f"SGU OGC API did not return FeatureCollection; keys={list(doc) if isinstance(doc, dict) else type(doc)}")
+        pages += 1
+        features.extend(doc.get("features") or [])
+        crs = crs or doc.get("crs")
+        next_url = None
+        for link in doc.get("links") or []:
+            if str(link.get("rel", "")).lower() == "next" and link.get("href"):
+                next_url = str(link["href"])
+                break
+        url = next_url
+    if not features:
+        raise RuntimeError("SGU OGC API returned zero groundwater features")
+    out = {"type": "FeatureCollection", "features": features}
+    if crs:
+        out["crs"] = crs
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
-    print(f"Downloaded VISS GW geometry: {len(doc.get('features', [])):,} features, {len(raw):,} bytes")
+    text = json.dumps(out, ensure_ascii=False)
+    path.write_text(text, encoding="utf-8")
+    print(f"Downloaded SGU groundwater geometry: {len(features):,} features in {pages} page(s), {len(text.encode('utf-8')):,} bytes")
 
 
 def find_col(cols, names):
@@ -78,7 +108,6 @@ def read_vector(path: Path) -> gpd.GeoDataFrame:
 def candidate_roots() -> list[Path]:
     roots = [ROOT]
     parent = ROOT.parent
-    # Existing project convention uses sibling checkouts such as AkerSync-AkerVatten*.
     for p in sorted(parent.glob("AkerSync*")):
         if p.is_dir() and p not in roots:
             roots.append(p)
@@ -102,7 +131,6 @@ def resolve_skiften() -> tuple[Path, gpd.GeoDataFrame]:
             print(f"Field source: legacy local_paths.json -> {p}")
             return p, q
 
-    # Discover only plausibly named vector files; skip caches/build output and VISS itself.
     candidates: list[Path] = []
     seen = set()
     for base in candidate_roots():
@@ -136,8 +164,6 @@ def resolve_skiften() -> tuple[Path, gpd.GeoDataFrame]:
         print(f"Field source selected: {valid[0][0]}")
         return valid[0]
     if len(valid) > 1:
-        # Same dataset can exist in several experiment trees. Prefer current/sibling
-        # ÅkerVatten tree deterministically; identical row count/keys are verified below.
         valid.sort(key=lambda x: (0 if "akervatten" in str(x[0]).lower() else 1, len(str(x[0])), str(x[0])))
         print(f"Multiple complete sources found; selected deterministically: {valid[0][0]}")
         return valid[0]
@@ -165,15 +191,18 @@ def main():
     download_viss_geojson(geo_path)
     gw = gpd.read_file(geo_path)
     gw = gw.set_crs(3006) if gw.crs is None else gw.to_crs(3006)
-    eucol = find_col(gw.columns, ["EU_CD", "VISS_EU_CD"])
+    eucol = find_col(gw.columns, ["EU_CD", "VISS_EU_CD", "EUCD", "EU_ID"])
     if eucol is None:
-        raise RuntimeError(f"No EU_CD/VISS_EU_CD in VISS geometry. Columns: {list(gw.columns)}")
+        raise RuntimeError(f"No EU_CD-like identifier in SGU geometry. Columns: {list(gw.columns)}")
     gw["EU_CD_N"] = gw[eucol].map(norm)
     matched_api = gw["EU_CD_N"].isin(gw_ids)
     matched_cases = gw["EU_CD_N"].isin(case_ids)
-    print(f"VISS polygon features:                 {len(gw):,}")
-    print(f"Polygons matching 181 API GW IDs:      {int(matched_api.sum()):,} / {len(gw_ids):,}")
+    print(f"SGU groundwater polygon features:      {len(gw):,}")
+    print(f"Polygons matching 181 VISS API GW IDs: {int(matched_api.sum()):,} / {len(gw_ids):,}")
     print(f"Positive-case polygons matched:        {int(matched_cases.sum()):,} / {len(case_ids):,}")
+    if int(matched_cases.sum()) != len(case_ids):
+        missing = sorted(case_ids - set(gw.loc[matched_cases, "EU_CD_N"]))
+        print("WARNING: positive case IDs without current SGU polygon:", ", ".join(missing))
 
     skifte_path, fields = resolve_skiften()
     if fields.crs is None:
@@ -248,10 +277,11 @@ def main():
 
     summary = {
         "status": "PASS",
+        "geometry_source": "SGU Grundvattenförekomster OGC API Features",
         "field_source": str(skifte_path),
         "fields": len(fields),
         "viss_api_gw_water_bodies": len(gw_ids),
-        "viss_polygon_features": len(gw),
+        "groundwater_polygon_features": len(gw),
         "api_ids_with_polygon": int(matched_api.sum()),
         "positive_case_water_bodies": len(case_ids),
         "positive_case_ids_with_polygon": int(matched_cases.sum()),
