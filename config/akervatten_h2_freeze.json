@@ -1,0 +1,42 @@
+{
+  "schema_version": "akervatten-h2-product-dimensions-freeze",
+  "status": "PASS",
+  "fields_total": 128636,
+  "dimensions": [
+    "MarkTorka",
+    "MarkVata",
+    "GrundvattenTillgang_small_magazines",
+    "GrundvattenTorka_history",
+    "YtvattenTorka_history",
+    "Large_groundwater_magazines"
+  ],
+  "large_groundwater": {
+    "direct_mapped_magazine": {
+      "n": 91662,
+      "pct": 71.26
+    },
+    "highest_mapped_capacity_available": {
+      "n": 86234,
+      "pct": 67.04
+    },
+    "product_semantic": "source classification / hydrogeological screening",
+    "normalized_score_created": false
+  },
+  "policy": {
+    "water_overall_score": "NOT_CREATED",
+    "water_overall_verdict": "NOT_CREATED",
+    "water_legal_status": "NOT_ASSESSED",
+    "traffic_light_permission_signal": "PROHIBITED_IN_H2",
+    "composite_water_score": "PROHIBITED_IN_H2"
+  },
+  "future_context": {
+    "id": "AkerKontext_VattenTryck",
+    "status": "NOT_IMPLEMENTED",
+    "semantic": "demand/competition context kept separate from hydrogeological capacity and legal assessment"
+  },
+  "qa": {
+    "problems": 0,
+    "source_field_subarea_rows": 111844
+  },
+  "guardrail": "HYDROLOGICAL/HYDROGEOLOGICAL SCREENING != LEGAL WATER-WITHDRAWAL RIGHT"
+}
