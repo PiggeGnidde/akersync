@@ -140,7 +140,7 @@ def main()->int:
 
     for path,tokens in (
         (dist/"assets/akervatten_v0a.css",(".akv-controls",".akv-layer-grid","@media(max-width:700px)")),
-        (dist/"assets/akervatten_v0a.js",("currentWaterLayer","large_gw","groundwater_history","water_legal","akervattenSection")),
+        (dist/"assets/akervatten_v0a.js",("currentWaterLayer","large_gw","groundwater_history","Vattenrätt: ej bedömd","akervattenSection")),
     ):
         if not path.exists() or path.stat().st_size<=200:
             problems.append(f"WEB ASSET MISSING/TOO SMALL {path}")
