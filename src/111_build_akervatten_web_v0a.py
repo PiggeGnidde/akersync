@@ -29,6 +29,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_FIELDS = 128_636
 EXPECTED_MUNICIPALITIES = 33
+EXPECTED_LARGE_DIRECT = 91_662
+EXPECTED_LARGE_CAPACITY = 86_234
 SCHEMA = "akervatten-web-field-v0a"
 INDEX_SCHEMA = "akervatten-web-index-v0a"
 MANIFEST_SCHEMA = "akervatten-web-manifest-v0a"
@@ -183,6 +185,12 @@ def validate_h2(frame: pd.DataFrame) -> None:
         raise RuntimeError("H2 legal status is not uniformly NOT_ASSESSED")
     if set(frame["water_overall_verdict"].dropna().astype(str)) != {"NOT_CREATED"}:
         raise RuntimeError("H2 overall verdict changed")
+    direct = int((frame["large_gw_relation"].astype(str) == "DIRECT_MAGAZINE").sum())
+    capacity = int(frame["large_gw_highest_mapped_capacity_class"].notna().sum())
+    if direct != EXPECTED_LARGE_DIRECT:
+        raise RuntimeError(f"Large-GW direct coverage changed: {direct:,} != {EXPECTED_LARGE_DIRECT:,}")
+    if capacity != EXPECTED_LARGE_CAPACITY:
+        raise RuntimeError(f"Large-GW capacity coverage changed: {capacity:,} != {EXPECTED_LARGE_CAPACITY:,}")
 
 
 def make_dictionaries(group: pd.DataFrame) -> tuple[dict[str, list[str]], dict[str, dict[str, int]]]:
@@ -430,6 +438,10 @@ def main() -> int:
         "field_count": EXPECTED_FIELDS,
         "municipality_count": EXPECTED_MUNICIPALITIES,
         "coverage": EXPECTED_COVERAGE,
+        "large_groundwater": {
+            "direct_magazine_fields": EXPECTED_LARGE_DIRECT,
+            "capacity_class_fields": EXPECTED_LARGE_CAPACITY,
+        },
         "overall_score": "NOT_CREATED",
         "legal_status": "NOT_ASSESSED",
         "municipalities": side["entries"],
