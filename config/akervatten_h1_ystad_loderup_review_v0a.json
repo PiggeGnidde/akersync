@@ -1,0 +1,52 @@
+{
+  "schema_version": "akervatten-h1-ystad-loderup-hydrology-review-v0a",
+  "paths": {
+    "h0_config": "config/akervatten_h0_large_groundwater_v0a.json",
+    "h0_fields": "work/akervatten_mvp_v0a/h0_large_groundwater/akervatten_h0_large_groundwater_fields_skane.parquet",
+    "h0_direct": "work/akervatten_mvp_v0a/h0_large_groundwater/h0_direct_magazine_matches.parquet",
+    "h0_subarea": "work/akervatten_mvp_v0a/h0_large_groundwater/h0_subarea_matches.parquet",
+    "h0_recharge": "work/akervatten_mvp_v0a/h0_large_groundwater/h0_recharge_matches.parquet",
+    "c_links": "work/akervatten_mvp_v0a/c_full_linkage/akervatten_c_spatial_links_skane.parquet",
+    "c_sgu_hype": "data/raw/akervatten/c_full_linkage/sgu/sgu_hype_areas_skane.geojson",
+    "c_svar_tiles": "data/raw/akervatten/c_full_linkage/smhi/svar_tiles",
+    "external_cases": "work/akervatten_mvp_v0a/external_validation/akervatten_external_validation_10_extremes.csv",
+    "h0_gpkg": "raw/akervatten_h0_large_groundwater/extracted/grundvattenmagasin.gpkg"
+  },
+  "focus_fields": [
+    {
+      "label": "Ystad_GW_availability_MIN",
+      "blockid": "61513794526",
+      "skiftesbeteckning": "9C",
+      "expected_component": "GrundvattenTillgang",
+      "expected_extreme": "MIN"
+    },
+    {
+      "label": "Ystad_GW_drought_MAX",
+      "blockid": "61453869647",
+      "skiftesbeteckning": "22B",
+      "expected_component": "GrundvattenTorka",
+      "expected_extreme": "MAX"
+    }
+  ],
+  "external_reference_points": [
+    {
+      "label": "Loderups_Vaxt_address",
+      "name": "Löderups Växt AB",
+      "address": "Norra Strandbadsvägen 134, 271 77 Löderup",
+      "lat": 55.404374,
+      "lon": 14.11675,
+      "semantic": "address reference only; no assertion that nearby fields are owned or farmed by the company",
+      "source_note": "public address/map coordinate"
+    }
+  ],
+  "output": {
+    "work_dir": "work/akervatten_mvp_v0a/h1_ystad_loderup_review"
+  },
+  "guardrails": [
+    "H1 is diagnostic and creates no new ÅkerVatten score.",
+    "The Löderup point is an address reference, not a farm-boundary or ownership assertion.",
+    "Hydrological unit equality/difference is descriptive, not legal evidence of withdrawal rights.",
+    "Mapped withdrawal opportunity is not a permit, vattendom or guaranteed well yield.",
+    "The frozen v0a components remain unchanged."
+  ]
+}
