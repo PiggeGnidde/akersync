@@ -3,10 +3,9 @@
 """VT-A5c: provenance audit of VISS withdrawal motivations before freeze.
 
 Read-only diagnostic. Verifies that every withdrawal motivation stored in
-VT-A3 waterbody_evidence.json can be traced exactly to a raw VISS motivation
-row for the same EU_CD, and prints all positive case water bodies with their
-raw withdrawal motivation text. Also searches raw rows for the conspicuous
-Köpingebro/Glemmingebro text seen in the UI.
+VT-A3 waterbody_evidence.json can be traced to a raw VISS motivation row for
+the same EU_CD. Text comparison normalizes whitespace only, because A3/UI may
+collapse VISS CR/LF line breaks to spaces without changing semantic content.
 """
 from __future__ import annotations
 import json
@@ -23,6 +22,7 @@ def load(p):
     return json.loads(p.read_text(encoding='utf-8-sig'))
 def norm(x): return '' if x is None else str(x).strip().upper()
 def txt(x): return '' if x is None else str(x).strip()
+def norm_ws(x): return ' '.join(txt(x).split())
 def is_withdrawal(r):
     t=txt(r.get('MeasureGroundWaterPressureType')).lower()
     return 'vattenuttag' in t
@@ -40,6 +40,7 @@ def main():
     print('='*104)
     print(f'Raw pressure motivation rows: {len(raw):,}')
     print(f'VT-A3 evidence water bodies:  {len(evidence):,}')
+    print('Text matching: whitespace-normalized (CR/LF/tabs/repeated spaces only)')
 
     errors=[]; audited=0
     print('\nPOSITIVE CASE WATER BODIES — WITHDRAWAL MOTIVATIONS')
@@ -58,7 +59,10 @@ def main():
             print(f'         {txt(r.get("Motivation"))!r}')
         for i,m in enumerate(ms,1):
             mt=txt(m.get('type')); mm=txt(m.get('motivation')); md=txt(m.get('date'))
-            matches=[r for r in raw_w if txt(r.get('MeasureGroundWaterPressureType'))==mt and txt(r.get('Motivation'))==mm and txt(r.get('Date'))==md]
+            matches=[r for r in raw_w
+                     if txt(r.get('MeasureGroundWaterPressureType'))==mt
+                     and norm_ws(r.get('Motivation'))==norm_ws(mm)
+                     and txt(r.get('Date'))==md]
             ok=bool(matches)
             print(f'  A3 [{i}] provenance={"PASS" if ok else "FAIL"}: {mt!r} | {mm!r}')
             if not ok: errors.append({'EU_CD':e,'name':name,'type':mt,'motivation':mm,'date':md})
@@ -75,22 +79,21 @@ def main():
             print(f"type={txt(r.get('MeasureGroundWaterPressureType'))!r} | class={txt(r.get('Classification'))!r} | date={txt(r.get('Date'))!r}")
             print(f"motivation={m!r}")
 
-    # Extra exact duplicate-text audit: same nontrivial withdrawal motivation appearing under multiple EU_CD.
     text_to_eu=defaultdict(set)
     for r in raw:
         if is_withdrawal(r):
-            m=txt(r.get('Motivation'))
+            m=norm_ws(r.get('Motivation'))
             if m and m!='-': text_to_eu[m].add(norm(r.get('WaterEUID')))
     dup={m:sorted(es) for m,es in text_to_eu.items() if len(es)>1}
     print('\nWITHDRAWAL MOTIVATION TEXT REUSED ACROSS MULTIPLE EU_CD')
     print('-'*104)
     if not dup: print('None')
     else:
-        for m,es in dup.items():
-            print(f'{es}: {m!r}')
+        for m,es in dup.items(): print(f'{es}: {m!r}')
 
     OUT.mkdir(parents=True,exist_ok=True)
     report={'raw_rows':len(raw),'evidence_water_bodies':len(evidence),'positive_cases_audited':audited,
+            'comparison':'whitespace-normalized motivation; exact EU_CD/type/date',
             'provenance_failures':errors,
             'kopingebro_glemmingebro_hits':[{'EU_CD':norm(r.get('WaterEUID')),'WaterName':txt(r.get('WaterName')),'type':txt(r.get('MeasureGroundWaterPressureType')),'classification':txt(r.get('Classification')),'date':txt(r.get('Date')),'motivation':txt(r.get('Motivation'))} for r in found],
             'duplicate_withdrawal_text_across_eu_cd':dup}
