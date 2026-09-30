@@ -1,0 +1,13 @@
+{
+  "schema_version": "akeraccess-pea-validation-c3-v0a",
+  "primary_window": [2023, 2024, 2025],
+  "secondary_windows": {
+    "recent_2020_2025": [2020, 2021, 2022, 2023, 2024, 2025],
+    "all_2015_2025": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+  },
+  "last_mile_thresholds_m": [50, 100, 250, 500, 1000],
+  "nvdb_match_max_m": 20,
+  "area_bins_ha": [1, 2, 5, 8, 12, 20, 1000000],
+  "area_bin_labels": ["1-2", "2-5", "5-8", "8-12", "12-20", "20+"],
+  "primary_positive_definition": "SINGLE_CROP + semantic CONSERVART"
+}
