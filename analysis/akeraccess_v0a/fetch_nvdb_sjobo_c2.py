@@ -38,7 +38,7 @@ OBJECTS=[
 ]
 
 
-def request_xml(key:str,obj:str,skip:int)->bytes:
+def request_xml(key:str,obj:str)->bytes:
     keyq=quoteattr(key)
     objq=quoteattr(obj)
     return (
@@ -68,6 +68,9 @@ def post(body:bytes,attempts:int=6)->dict:
         try:
             with urllib.request.urlopen(req,timeout=90) as r:
                 return json.loads(r.read().decode("utf-8-sig"))
+        except urllib.error.HTTPError as e:
+            body=e.read().decode("utf-8",errors="replace")
+            raise RuntimeError(f"Trafikverket HTTP {e.code}: {body[:1200]}") from e
         except Exception as e:
             last=e
             if i+1<attempts:
@@ -98,20 +101,17 @@ def main()->int:
     print()
 
     for obj in OBJECTS:
-        all_rows=[]
-        skip=0
-        page=0
-        while True:
-            page+=1
-            payload=post(request_xml(key,obj,skip))
-            rows,info=extract(payload,obj)
-            all_rows.extend(rows)
-            print(f"{obj}: page {page} -> {len(rows):,} rows (total {len(all_rows):,})")
-            if len(rows)<LIMIT:
-                break
-            skip+=LIMIT
-            if page>=20:
-                raise RuntimeError(f"{obj}: >1,000,000 rows in bbox; aborting pagination guard")
+        # SSEQ QUERY does not use a SQL-style skip attribute.
+        # For this Sjöbo pilot we expect fewer than LIMIT rows per object.
+        payload=post(request_xml(key,obj))
+        rows,info=extract(payload,obj)
+        print(f"{obj}: {len(rows):,} rows")
+        if len(rows) >= LIMIT:
+            raise RuntimeError(
+                f"{obj}: returned {len(rows):,} rows (= LIMIT). "
+                "C2 refuses possible truncation; supported paging/cursor logic is required."
+            )
+        all_rows=rows
 
         out={"RESPONSE":{"RESULT":[{obj:all_rows,"INFO":info}]}}
         path=RAW/f"{obj}_v12_sjobo.json"
