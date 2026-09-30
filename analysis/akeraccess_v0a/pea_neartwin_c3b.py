@@ -165,8 +165,20 @@ def mean_bool(s:pd.Series)->float:
 
 def metric_pair(pos:pd.Series,ctrl:pd.DataFrame,metric:str,kind:str)->tuple[float,float,float]:
     if kind=="bool":
-        pv=float(bool(pos[metric]))
-        cv=mean_bool(ctrl[metric])
+        # NVDB-derived categorical indicators can be pd.NA when that attribute
+        # is not observed near the C1 anchor. Missing means unknown, not False.
+        raw_p=pos[metric]
+        if pd.isna(raw_p):
+            pv=math.nan
+        else:
+            pv=float(bool(raw_p))
+
+        raw_c=ctrl[metric]
+        observed_c=raw_c[raw_c.notna()]
+        if len(observed_c):
+            cv=float(observed_c.astype(bool).mean())
+        else:
+            cv=math.nan
     elif kind=="numeric":
         pv=pd.to_numeric(pd.Series([pos[metric]]),errors="coerce").iloc[0]
         cv=float(pd.to_numeric(ctrl[metric],errors="coerce").mean())
@@ -242,7 +254,7 @@ def run_match(df:pd.DataFrame,pos_col:str,control_mask:pd.Series,label:str,cfg:d
         summary.append({
             "match_label":label,
             "metric":metric,
-            "positive_n":int(len(sets)),
+            "positive_n":int(pd.to_numeric(sets[metric+"_diff"],errors="coerce").notna().sum()),
             "positive_mean":float(pd.to_numeric(sets[metric+"_positive"],errors="coerce").mean()),
             "matched_control_mean":float(pd.to_numeric(sets[metric+"_control_mean"],errors="coerce").mean()),
             "paired_difference":mean,
