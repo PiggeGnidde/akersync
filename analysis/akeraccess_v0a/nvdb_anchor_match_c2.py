@@ -169,6 +169,11 @@ def main()->int:
         p=find_raw(raw,obj)
         sources[obj]=str(p)
         loaded[obj]=parse_object(p,obj)
+        if len(loaded[obj]) >= 50000:
+            raise RuntimeError(
+                f"{obj}: received {len(loaded[obj]):,} rows; possible API limit truncation. "
+                "Paginated download required before C2."
+            )
 
     out=work/"nvdb_c2"
     out.mkdir(parents=True,exist_ok=True)
@@ -182,7 +187,14 @@ def main()->int:
             "geometry_type_counts":value_counts_dict(g.geometry.geom_type) if len(g) else {},
             "source":sources[obj],
         }
-        near=nearest_one(anchors,g,obj,spec["attrs"])
+        g_match=g
+        if obj=="Vägtrafiknät" and "Nättyp" in g.columns:
+            bil=g[g["Nättyp"].fillna("").astype(str).str.casefold().eq("bilnät")].copy()
+            reports[obj]["raw_nättyp_counts"]=value_counts_dict(g["Nättyp"])
+            reports[obj]["bilnät_rows"]=int(len(bil))
+            if len(bil):
+                g_match=bil
+        near=nearest_one(anchors,g_match,obj,spec["attrs"])
         merged=merged.merge(near,on="field_id",how="left",validate="one_to_one")
         reports[obj]["anchor_distance_coverage"]=coverage(merged[f"{obj}_distance_m"])
 
