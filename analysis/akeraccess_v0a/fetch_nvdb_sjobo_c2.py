@@ -97,7 +97,8 @@ def main()->int:
     print("ÅkerAccess C2 - download NVDB Sjöbo")
     print("="*96)
     print("Credential: FOUND locally (.env/environment); value is never printed")
-    print(f"WGS84 box: {BOX}")\n    print("NVDB spatial field: Geometry.WKT-WGS84-3D")
+    print(f"WGS84 box: {BOX}")
+    print("NVDB spatial field: Geometry.WKT-WGS84-3D")
     print()
 
     for obj in OBJECTS:
