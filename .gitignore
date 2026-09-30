@@ -1,4 +1,5 @@
 # Local paths / credentials-ish machine configuration
+.env
 config/local_paths.json
 config/akerminne_local.json
 
