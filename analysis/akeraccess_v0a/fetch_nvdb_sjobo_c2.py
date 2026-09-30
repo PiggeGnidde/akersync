@@ -46,7 +46,7 @@ def request_xml(key:str,obj:str)->bytes:
         f"<LOGIN authenticationkey={keyq}/>"
         f"<QUERY objecttype={objq} namespace={quoteattr(NS)} "
         f"schemaversion={quoteattr(SCHEMA)} limit={quoteattr(str(LIMIT))} "
-        f"skip={quoteattr(str(skip))} changeid=\"0\">"
+        f"changeid=\"0\">"
         "<FILTER><AND>"
         "<EQ name=\"Deleted\" value=\"false\"/>"
         f"<WITHIN name=\"Geometry.WGS84\" shape=\"box\" value={quoteattr(BOX)}/>"
