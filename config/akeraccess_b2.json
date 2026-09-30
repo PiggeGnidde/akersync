@@ -1,0 +1,17 @@
+{
+  "schema_version": "akeraccess-review-b2-v0c",
+  "minimum_area_ha": 1.0,
+  "target_per_status": 20,
+  "pasture_name_tokens": [
+    "betesmark",
+    "slåtteräng",
+    "slatterang",
+    "naturbetesmark"
+  ],
+  "status_order": [
+    "STRONG_OSM_EVIDENCE",
+    "POSSIBLE_OSM_EVIDENCE",
+    "ADJACENCY_ONLY",
+    "NO_OSM_ENTRY_EVIDENCE"
+  ]
+}
