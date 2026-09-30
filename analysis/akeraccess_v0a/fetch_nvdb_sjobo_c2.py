@@ -22,10 +22,10 @@ if str(SRC) not in sys.path:
 from akerpass_secrets import get_secret
 
 API="https://api.trafikinfo.trafikverket.se/v2/data.json"
-NS="vägdata.nvdb_dk_o"
+NS="Vägdata.NVDB_DK_O"
 SCHEMA="1.2"
 BOX="13.45 55.47, 14.05 55.82"
-LIMIT=50000
+LIMIT=5000
 RAW=ROOT/"data"/"raw"/"akeraccess_nvdb_sjobo_c2"
 
 OBJECTS=[
@@ -38,19 +38,19 @@ OBJECTS=[
 ]
 
 
-def request_xml(key:str,obj:str)->bytes:
+def request_xml(key:str,obj:str,skip:int)->bytes:
     keyq=quoteattr(key)
     objq=quoteattr(obj)
+    geom_field="Geometry.WKT-WGS84-3D"
     return (
         "<REQUEST>"
         f"<LOGIN authenticationkey={keyq}/>"
         f"<QUERY objecttype={objq} namespace={quoteattr(NS)} "
         f"schemaversion={quoteattr(SCHEMA)} limit={quoteattr(str(LIMIT))} "
-        f"changeid=\"0\">"
-        "<FILTER><AND>"
-        "<EQ name=\"Deleted\" value=\"false\"/>"
-        f"<WITHIN name=\"Geometry.WGS84\" shape=\"box\" value={quoteattr(BOX)}/>"
-        "</AND></FILTER>"
+        f"skip={quoteattr(str(skip))}>"
+        "<FILTER>"
+        f"<WITHIN name={quoteattr(geom_field)} shape=\"box\" value={quoteattr(BOX)}/>"
+        "</FILTER>"
         "</QUERY></REQUEST>"
     ).encode("utf-8")
 
@@ -97,21 +97,26 @@ def main()->int:
     print("ÅkerAccess C2 - download NVDB Sjöbo")
     print("="*96)
     print("Credential: FOUND locally (.env/environment); value is never printed")
-    print(f"WGS84 box: {BOX}")
+    print(f"WGS84 box: {BOX}")\n    print("NVDB spatial field: Geometry.WKT-WGS84-3D")
     print()
 
     for obj in OBJECTS:
-        # SSEQ QUERY does not use a SQL-style skip attribute.
-        # For this Sjöbo pilot we expect fewer than LIMIT rows per object.
-        payload=post(request_xml(key,obj))
-        rows,info=extract(payload,obj)
-        print(f"{obj}: {len(rows):,} rows")
-        if len(rows) >= LIMIT:
-            raise RuntimeError(
-                f"{obj}: returned {len(rows):,} rows (= LIMIT). "
-                "C2 refuses possible truncation; supported paging/cursor logic is required."
-            )
-        all_rows=rows
+        all_rows=[]
+        skip=0
+        page=0
+        info={}
+        while True:
+            page+=1
+            payload=post(request_xml(key,obj,skip))
+            rows,info=extract(payload,obj)
+            all_rows.extend(rows)
+            print(f"{obj}: page {page} -> {len(rows):,} rows (total {len(all_rows):,})")
+            if len(rows) < LIMIT:
+                break
+            skip += LIMIT
+            if page >= 200:
+                raise RuntimeError(f"{obj}: pagination guard hit after {page} pages")
+
 
         out={"RESPONSE":{"RESULT":[{obj:all_rows,"INFO":info}]}}
         path=RAW/f"{obj}_v12_sjobo.json"
