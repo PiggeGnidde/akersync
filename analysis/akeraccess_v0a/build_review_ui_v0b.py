@@ -194,6 +194,10 @@ textarea{{width:100%;min-height:70px;box-sizing:border-box}}
 #counter{{font-weight:700}}
 .cand{{border-top:1px solid #ddd;padding:8px 0;font-size:12px}}
 .kbd{{font-family:monospace;background:#eee;padding:1px 4px;border-radius:3px}}
+.legend{{font-size:12px;line-height:1.5;border:1px solid #ddd;padding:8px;margin:8px 0;background:#fafafa}}
+.swatch{{display:inline-block;width:22px;height:4px;margin-right:7px;vertical-align:middle}}
+.dot{{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 13px 0 6px;vertical-align:middle}}
+#overlayToggle{{font-weight:700;width:100%;margin:8px 0}}
 @media(max-width:800px){{#app{{grid-template-columns:1fr;grid-template-rows:43% 57%}}#panel{{border-right:0;border-bottom:1px solid #ccc}}}}
 </style>
 </head>
@@ -209,6 +213,14 @@ textarea{{width:100%;min-height:70px;box-sizing:border-box}}
 <div>
 <button id="prev">← Föregående</button>
 <button id="next">Nästa →</button>
+</div>
+<button id="overlayToggle">Dölj ÅkerAccess-lager</button>
+<div class="legend">
+  <div><span class="swatch" style="background:#ffff00"></span>Åkergräns</div>
+  <div><span class="swatch" style="background:#00ffff"></span>Bästa kandidatväg</div>
+  <div><span class="swatch" style="background:#ff00ff"></span>Alternativ kandidatväg</div>
+  <div><span class="dot" style="background:#ff3300"></span>Bästa infartskandidat</div>
+  <div><span class="dot" style="background:#ffcc00"></span>Alternativ infartskandidat</div>
 </div>
 
 <h3>Din visuella bedömning</h3>
@@ -228,7 +240,7 @@ textarea{{width:100%;min-height:70px;box-sizing:border-box}}
 <button id="clear">Rensa alla labels</button>
 <p class="small">
 Labels lagras lokalt i webbläsaren medan du jobbar. Exportera CSV när du är klar.
-Tangentbord: <span class="kbd">←</span>/<span class="kbd">→</span> bläddrar.
+Tangentbord: <span class="kbd">←</span>/<span class="kbd">→</span> bläddrar, <span class="kbd">L</span> visar/döljer ÅkerAccess-lagren.
 </p>
 </div>
 <div id="map"></div>
@@ -245,10 +257,33 @@ const imagery=L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}",
   {{maxZoom:20,attribution:"Imagery: Esri / contributors"}}
 ).addTo(map);
-const osm=L.tileLayer("https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png",{{maxZoom:20,attribution:"© OpenStreetMap contributors"}});
-L.control.layers({{"Flygbild":imagery,"OSM":osm}},null,{{collapsed:false}}).addTo(map);
+const streets=L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{{z}}/{{y}}/{{x}}",
+  {{maxZoom:19,attribution:"Map: Esri / contributors"}}
+);
+L.control.layers({{"Flygbild":imagery,"Gatukarta":streets}},null,{{collapsed:false}}).addTo(map);
 
 let fieldLayer=null,candidateLayer=null,roadLayer=null,gateLayer=null;
+let overlaysVisible=true;
+
+function vectorLayers(){{
+  return [fieldLayer,roadLayer,candidateLayer,gateLayer].filter(Boolean);
+}}
+function applyOverlayVisibility(){{
+  vectorLayers().forEach(layer=>{{
+    if(overlaysVisible){{
+      if(!map.hasLayer(layer)) layer.addTo(map);
+    }} else {{
+      if(map.hasLayer(layer)) map.removeLayer(layer);
+    }}
+  }});
+  const b=document.getElementById("overlayToggle");
+  if(b) b.textContent=overlaysVisible?"Dölj ÅkerAccess-lager":"Visa ÅkerAccess-lager";
+}}
+function toggleOverlays(){{
+  overlaysVisible=!overlaysVisible;
+  applyOverlayVisibility();
+}}
 
 function persist(){{ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }}
 function current(){{ return PAYLOAD.items[index]; }}
@@ -290,6 +325,7 @@ function renderMap(item){{
   }}).addTo(map);
   const bounds=fieldLayer.getBounds();
   map.fitBounds(bounds.pad(0.45),{{maxZoom:19}});
+  applyOverlayVisibility();
 }}
 
 function renderLabels(item){{
@@ -337,6 +373,7 @@ function render(){{
 
 document.getElementById("prev").onclick=()=>{{index=(index-1+PAYLOAD.items.length)%PAYLOAD.items.length;render();}};
 document.getElementById("next").onclick=()=>{{index=(index+1)%PAYLOAD.items.length;render();}};
+document.getElementById("overlayToggle").onclick=toggleOverlays;
 document.getElementById("saveNote").onclick=()=>{{
   const item=current();
   state[item.field_id]={{...(state[item.field_id]||{{}}),note:document.getElementById("note").value}};
@@ -360,6 +397,7 @@ document.addEventListener("keydown",e=>{{
   if(e.target.tagName==="TEXTAREA")return;
   if(e.key==="ArrowRight")document.getElementById("next").click();
   if(e.key==="ArrowLeft")document.getElementById("prev").click();
+  if(e.key==="l"||e.key==="L")toggleOverlays();
 }});
 render();
 </script>
