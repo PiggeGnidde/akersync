@@ -114,12 +114,31 @@ def ensure_outcomes(df:pd.DataFrame,nvmax:float)->pd.DataFrame:
     out["_bearing"]=close_value("Bärighet","Bärighet_Bärighetsklass",numeric=False).astype("string")
 
     # Explicitly post-hoc indicators from C3; never silently promoted to score.
-    out["_fclass_4_or_7"]=out["_fclass"].isin(["4","4.0","7","7.0"])
-    out["_keeper_kommunal"]=out["_keeper"].eq("kommunal")
-    out["_keeper_enskild"]=out["_keeper"].eq("enskild")
-    out["_width_ge_4_5"]=out["_width"].ge(4.5)
+    # IMPORTANT: comparisons such as .isin/.eq/.ge can collapse missing values to
+    # False. Preserve missing NVDB attributes as pd.NA so denominators are based
+    # only on observed attributes, while _bearing_known intentionally measures
+    # coverage and therefore remains a complete True/False indicator.
+    out["_fclass_4_or_7"]=(
+        out["_fclass"].isin(["4","4.0","7","7.0"]).astype("boolean")
+        .where(out["_fclass"].notna(), pd.NA)
+    )
+    out["_keeper_kommunal"]=(
+        out["_keeper"].eq("kommunal").astype("boolean")
+        .where(out["_keeper"].notna(), pd.NA)
+    )
+    out["_keeper_enskild"]=(
+        out["_keeper"].eq("enskild").astype("boolean")
+        .where(out["_keeper"].notna(), pd.NA)
+    )
+    out["_width_ge_4_5"]=(
+        out["_width"].ge(4.5).astype("boolean")
+        .where(out["_width"].notna(), pd.NA)
+    )
     out["_bearing_known"]=out["_bearing"].notna()
-    out["_bearing_bk1"]=out["_bearing"].eq("BK 1")
+    out["_bearing_bk1"]=(
+        out["_bearing"].eq("BK 1").astype("boolean")
+        .where(out["_bearing"].notna(), pd.NA)
+    )
     return out
 
 
