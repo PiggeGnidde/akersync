@@ -356,7 +356,7 @@ document.getElementById("nexttodo").onclick=nextTodo;
 document.getElementById("overlayToggle").onclick=()=>{{overlaysVisible=!overlaysVisible;applyOverlay();}};
 document.getElementById("saveNote").onclick=()=>{{
  const i=current();state[i.field_id]={{...(state[i.field_id]||{{}}),note:document.getElementById("note").value,
-  label_source:(state[i.field_id]&&state[i.field_id].label_source)||i.sample_source==="LEGACY_REUSED"?"legacy_mapped":"human_b2"}};
+  label_source:(state[i.field_id]&&state[i.field_id].label_source) || (i.sample_source==="LEGACY_REUSED"?"legacy_mapped":"human_b2")}};
  persist();progress();
 }};
 document.getElementById("download").onclick=()=>{{
