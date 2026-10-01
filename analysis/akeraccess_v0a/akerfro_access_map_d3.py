@@ -124,8 +124,18 @@ body{font-family:Arial,Helvetica,sans-serif}
 <option>1000</option><option>2000</option><option>5000</option>
 </select></label>
 <label><input type="checkbox" id="onlyA"> endast A_STRONG_CANDIDATE</label>
+<button id="zoomSelection" style="width:100%;margin-top:6px;padding:5px">Zooma till valt urval</button>
 <div id="stats" class="legend"></div>
-<div class="small">Färg visar rankpercentil inom vald topplista. Klicka ett fält för detaljer.</div>
+<div class="legend">
+  <b>Färg = ranking inom valt urval</b>
+  <div style="height:12px;border:1px solid #777;border-radius:3px;
+       background:linear-gradient(90deg,hsl(115,75%,45%),hsl(72,75%,45%),hsl(30,75%,45%));
+       margin:4px 0 2px 0"></div>
+  <div style="display:flex;justify-content:space-between">
+    <span>Bäst rank</span><span>Lägst rank i urvalet</span>
+  </div>
+</div>
+<div class="small">Grönt = högst rankad. Gult/orange = längre ned i den valda topplistan. Klicka ett fält för detaljer.</div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -172,6 +182,7 @@ L.control.layers(
 ).addTo(map);
 
 let layer=null;
+let firstRender=true;
 function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function num(x,d=1){const n=Number(x); return Number.isFinite(n)?n.toFixed(d):'—';}
 function fillFor(rank,topn){
@@ -220,11 +231,22 @@ function render(){
   document.getElementById('stats').innerHTML=
     '<b>'+n.toLocaleString('sv-SE')+'</b> fält · <b>'+ha.toFixed(0)+'</b> ha<br>'+
     'A-klass '+apos.toLocaleString('sv-SE')+' · historisk conservärt '+hist;
-  if(layer.getBounds().isValid()) map.fitBounds(layer.getBounds(),{padding:[20,20]});
+  // Fit only on initial page load. Changing ranking/top-N must preserve the
+  // current pan/zoom so the user can compare exactly the same local area.
+  if(firstRender && layer.getBounds().isValid()){
+    map.fitBounds(layer.getBounds(),{padding:[20,20]});
+    firstRender=false;
+  }
+}
+function zoomToSelection(){
+  if(layer && layer.getBounds().isValid()){
+    map.fitBounds(layer.getBounds(),{padding:[20,20]});
+  }
 }
 document.getElementById('ranking').addEventListener('change',render);
 document.getElementById('topn').addEventListener('change',render);
 document.getElementById('onlyA').addEventListener('change',render);
+document.getElementById('zoomSelection').addEventListener('click',zoomToSelection);
 render();
 </script>
 </body>
