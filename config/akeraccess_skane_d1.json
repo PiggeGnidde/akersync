@@ -1,0 +1,19 @@
+{
+  "schema_version": "akeraccess-skane-pea-replication-d1-v0a",
+  "windows": {
+    "recent_2023_2025": [2023, 2024, 2025],
+    "recent_2020_2025": [2020, 2021, 2022, 2023, 2024, 2025],
+    "all_2015_2025": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+  },
+  "controls_per_positive": 10,
+  "primary_match_radius_m": 7500,
+  "fallback_match_radius_m": 15000,
+  "area_ratio_min": 0.5,
+  "area_ratio_max": 2.0,
+  "area_log_penalty_m": 3000,
+  "bootstrap_reps": 10000,
+  "bootstrap_chunk_reps": 500,
+  "random_seed": 20261001,
+  "primary_replication_scope": "skane_excluding_sjobo",
+  "descriptive_scope": "full_skane"
+}
