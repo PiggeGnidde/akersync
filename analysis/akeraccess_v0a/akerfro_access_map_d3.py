@@ -32,12 +32,19 @@ from analysis.akeraccess_v0a.skane_pea_replication_d1 import load_history
 
 DEFAULT_D2=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d2"/"akerfro_akeraccess_d2_fields.parquet"
 DEFAULT_D4=ROOT/"work"/"akeraccess_v0a"/"bjuv_route_d4"/"bestmatch_d4_fields.parquet"
+DEFAULT_D5=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d5"/"bestmatch_d5_fields.parquet"
 DEFAULT_OUT=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d3_map"
 DEFAULT_AKERMINNE=Path(r"C:\AkerSync-Minne")
-RANKINGS={
-    "Balanced BestMatch":"rank_bestmatch_balanced",
-    "Frozen C10 baseline":"rank_c10_baseline",
-    "Access-first":"rank_access_first",
+RANKINGS_D2={
+    "BestMatch v0a – balanserad":"rank_bestmatch_balanced",
+    "ÅkerFrö C10 baseline":"rank_c10_baseline",
+    "Access-first diagnostik":"rank_access_first",
+}
+RANKINGS_D5={
+    "BestMatch v0b – balanserad (vägavstånd)":"rank_d5_balanced",
+    "BestMatch v0b – match först":"rank_d5_match_first",
+    "BestMatch v0b – logistik fram":"rank_d5_logistics_forward",
+    **RANKINGS_D2,
 }
 TOP_CHOICES=[200,500,800,1000,2000,5000]
 
@@ -54,9 +61,9 @@ def norm_id(x):
     return s
 
 
-def build_geojson(d2:pd.DataFrame,nmax:int,akerminne_root:Path)->dict:
+def build_geojson(d2:pd.DataFrame,nmax:int,akerminne_root:Path,rankings:dict[str,str])->dict:
     ids=set()
-    for col in RANKINGS.values():
+    for col in rankings.values():
         q=d2[pd.to_numeric(d2[col],errors="coerce").notna()].copy()
         q[col]=pd.to_numeric(q[col],errors="coerce")
         ids.update(q.nsmallest(min(nmax,len(q)),col)["field_id"].astype(str))
@@ -151,9 +158,7 @@ body{font-family:Arial,Helvetica,sans-serif}
 <h3>ÅkerFrö × ÅkerAccess</h3>
 <label>Ranking
 <select id="ranking">
-<option value="rank_bestmatch_balanced">Balanced BestMatch</option>
-<option value="rank_c10_baseline">Frozen C10 baseline</option>
-<option value="rank_access_first">Access-first</option>
+__RANKING_OPTIONS__
 </select></label>
 <label>Visa topp
 <select id="topn">
@@ -224,6 +229,9 @@ let firstRender=true;
 let selectedFieldId=null;
 function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function num(x,d=1){const n=Number(x); return Number.isFinite(n)?n.toFixed(d):'—';}
+function rankLines(p){
+  return RANKINGS_JS.map(r=>esc(r[0])+': <b>'+esc(p[r[1]]??'—')+'</b>').join('<br>');
+}
 function fillFor(rank,topn){
   const t=Math.min(1,Math.max(0,(Number(rank)-1)/Math.max(1,topn-1)));
   const hue=115-85*t;
@@ -234,9 +242,7 @@ function popup(p,rankCol){
   esc(p.municipality)+' · '+num(p.field_area_ha,1)+' ha<br>'+
   '<span class="badge">'+esc(p.artkandidat_class)+'</span><hr>'+
   '<b>Ranker</b><br>'+
-  'Balanced: <b>'+esc(p.rank_bestmatch_balanced??'—')+'</b><br>'+
-  'C10 baseline: <b>'+esc(p.rank_c10_baseline??'—')+'</b><br>'+
-  'Access-first: <b>'+esc(p.rank_access_first??'—')+'</b><hr>'+
+  rankLines(p)+'<hr>'+
   'ÄrtMatch: <b>'+num(p.artmatch_score,1)+'</b><br>'+
   'AreaLogistik: <b>'+num(p.area_logistics_score,1)+'</b><br>'+
   'Väglogistik: <b>'+num(p.road_access_score,1)+'</b><br>'+
@@ -344,21 +350,30 @@ def main()->int:
     args=ap.parse_args()
 
     d2_path=Path(args.d2)
-    source_path=DEFAULT_D4 if DEFAULT_D4.exists() and d2_path==DEFAULT_D2 else d2_path
+    if d2_path==DEFAULT_D2 and DEFAULT_D5.exists():
+        source_path=DEFAULT_D5
+    elif d2_path==DEFAULT_D2 and DEFAULT_D4.exists():
+        source_path=DEFAULT_D4
+    else:
+        source_path=d2_path
     if not source_path.exists():
         raise FileNotFoundError(f"Run D2 first: {source_path}")
     print(f"Map source: {source_path}")
     d2=pd.read_parquet(source_path)
     d2["field_id"]=d2["field_id"].map(norm_id)
-    missing=[c for c in RANKINGS.values() if c not in d2.columns]
+
+    rankings=RANKINGS_D5 if all(c in d2.columns for c in [
+        "rank_d5_balanced","rank_d5_match_first","rank_d5_logistics_forward"
+    ]) else RANKINGS_D2
+    missing=[c for c in rankings.values() if c not in d2.columns]
     if missing:
-        raise RuntimeError("D2 missing ranking columns: "+", ".join(missing))
+        raise RuntimeError("Map source missing ranking columns: "+", ".join(missing))
 
     print("="*112)
     print("ÅkerFrö × ÅkerAccess D3 - INTERACTIVE MAP")
     print("="*112)
     print("Building union of top 5,000 from baseline / access-first / balanced...")
-    gj=build_geojson(d2,max(TOP_CHOICES),Path(args.akerminne_root))
+    gj=build_geojson(d2,max(TOP_CHOICES),Path(args.akerminne_root),rankings)
     print(f"Unique mapped fields in union: {len(gj.get('features',[])):,}")
 
     out=Path(args.out)
@@ -366,14 +381,19 @@ def main()->int:
     data_path=out/"bestmatch_d3_union_top5000.geojson"
     data_path.write_text(json.dumps(gj,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
 
-    html=HTML_HEAD+"const FIELDS="+json.dumps(gj,ensure_ascii=False,separators=(",",":"))+";\n"+HTML_TAIL
+    ranking_options="\n".join(
+        f'<option value="{col}">{label}</option>' for label,col in rankings.items()
+    )
+    head=HTML_HEAD.replace("__RANKING_OPTIONS__",ranking_options)
+    rank_js=json.dumps([[label,col] for label,col in rankings.items()],ensure_ascii=False)
+    html=head+"const RANKINGS_JS="+rank_js+";\nconst FIELDS="+json.dumps(gj,ensure_ascii=False,separators=(",",":"))+";\n"+HTML_TAIL
     html_path=out/"bestmatch_d3_map.html"
     html_path.write_text(html,encoding="utf-8")
 
     report={
       "schema_version":"akerfro-akeraccess-bestmatch-d3-map-v0a",
       "source":str(source_path),
-      "rankings":RANKINGS,
+      "rankings":rankings,
       "top_choices":TOP_CHOICES,
       "unique_fields_in_union":len(gj.get("features",[])),
       "html":str(html_path),
