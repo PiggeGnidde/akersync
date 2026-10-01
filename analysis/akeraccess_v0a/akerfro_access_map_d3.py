@@ -30,6 +30,7 @@ from analysis.akeraccess_v0a.entry_discovery_v0a import discover_field_inputs
 from analysis.akeraccess_v0a.skane_road_features_d0 import load_skane_fields
 
 DEFAULT_D2=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d2"/"akerfro_akeraccess_d2_fields.parquet"
+DEFAULT_D4=ROOT/"work"/"akeraccess_v0a"/"bjuv_route_d4"/"bestmatch_d4_fields.parquet"
 DEFAULT_OUT=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d3_map"
 RANKINGS={
     "Balanced BestMatch":"rank_bestmatch_balanced",
@@ -77,6 +78,7 @@ def build_geojson(d2:pd.DataFrame,nmax:int)->dict:
         "rank_bestmatch_balanced","nearest_drivable_osm_m",
         "nearest_statlig_kommunal_nvdb_m","network_access_status",
         "rotation_status","predecessor_prior","distance_bjuv_km",
+        "field_to_bjuv_road_km","bjuv_route_status","bjuv_road_vs_straight_factor",
         "historical_conservart_positive",
     ]
     props=[c for c in props if c in g.columns]
@@ -202,11 +204,14 @@ function popup(p,rankCol){
   'Access-first: <b>'+esc(p.rank_access_first??'—')+'</b><hr>'+
   'ÄrtMatch: <b>'+num(p.artmatch_score,1)+'</b><br>'+
   'AreaLogistik: <b>'+num(p.area_logistics_score,1)+'</b><br>'+
-  'RoadAccess: <b>'+num(p.road_access_score,1)+'</b><br>'+
+  'Väglogistik: <b>'+num(p.road_access_score,1)+'</b><br>'+
   'BestMatch: <b>'+num(p.bestmatch_balanced_score,1)+'</b><br>'+
-  'Körbar OSM-väg: <b>'+num(p.nearest_drivable_osm_m,1)+' m</b><br>'+
-  'Statlig/kommunal NVDB: <b>'+num(p.nearest_statlig_kommunal_nvdb_m,1)+' m</b><br>'+
-  'Bjuv fågelväg: '+num(p.distance_bjuv_km,1)+' km<br>'+
+  'Till närmaste körbara väg: <b>'+num(p.nearest_drivable_osm_m,1)+' m</b><br>'+
+  'Till statlig/kommunal väg: <b>'+num(p.nearest_statlig_kommunal_nvdb_m,1)+' m</b><br>'+
+  (Number.isFinite(Number(p.field_to_bjuv_road_km))
+    ? 'Vägavstånd till Bjuv: <b>'+num(p.field_to_bjuv_road_km,1)+' km</b><br>'+
+      '<span class="small">Fågelväg: '+num(p.distance_bjuv_km,1)+' km</span><br>'
+    : 'Till Bjuv (fågelväg): '+num(p.distance_bjuv_km,1)+' km<br>')+
   'Rotation: '+esc(p.rotation_status)+'<br>'+
   'Förfrukt: '+esc(p.predecessor_prior)+'<br>'+
   'Historisk conservärt: '+(p.historical_conservart_positive?'ja':'nej');
@@ -297,9 +302,11 @@ def main()->int:
     args=ap.parse_args()
 
     d2_path=Path(args.d2)
-    if not d2_path.exists():
-        raise FileNotFoundError(f"Run D2 first: {d2_path}")
-    d2=pd.read_parquet(d2_path)
+    source_path=DEFAULT_D4 if DEFAULT_D4.exists() and d2_path==DEFAULT_D2 else d2_path
+    if not source_path.exists():
+        raise FileNotFoundError(f"Run D2 first: {source_path}")
+    print(f"Map source: {source_path}")
+    d2=pd.read_parquet(source_path)
     d2["field_id"]=d2["field_id"].map(norm_id)
     missing=[c for c in RANKINGS.values() if c not in d2.columns]
     if missing:
@@ -323,7 +330,7 @@ def main()->int:
 
     report={
       "schema_version":"akerfro-akeraccess-bestmatch-d3-map-v0a",
-      "source":str(d2_path),
+      "source":str(source_path),
       "rankings":RANKINGS,
       "top_choices":TOP_CHOICES,
       "unique_fields_in_union":len(gj.get("features",[])),
