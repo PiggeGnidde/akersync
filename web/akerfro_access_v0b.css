@@ -1,0 +1,19 @@
+/* AKERFRO_ACCESS_WEB_UI_V0B */
+.akf-head{flex-wrap:wrap}
+.akf-skane-btn{border:1px solid #78947a;background:#edf5ea;border-radius:8px;padding:6px 8px;font-size:11px;font-weight:850;cursor:pointer}
+.akf-skane-controls{display:none;margin-top:8px;padding-top:8px;border-top:1px solid #d5ddd3}
+.akf-skane-controls.show{display:block}
+.akf-skane-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.akf-skane-stat{font-size:10px;line-height:1.4;color:var(--muted);margin-top:6px}
+.akf-rank-gradient{height:9px;border:1px solid #7e877b;border-radius:3px;background:linear-gradient(90deg,hsl(115,75%,45%),hsl(72,75%,45%),hsl(30,75%,45%));margin-top:6px}
+.akf-rank-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:1px}
+#akerfroControls.akf-screening-mode .akf-class-row,
+#akerfroControls.akf-screening-mode > .akf-filter-grid,
+#akerfroControls.akf-screening-mode > .akf-history{display:none}
+.akfx-hero{border:1px solid #cfdbcd;border-radius:13px;background:#f9fbf7;padding:10px}
+.akfx-title{font-size:16px;font-weight:900}.akfx-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.akfx-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;font-size:11px;margin-top:9px}
+.akfx-grid span{color:var(--muted)}.akfx-grid b{text-align:right}
+.akfx-ranks{margin-top:9px;padding-top:8px;border-top:1px solid #e0e7de}
+.akfx-note{font-size:10px;line-height:1.45;color:var(--muted);margin-top:9px}
+@media(max-width:700px){.akf-skane-grid{grid-template-columns:1fr 1fr}}
