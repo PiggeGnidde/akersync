@@ -114,8 +114,13 @@ def build_geojson(d2:pd.DataFrame,nmax:int,akerminne_root:Path,rankings:dict[str
     props=[
         "field_id","municipality","field_area_ha","artkandidat_class",
         "artmatch_score","area_logistics_score","road_access_score",
-        "bestmatch_balanced_score","rank_c10_baseline","rank_access_first",
-        "rank_bestmatch_balanced","nearest_drivable_osm_m",
+        "bestmatch_balanced_score",
+        "bestmatch_d5_match_first_score","bestmatch_d5_balanced_score",
+        "bestmatch_d5_logistics_forward_score",
+        "road_area_logistics_score","bjuv_proximity_d5_source",
+        "rank_c10_baseline","rank_access_first","rank_bestmatch_balanced",
+        "rank_d5_match_first","rank_d5_balanced","rank_d5_logistics_forward",
+        "nearest_drivable_osm_m",
         "nearest_statlig_kommunal_nvdb_m","network_access_status",
         "rotation_status","predecessor_prior","distance_bjuv_km",
         "field_to_bjuv_road_km","bjuv_route_status","bjuv_road_vs_straight_factor",
@@ -246,7 +251,11 @@ function popup(p,rankCol){
   'ÄrtMatch: <b>'+num(p.artmatch_score,1)+'</b><br>'+
   'AreaLogistik: <b>'+num(p.area_logistics_score,1)+'</b><br>'+
   'Väglogistik: <b>'+num(p.road_access_score,1)+'</b><br>'+
-  'BestMatch: <b>'+num(p.bestmatch_balanced_score,1)+'</b><br>'+
+  'BestMatch v0a: <b>'+num(p.bestmatch_balanced_score,1)+'</b><br>'+
+  (Number.isFinite(Number(p.bestmatch_d5_balanced_score))
+    ? 'BestMatch v0b: <b>'+num(p.bestmatch_d5_balanced_score,1)+'</b><br>'+
+      'Road AreaLogistik: <b>'+num(p.road_area_logistics_score,1)+'</b><br>'
+    : '')+
   'Till närmaste körbara väg: <b>'+num(p.nearest_drivable_osm_m,1)+' m</b><br>'+
   'Till statlig/kommunal väg: <b>'+num(p.nearest_statlig_kommunal_nvdb_m,1)+' m</b><br>'+
   (Number.isFinite(Number(p.field_to_bjuv_road_km))
