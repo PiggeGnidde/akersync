@@ -126,6 +126,7 @@ body{font-family:Arial,Helvetica,sans-serif}
 <label><input type="checkbox" id="onlyA"> endast A_STRONG_CANDIDATE</label>
 <button id="zoomSelection" style="width:100%;margin-top:6px;padding:5px">Zooma till valt urval</button>
 <div id="stats" class="legend"></div>
+<div id="pinned" class="legend"></div>
 <div class="legend">
   <b>Färg = ranking inom valt urval</b>
   <div style="height:12px;border:1px solid #777;border-radius:3px;
@@ -183,6 +184,7 @@ L.control.layers(
 
 let layer=null;
 let firstRender=true;
+let selectedFieldId=null;
 function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function num(x,d=1){const n=Number(x); return Number.isFinite(n)?n.toFixed(d):'—';}
 function fillFor(rank,topn){
@@ -193,7 +195,11 @@ function fillFor(rank,topn){
 function popup(p,rankCol){
   return '<b>'+esc(p.field_id)+'</b><br>'+
   esc(p.municipality)+' · '+num(p.field_area_ha,1)+' ha<br>'+
-  '<span class="badge">'+esc(p.artkandidat_class)+'</span> rank '+esc(p[rankCol])+'<hr>'+
+  '<span class="badge">'+esc(p.artkandidat_class)+'</span><hr>'+
+  '<b>Ranker</b><br>'+
+  'Balanced: <b>'+esc(p.rank_bestmatch_balanced??'—')+'</b><br>'+
+  'C10 baseline: <b>'+esc(p.rank_c10_baseline??'—')+'</b><br>'+
+  'Access-first: <b>'+esc(p.rank_access_first??'—')+'</b><hr>'+
   'ÄrtMatch: <b>'+num(p.artmatch_score,1)+'</b><br>'+
   'AreaLogistik: <b>'+num(p.area_logistics_score,1)+'</b><br>'+
   'RoadAccess: <b>'+num(p.road_access_score,1)+'</b><br>'+
@@ -214,23 +220,47 @@ function render(){
   layer=L.geoJSON(FIELDS,{
     filter:f=>{
       const p=f.properties, r=Number(p[rankCol]);
-      return Number.isFinite(r)&&r<=topn&&(!onlyA||p.artkandidat_class==='A_STRONG_CANDIDATE');
+      const inTop=Number.isFinite(r)&&r<=topn&&(!onlyA||p.artkandidat_class==='A_STRONG_CANDIDATE');
+      const pinned=(selectedFieldId!==null && p.field_id===selectedFieldId);
+      return inTop||pinned;
     },
     style:f=>{
       const r=Number(f.properties[rankCol]);
+      const pinned=(selectedFieldId!==null && f.properties.field_id===selectedFieldId);
+      if(pinned){
+        return {color:'#000',weight:4,fillColor:fillFor(r,topn),fillOpacity:.82,dashArray:'6 4'};
+      }
       return {color:'#333',weight:.6,fillColor:fillFor(r,topn),fillOpacity:.62};
     },
     onEachFeature:(f,l)=>{
       const p=f.properties;
-      n++; ha+=Number(p.field_area_ha)||0;
-      if(p.artkandidat_class==='A_STRONG_CANDIDATE') apos++;
-      if(p.historical_conservart_positive) hist++;
+      const rr=Number(p[rankCol]);
+      const inTop=Number.isFinite(rr)&&rr<=topn&&(!onlyA||p.artkandidat_class==='A_STRONG_CANDIDATE');
+      if(inTop){
+        n++; ha+=Number(p.field_area_ha)||0;
+        if(p.artkandidat_class==='A_STRONG_CANDIDATE') apos++;
+        if(p.historical_conservart_positive) hist++;
+      }
       l.bindPopup(popup(p,rankCol));
+      l.on('click',()=>{
+        selectedFieldId=p.field_id;
+        document.getElementById('pinned').innerHTML=
+          '<b>Valt fält:</b> '+esc(p.field_id)+' · växla ranking för att följa samma fält';
+      });
     }
   }).addTo(map);
   document.getElementById('stats').innerHTML=
     '<b>'+n.toLocaleString('sv-SE')+'</b> fält · <b>'+ha.toFixed(0)+'</b> ha<br>'+
     'A-klass '+apos.toLocaleString('sv-SE')+' · historisk conservärt '+hist;
+  if(selectedFieldId!==null){
+    layer.eachLayer(l=>{
+      const p=l.feature&&l.feature.properties;
+      if(p&&p.field_id===selectedFieldId){
+        l.setStyle({color:'#000',weight:4,dashArray:'6 4',fillOpacity:.82});
+        l.bindPopup(popup(p,rankCol));
+      }
+    });
+  }
   // Fit only on initial page load. Changing ranking/top-N must preserve the
   // current pan/zoom so the user can compare exactly the same local area.
   if(firstRender && layer.getBounds().isValid()){
@@ -243,6 +273,11 @@ function zoomToSelection(){
     map.fitBounds(layer.getBounds(),{padding:[20,20]});
   }
 }
+document.getElementById('pinned').addEventListener('click',()=>{
+  selectedFieldId=null;
+  document.getElementById('pinned').innerHTML='';
+  render();
+});
 document.getElementById('ranking').addEventListener('change',render);
 document.getElementById('topn').addEventListener('change',render);
 document.getElementById('onlyA').addEventListener('change',render);
