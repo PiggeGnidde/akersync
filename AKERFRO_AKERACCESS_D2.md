@@ -60,3 +60,22 @@ without recomputing the ranking.
 ## Run
 
     CALL RUN_AKERFRO_AKERACCESS_D2.bat
+
+## Important correction after first D2 run
+
+The first D2 run reported zero recent 2023–2025 positives inside the A/B
+candidate universe. This is expected from the frozen C8 semantics, not a data
+failure:
+
+- A/B requires `ROTATION_OK` for candidate year 2026.
+- recent pea observations trigger `C_ROTATION_CAUTION`.
+- therefore recent 2023–2025 clean CONSERVART cannot be used as an
+  incremental-lift label inside current A/B without structural leakage.
+
+D2 has been corrected so the ranking diagnostic uses the frozen C10
+`is_positive` lineage (clean CONSERVART 2015–2025) within the current A/B
+candidate universe. The script still reports recent and 2015–2019 labels as
+sanity checks.
+
+This preserves the frozen rotation policy and prevents the diagnostic from
+grading A/B against fields that the policy deliberately excludes.
