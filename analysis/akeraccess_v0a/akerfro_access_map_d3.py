@@ -133,9 +133,32 @@ body{font-family:Arial,Helvetica,sans-serif}
 
 HTML_TAIL=r"""
 const map=L.map('map').setView([55.95,13.35],9);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  maxZoom:19, attribution:'&copy; OpenStreetMap contributors'
-}).addTo(map);
+
+// Do not use tile.openstreetmap.org directly from the local file:// app.
+// Their volunteer tile service can block this usage pattern (403).
+// Use provider-backed basemaps instead; no API key required here.
+const carto=L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  {
+    subdomains:'abcd',
+    maxZoom:20,
+    attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
+  }
+).addTo(map);
+
+const esri=L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {
+    maxZoom:20,
+    attribution:'Tiles &copy; Esri'
+  }
+);
+
+L.control.layers(
+  {'Karta (CARTO)':carto,'Satellit (Esri)':esri},
+  {},
+  {position:'bottomright'}
+).addTo(map);
 
 let layer=null;
 function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
