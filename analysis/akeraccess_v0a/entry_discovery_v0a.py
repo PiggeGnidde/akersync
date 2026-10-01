@@ -170,27 +170,50 @@ out skel qt;
 
 
 def download_overpass(query: str, endpoints: list[str], timeout_s: int) -> tuple[dict[str, Any], str]:
+    """Download Overpass data with endpoint failover and transient-error retries.
+
+    Large municipality queries occasionally hit public Overpass 429/502/503/504
+    responses or connection resets. Those are treated as transient. The caller
+    still gets a hard failure after bounded retries, so no silent partial data
+    are accepted.
+    """
     body = urllib.parse.urlencode({"data": query}).encode("utf-8")
     errors = []
-    for endpoint in endpoints:
-        request = urllib.request.Request(
-            endpoint,
-            data=body,
-            method="POST",
-            headers={
-                "User-Agent": "AkerSync-AkerAccess/0a (research MVP)",
-                "Accept": "application/json",
-            },
-        )
-        try:
-            started = time.time()
-            with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-            payload.setdefault("_akeraccess", {})["download_seconds"] = round(time.time() - started, 3)
-            return payload, endpoint
-        except Exception as exc:
-            errors.append(f"{endpoint}: {exc!r}")
-    raise RuntimeError("Alla Overpass-endpoints misslyckades:\n  " + "\n  ".join(errors))
+    rounds = 4
+    for round_idx in range(rounds):
+        for endpoint in endpoints:
+            request = urllib.request.Request(
+                endpoint,
+                data=body,
+                method="POST",
+                headers={
+                    "User-Agent": "AkerSync-AkerAccess/0a (research MVP)",
+                    "Accept": "application/json",
+                },
+            )
+            try:
+                started = time.time()
+                with urllib.request.urlopen(request, timeout=timeout_s) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                payload.setdefault("_akeraccess", {})["download_seconds"] = round(time.time() - started, 3)
+                payload.setdefault("_akeraccess", {})["download_attempt_round"] = round_idx + 1
+                return payload, endpoint
+            except urllib.error.HTTPError as exc:
+                errors.append(f"round {round_idx+1} {endpoint}: HTTP {exc.code}")
+                # Public Overpass instances commonly return these transiently
+                # under load. Other HTTP errors are still retried via failover,
+                # but the final exception retains the diagnostics.
+            except Exception as exc:
+                errors.append(f"round {round_idx+1} {endpoint}: {exc!r}")
+
+        if round_idx + 1 < rounds:
+            wait_s = min(5 * (2 ** round_idx), 30)
+            print(f"  Overpass transient failure; retrying all endpoints in {wait_s}s...")
+            time.sleep(wait_s)
+
+    raise RuntimeError(
+        "Alla Overpass-endpoints misslyckades efter retries:\n  " + "\n  ".join(errors[-12:])
+    )
 
 
 def load_or_download_osm(fields, cfg: dict[str, Any], cache_path: Path, refresh: bool):
