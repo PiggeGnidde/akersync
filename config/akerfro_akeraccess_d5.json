@@ -1,0 +1,26 @@
+{
+  "schema_version": "akerfro-akeraccess-bestmatch-d5-v0a",
+  "candidate_classes": [
+    "A_STRONG_CANDIDATE",
+    "B_PHYSICAL_CANDIDATE"
+  ],
+  "policies": {
+    "match_first": {
+      "artmatch": 0.60,
+      "road_area_logistics": 0.25,
+      "local_road_access": 0.15
+    },
+    "balanced": {
+      "artmatch": 0.50,
+      "road_area_logistics": 0.25,
+      "local_road_access": 0.25
+    },
+    "logistics_forward": {
+      "artmatch": 0.45,
+      "road_area_logistics": 0.30,
+      "local_road_access": 0.25
+    }
+  },
+  "top_n": [200, 500, 800, 1000, 2000, 5000],
+  "minimum_ab_route_coverage_pct_for_no_warning": 95.0
+}
