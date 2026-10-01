@@ -104,14 +104,32 @@ def percentile_score(values:pd.Series,higher_is_better:bool)->pd.Series:
     return pd.Series(out,index=values.index)
 
 
-def add_recent_positive(df:pd.DataFrame,root:Path,years:list[int])->pd.DataFrame:
+def add_history_labels(df:pd.DataFrame,root:Path,recent_years:list[int])->pd.DataFrame:
+    """Attach diagnostics without violating C8 rotation semantics.
+
+    Current A/B candidates are ROTATION_OK for 2026, so recent 2020-2025 pea
+    positives are structurally excluded by C8. The valid incremental-lift
+    diagnostic therefore uses the frozen all-history positive label carried
+    by C10 (2015-2025). We still recompute recent and older windows as sanity
+    checks so a future policy change cannot silently reintroduce leakage.
+    """
     hist,_sources=load_history(root,set(df["field_id"]))
-    ids=set(hist.loc[
-        hist["clean_conservart"] & hist["history_year"].isin(years),
+    recent_ids=set(hist.loc[
+        hist["clean_conservart"] & hist["history_year"].isin(recent_years),
+        "field_id"
+    ].astype(str))
+    old_ids=set(hist.loc[
+        hist["clean_conservart"] & hist["history_year"].between(2015,2019,inclusive="both"),
         "field_id"
     ].astype(str))
     out=df.copy()
-    out["recent_conservart_positive"]=out["field_id"].isin(ids)
+    out["recent_conservart_positive"]=out["field_id"].isin(recent_ids)
+    out["old_2015_2019_conservart_positive"]=out["field_id"].isin(old_ids)
+    if "is_positive" in out.columns:
+        out["historical_conservart_positive"]=out["is_positive"].fillna(False).astype(bool)
+    else:
+        all_ids=set(hist.loc[hist["clean_conservart"],"field_id"].astype(str))
+        out["historical_conservart_positive"]=out["field_id"].isin(all_ids)
     return out
 
 
@@ -182,23 +200,24 @@ def rank_candidates(df:pd.DataFrame,cfg:dict[str,Any])->pd.DataFrame:
     return out
 
 
-def eval_rank(df:pd.DataFrame,rank_col:str,top_ns:list[int])->list[dict[str,Any]]:
+def eval_rank(df:pd.DataFrame,rank_col:str,top_ns:list[int],label_col:str)->list[dict[str,Any]]:
     cand=df[df["bestmatch_candidate"] & pd.to_numeric(df[rank_col],errors="coerce").notna()].copy()
     cand[rank_col]=pd.to_numeric(cand[rank_col],errors="coerce")
-    total_pos=int(cand["recent_conservart_positive"].sum())
-    base=float(cand["recent_conservart_positive"].mean()) if len(cand) else math.nan
+    total_pos=int(cand[label_col].sum())
+    base=float(cand[label_col].mean()) if len(cand) else math.nan
     rows=[]
     for n in top_ns:
         q=cand.nsmallest(min(int(n),len(cand)),rank_col)
-        hits=int(q["recent_conservart_positive"].sum())
-        rate=float(q["recent_conservart_positive"].mean()) if len(q) else math.nan
+        hits=int(q[label_col].sum())
+        rate=float(q[label_col].mean()) if len(q) else math.nan
         rows.append({
             "ranking":rank_col,
             "top_n_requested":int(n),
             "n_fields":int(len(q)),
-            "recent_positive_hits":hits,
-            "recent_positive_recall":hits/total_pos if total_pos else math.nan,
-            "recent_positive_rate":rate,
+            "label":label_col,
+            "positive_hits":hits,
+            "positive_recall":hits/total_pos if total_pos else math.nan,
+            "positive_rate":rate,
             "enrichment_vs_candidate_universe":rate/base if base>0 else math.nan,
             "mean_artmatch":float(pd.to_numeric(q["artmatch_score"],errors="coerce").mean()),
             "mean_area_logistics":float(pd.to_numeric(q["area_logistics_score"],errors="coerce").mean()),
@@ -277,7 +296,7 @@ def main()->int:
     need=[
         "current_field_id","artkandidat_class","artmatch_score",
         "area_logistics_score","operational_priority_rank","field_area_ha",
-        "rotation_status","predecessor_prior","distance_bjuv_km",
+        "rotation_status","predecessor_prior","distance_bjuv_km","is_positive",
     ]
     missing=[c for c in need if c not in c10.columns]
     if missing:
@@ -299,13 +318,18 @@ def main()->int:
     print(f"Road-eligible joined fields: {len(product):,} / C10 {len(c10):,}")
 
     years=list(map(int,cfg["evaluation_window"]))
-    product=add_recent_positive(product,Path(args.akerminne_root),years)
+    product=add_history_labels(product,Path(args.akerminne_root),years)
     product=build_scores(product,cfg)
     product=rank_candidates(product,cfg)
 
     cand=product[product["bestmatch_candidate"]].copy()
     print(f"A/B candidate universe after road eligibility: {len(cand):,}")
-    print(f"Recent clean CONSERVART {years[0]}-{years[-1]} in A/B universe: {int(cand['recent_conservart_positive'].sum()):,}")
+    recent_n=int(cand["recent_conservart_positive"].sum())
+    hist_n=int(cand["historical_conservart_positive"].sum())
+    old_n=int(cand["old_2015_2019_conservart_positive"].sum())
+    print(f"Historical clean CONSERVART 2015-2025 in A/B universe: {hist_n:,}")
+    print(f"Older clean CONSERVART 2015-2019 in A/B universe: {old_n:,}")
+    print(f"Recent clean CONSERVART {years[0]}-{years[-1]} in A/B universe: {recent_n:,} (expected ~0 because A/B requires ROTATION_OK)")
     print("Candidate classes:")
     print(cand["artkandidat_class"].value_counts().to_string())
 
@@ -315,8 +339,9 @@ def main()->int:
         "rank_bestmatch_balanced",
     ]
     rows=[]
+    eval_label="historical_conservart_positive"
     for rank in rankings:
-        rows.extend(eval_rank(product,rank,list(map(int,cfg["top_n"]))))
+        rows.extend(eval_rank(product,rank,list(map(int,cfg["top_n"])),eval_label))
     ev=pd.DataFrame(rows)
 
     out=Path(args.out)
@@ -348,8 +373,12 @@ def main()->int:
         "joined_road_eligible_fields":int(len(product)),
         "candidate_classes":cfg["candidate_classes"],
         "candidate_fields":int(len(cand)),
-        "evaluation_window":years,
-        "recent_positive_fields_in_candidates":int(cand["recent_conservart_positive"].sum()),
+        "evaluation_window_recent_sanity_check":years,
+        "evaluation_label":"historical_conservart_positive (frozen C10 is_positive, clean CONSERVART 2015-2025)",
+        "historical_positive_fields_in_candidates":hist_n,
+        "old_2015_2019_positive_fields_in_candidates":old_n,
+        "recent_positive_fields_in_candidates":recent_n,
+        "rotation_leakage_guard":"A/B requires ROTATION_OK for 2026, so recent pea positives are expected to be absent; they must not be used as D2 lift labels.",
         "road_access_score":{
             "definition":"equal-weight average of inverse empirical percentile of nearest drivable OSM distance and nearest statlig/kommunal NVDB-roadkeeper distance",
             "weights":cfg["road_access_weights"],
@@ -378,15 +407,15 @@ def main()->int:
     rp=out/"akerfro_akeraccess_d2_report.json"
     rp.write_text(json.dumps(report,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
 
-    print("\nINCREMENTAL LIFT · recent clean CONSERVART")
+    print("\nINCREMENTAL LIFT · frozen historical clean CONSERVART label within current A/B candidates")
     for n in list(map(int,cfg["top_n"])):
         q=ev[ev["top_n_requested"].eq(n)]
         print("-"*120)
         print(f"TOP {n}")
         for r in q.itertuples(index=False):
             print(
-                f"  {r.ranking:28s} hits={r.recent_positive_hits:4d} "
-                f"recall={100*r.recent_positive_recall:5.1f}% "
+                f"  {r.ranking:28s} hits={r.positive_hits:4d} "
+                f"recall={100*r.positive_recall:5.1f}% "
                 f"enrich={r.enrichment_vs_candidate_universe:5.2f}x "
                 f"road={r.mean_road_access:5.1f} "
                 f"d_drive_med={r.median_nearest_drivable_m:6.1f}m "
