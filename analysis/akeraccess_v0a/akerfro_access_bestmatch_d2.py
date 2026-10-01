@@ -70,7 +70,7 @@ def discover_c10(explicit:str|None)->Path:
         Path(r"C:\AkerSync")/rel,
     ]
     try:
-        candidates.extend(sorted(Path(r"C:\").glob("AkerSync-*"))[0:50])
+        candidates.extend(sorted(Path("C:/").glob("AkerSync-*"))[0:50])
     except Exception:
         pass
 
