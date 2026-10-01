@@ -1,0 +1,19 @@
+{
+  "schema_version": "akerfro-akeraccess-bestmatch-d2-v0a",
+  "candidate_classes": [
+    "A_STRONG_CANDIDATE",
+    "B_PHYSICAL_CANDIDATE"
+  ],
+  "road_access_weights": {
+    "nearest_drivable_osm": 0.5,
+    "nearest_statlig_kommunal_nvdb": 0.5
+  },
+  "balanced_bestmatch_weights": {
+    "artmatch": 0.5,
+    "area_logistics": 0.25,
+    "road_access": 0.25
+  },
+  "evaluation_window": [2023, 2024, 2025],
+  "top_n": [200, 500, 800, 1000, 2000, 5000],
+  "map_top_n": 5000
+}
