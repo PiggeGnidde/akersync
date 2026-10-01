@@ -28,10 +28,12 @@ for p in (ROOT,ROOT/"src"):
 
 from analysis.akeraccess_v0a.entry_discovery_v0a import discover_field_inputs
 from analysis.akeraccess_v0a.skane_road_features_d0 import load_skane_fields
+from analysis.akeraccess_v0a.skane_pea_replication_d1 import load_history
 
 DEFAULT_D2=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d2"/"akerfro_akeraccess_d2_fields.parquet"
 DEFAULT_D4=ROOT/"work"/"akeraccess_v0a"/"bjuv_route_d4"/"bestmatch_d4_fields.parquet"
 DEFAULT_OUT=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d3_map"
+DEFAULT_AKERMINNE=Path(r"C:\AkerSync-Minne")
 RANKINGS={
     "Balanced BestMatch":"rank_bestmatch_balanced",
     "Frozen C10 baseline":"rank_c10_baseline",
@@ -52,7 +54,7 @@ def norm_id(x):
     return s
 
 
-def build_geojson(d2:pd.DataFrame,nmax:int)->dict:
+def build_geojson(d2:pd.DataFrame,nmax:int,akerminne_root:Path)->dict:
     ids=set()
     for col in RANKINGS.values():
         q=d2[pd.to_numeric(d2[col],errors="coerce").notna()].copy()
@@ -60,6 +62,37 @@ def build_geojson(d2:pd.DataFrame,nmax:int)->dict:
         ids.update(q.nsmallest(min(nmax,len(q)),col)["field_id"].astype(str))
 
     d=d2[d2["field_id"].astype(str).isin(ids)].copy()
+
+    # Attach ÅkerMinne crop history only for the displayed union, keeping D3
+    # useful as a field sanity-check tool without loading history into D2.
+    hist,_sources=load_history(akerminne_root,set(ids))
+    hist=hist.copy()
+    hist["history_year"]=pd.to_numeric(hist["history_year"],errors="coerce").astype("Int64")
+    hist["crop_label"]=hist["dominant_crop_name"].fillna("").astype(str)
+    hist["status_label"]=hist["status"].fillna("").astype(str)
+    rows=[]
+    for fid,g in hist.groupby("field_id",sort=False):
+        g=g.sort_values("history_year",kind="mergesort")
+        by_year={}
+        parts=[]
+        for r in g.itertuples(index=False):
+            if pd.isna(r.history_year):
+                continue
+            y=int(r.history_year)
+            crop=str(r.crop_label).strip() or "—"
+            by_year[y]=crop
+            parts.append(f"{y}: {crop}")
+        rows.append({
+            "field_id":str(fid),
+            "akerminne_2022":by_year.get(2022,"—"),
+            "akerminne_2023":by_year.get(2023,"—"),
+            "akerminne_2024":by_year.get(2024,"—"),
+            "akerminne_2025":by_year.get(2025,"—"),
+            "akerminne_history":" | ".join(parts),
+        })
+    if rows:
+        d=d.merge(pd.DataFrame(rows),on="field_id",how="left",validate="one_to_one")
+
     blocks_path,skiften_path,_local_cfg=discover_field_inputs()
     geom=load_skane_fields(blocks_path,skiften_path)
     geom["field_id"]=geom["field_id"].map(norm_id)
@@ -80,6 +113,8 @@ def build_geojson(d2:pd.DataFrame,nmax:int)->dict:
         "rotation_status","predecessor_prior","distance_bjuv_km",
         "field_to_bjuv_road_km","bjuv_route_status","bjuv_road_vs_straight_factor",
         "historical_conservart_positive",
+        "akerminne_2022","akerminne_2023","akerminne_2024","akerminne_2025",
+        "akerminne_history",
     ]
     props=[c for c in props if c in g.columns]
     gg=g[props+["geometry"]].copy()
@@ -214,7 +249,13 @@ function popup(p,rankCol){
     : 'Till Bjuv (fågelväg): '+num(p.distance_bjuv_km,1)+' km<br>')+
   'Rotation: '+esc(p.rotation_status)+'<br>'+
   'Förfrukt: '+esc(p.predecessor_prior)+'<br>'+
-  'Historisk conservärt: '+(p.historical_conservart_positive?'ja':'nej');
+  'Historisk conservärt: '+(p.historical_conservart_positive?'ja':'nej')+'<hr>'+
+  '<b>ÅkerMinne</b><br>'+
+  '2022: <b>'+esc(p.akerminne_2022??'—')+'</b><br>'+
+  '2023: '+esc(p.akerminne_2023??'—')+'<br>'+
+  '2024: '+esc(p.akerminne_2024??'—')+'<br>'+
+  '2025: '+esc(p.akerminne_2025??'—')+'<br>'+
+  '<span class="small">'+esc(p.akerminne_history??'')+'</span>';
 }
 function render(){
   const rankCol=document.getElementById('ranking').value;
@@ -298,6 +339,7 @@ def main()->int:
     ap=argparse.ArgumentParser()
     ap.add_argument("--d2",default=str(DEFAULT_D2))
     ap.add_argument("--out",default=str(DEFAULT_OUT))
+    ap.add_argument("--akerminne-root",default=str(DEFAULT_AKERMINNE))
     ap.add_argument("--no-open",action="store_true")
     args=ap.parse_args()
 
@@ -316,7 +358,7 @@ def main()->int:
     print("ÅkerFrö × ÅkerAccess D3 - INTERACTIVE MAP")
     print("="*112)
     print("Building union of top 5,000 from baseline / access-first / balanced...")
-    gj=build_geojson(d2,max(TOP_CHOICES))
+    gj=build_geojson(d2,max(TOP_CHOICES),Path(args.akerminne_root))
     print(f"Unique mapped fields in union: {len(gj.get('features',[])):,}")
 
     out=Path(args.out)
