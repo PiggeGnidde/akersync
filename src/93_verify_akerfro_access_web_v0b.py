@@ -7,8 +7,8 @@ from pathlib import Path
 def main():
     root=Path(__file__).resolve().parents[1]
     ap=argparse.ArgumentParser();ap.add_argument("--dist",default=str(root/"dist_akerfro_access_v0b"));args=ap.parse_args()
-    d=Path(args.dist);idx=d/"index.html";geo=d/"data"/"akerfro_bestmatch"/"skane_screening.geojson";meta=d/"data"/"akerfro_bestmatch"/"skane_index.json"
-    if not idx.exists() or not geo.exists() or not meta.exists():raise FileNotFoundError("Whole-Skåne web artifacts missing")
+    d=Path(args.dist);idx=d/"index.html";geo=d/"data"/"akerfro_bestmatch"/"skane_screening.geojson";entry=d/"data"/"akerfro_bestmatch"/"skane_estimated_access.geojson";meta=d/"data"/"akerfro_bestmatch"/"skane_index.json"
+    if not idx.exists() or not geo.exists() or not entry.exists() or not meta.exists():raise FileNotFoundError("Whole-Skåne web artifacts missing")
     html=idx.read_text(encoding="utf-8")
     meta_obj=json.loads(meta.read_text(encoding="utf-8"))
     required=["AKERFRO_ERTOR_WEB_UI_V0A","AKERFRO_ACCESS_WEB_UI_V0B",'id="akfSkaneButton"','id="akfxRanking"','id="akfxTopN"',"assets/akerfro_access_v0b.css","assets/akerfro_access_v0b.js","BestMatch v0b – balanserad","Hela Skåne"]
@@ -23,8 +23,14 @@ def main():
     sample=(feats[0].get("properties") or {}) if feats else {}
     missing=sorted(reqprops-set(sample))
     if missing:raise RuntimeError("GeoJSON properties missing: "+", ".join(missing))
+    eg=json.loads(entry.read_text(encoding="utf-8"))
+    efeats=eg.get("features") or []
+    entry_n=sum(1 for f in efeats if (f.get("properties") or {}).get("kind")=="estimated_entry")
+    path_n=sum(1 for f in efeats if (f.get("properties") or {}).get("kind")=="estimated_last_mile")
+    if entry_n<1000:raise RuntimeError(f"too few estimated entry points: {entry_n}")
+    if path_n<1000:raise RuntimeError(f"too few estimated last-mile paths: {path_n}")
     if not (d/"data"/"akerfro"/"skane_index.json").exists():raise RuntimeError("existing municipality ÅkerFrö sidecars were not preserved")
     print("="*96);print("ÅkerFrö × ÅkerAccess WEB v0b VERIFY: PASS");print("="*96)
-    print(f"Whole-Skåne screening union: {len(feats):,} fields");print("Existing municipality ÅkerFrö: preserved");print("Candidate status: NOT FROZEN");print("="*96)
+    print(f"Whole-Skåne screening union: {len(feats):,} fields");print(f"Estimated entries: {entry_n:,} · selected last-mile paths: {path_n:,}");print("Existing municipality ÅkerFrö: preserved");print("Candidate status: NOT FROZEN");print("="*96)
     return 0
 if __name__=="__main__":raise SystemExit(main())
