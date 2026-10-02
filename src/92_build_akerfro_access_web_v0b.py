@@ -12,6 +12,7 @@ from shapely.ops import substring
 
 ROOT=Path(__file__).resolve().parents[1]
 DEFAULT_D5=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d5"/"bestmatch_d5_fields.parquet"
+DEFAULT_D0=ROOT/"work"/"akeraccess_v0a"/"skane_d0"/"skane_akeraccess_road_features_d0.parquet"
 DEFAULT_D6C=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d6c"/"bestmatch_d6c_fields.parquet"
 DEFAULT_TARGET=ROOT/"dist_akerfro_access_v0b"
 MARKER_BASE="AKERFRO_ERTOR_WEB_UI_V0A"
@@ -121,6 +122,24 @@ def build_access_overlay(d5,ids):
 
     dd=d5[d5["field_id"].astype(str).isin(ids)].copy()
     dd["field_id"]=dd["field_id"].astype(str)
+
+    if not DEFAULT_D0.exists():
+        raise FileNotFoundError(f"Estimated-entry overlay requires D0: {DEFAULT_D0}")
+    d0=pd.read_parquet(
+        DEFAULT_D0,
+        columns=[
+            "field_id",
+            "path_candidate_osm_way_id",
+            "path_candidate_highway",
+            "path_candidate_kind",
+            "path_candidate_rank",
+            "path_last_mile_to_anchor_m",
+            "path_anchor_node",
+        ],
+    )
+    d0["field_id"]=d0["field_id"].astype(str)
+    dd=dd.merge(d0,on="field_id",how="left",validate="one_to_one")
+
     to_wgs=Transformer.from_crs(3006,4326,always_xy=True)
 
     features=[]
@@ -229,6 +248,7 @@ def build_access_overlay(d5,ids):
 
     meta={
         "selected_fields":len(ids),
+        "d0_source":str(DEFAULT_D0),
         "overlay_features":len(features),
         "estimated_entry_points":sum(1 for f in features if f["properties"]["kind"]=="estimated_entry"),
         "estimated_last_mile_lines":sum(1 for f in features if f["properties"]["kind"]=="estimated_last_mile"),
