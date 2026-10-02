@@ -2,6 +2,7 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 cd /d "%~dp0"
+set "PYTHONPATH=%CD%;%PYTHONPATH%"
 echo ==============================================================================
 echo AkerFro x AkerAccess WEB v0b - WHOLE-SKANE SCREENING
 echo ==============================================================================
