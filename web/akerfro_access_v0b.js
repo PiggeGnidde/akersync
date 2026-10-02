@@ -54,6 +54,12 @@ function pavedPublicText(p){
    ? fmt(p.nearest_belagd_statlig_kommunal_nvdb_m,1)+" m"
    : "saknas";
 }
+function bestMatchValue(p){
+ return valid(p.bestmatch_d6c_balanced_score)?p.bestmatch_d6c_balanced_score:p.bestmatch_d5_balanced_score;
+}
+function bestMatchLabel(p){
+ return valid(p.bestmatch_d6c_balanced_score)?"BestMatch v0c · balanserad":"BestMatch v0b · balanserad";
+}
 function panel(p){
  const fallback=p.bjuv_proximity_d5_source==="C10_STRAIGHTLINE_FALLBACK";
  return '<div class="akfx-hero">'+
@@ -63,7 +69,7 @@ function panel(p){
    '<span>ÄrtMatch</span><b>'+fmt(p.artmatch_score,1)+'</b>'+
    '<span>Väglogistik</span><b>'+fmt(roadAccessValue(p),1)+'</b>'+
    '<span>AreaLogistik · väg</span><b>'+fmt(p.road_area_logistics_score,1)+'</b>'+
-   '<span>BestMatch v0b · balanserad</span><b>'+fmt(p.bestmatch_d5_balanced_score,1)+'</b>'+
+   '<span>'+bestMatchLabel(p)+'</span><b>'+fmt(bestMatchValue(p),1)+'</b>'+
    '<span>Till närmaste körbara väg</span><b>'+fmt(p.nearest_drivable_osm_m,1)+' m</b>'+
    '<span>Till belagd statlig/kommunalt väghållen väg</span><b>'+pavedPublicText(p)+'</b>'+
    '<span>Vägavstånd till Bjuv</span><b>'+routeText(p)+'</b>'+
