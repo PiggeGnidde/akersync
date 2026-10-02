@@ -25,7 +25,7 @@ function loadScreening(){
 }
 function currentRank(){const el=document.getElementById("akfxRanking");return el?el.value:(RANKINGS[0]||[])[1]}
 function currentTop(){const el=document.getElementById("akfxTopN");return el?Number(el.value):800}
-function onlyA(){const el=document.getElementById("akfxOnlyA");return !!(el&&el.checked)}
+function onlyA(){return false}
 function rankColor(rank,topn){
  const t=Math.min(1,Math.max(0,(Number(rank)-1)/Math.max(1,topn-1)));
  const hue=115-85*t;
@@ -154,7 +154,7 @@ loadMunicipality=async function(name){
 
 const button=document.getElementById("akfSkaneButton");
 if(button)button.addEventListener("click",toggleScreening);
-["akfxRanking","akfxTopN","akfxOnlyA"].forEach(function(id){
+["akfxRanking","akfxTopN"].forEach(function(id){
  const el=document.getElementById(id);if(el)el.addEventListener("change",renderScreening);
 });
 const zoom=document.getElementById("akfxZoom");
