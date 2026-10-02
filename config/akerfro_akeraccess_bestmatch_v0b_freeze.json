@@ -1,0 +1,36 @@
+{
+  "schema_version": "akerfro-akeraccess-bestmatch-v0b-freeze-policy-v1",
+  "freeze_name": "akerfro-akeraccess-bestmatch-v0b",
+  "selected_policy": "balanced",
+  "candidate_classes": [
+    "A_STRONG_CANDIDATE",
+    "B_PHYSICAL_CANDIDATE"
+  ],
+  "policy_weights": {
+    "artmatch": 0.50,
+    "road_area_logistics": 0.25,
+    "local_road_access": 0.25
+  },
+  "class_order_is_hard": true,
+  "expected_candidate_fields": 15967,
+  "expected_class_counts": {
+    "A_STRONG_CANDIDATE": 7421,
+    "B_PHYSICAL_CANDIDATE": 8546
+  },
+  "expected_bjuv_route_coverage": {
+    "routed": 12075,
+    "straightline_fallback": 3892
+  },
+  "expected_historical_positive_fields": 506,
+  "expected_balanced_hits": {
+    "200": 10,
+    "500": 26,
+    "800": 37,
+    "1000": 49,
+    "2000": 88,
+    "5000": 201
+  },
+  "expected_top800_area_ha_range": [8490.0, 8492.0],
+  "route_semantics": "approximate OSM road-network distance to Bjuv; not certified truck navigation",
+  "fallback_semantics": "if D4 route is missing, frozen C10 straight-line Bjuv proximity is used and explicitly flagged"
+}
