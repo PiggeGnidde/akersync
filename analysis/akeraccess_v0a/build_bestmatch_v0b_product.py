@@ -70,7 +70,7 @@ def main()->int:
         cand["rank_d5_balanced"],errors="coerce"
     ).astype("Int64")
     cand["bestmatch_v0b_policy"]="balanced_50_25_25"
-    cand["bestmatch_v0b_status"]="FROZEN_PRODUCT_CANDIDATE"
+    cand["bestmatch_v0b_status"]="SELECTED_PRODUCT_FOR_FORMAL_FREEZE"
 
     cand=cand.sort_values("bestmatch_v0b_rank",kind="mergesort").reset_index(drop=True)
     expected=np.arange(1,len(cand)+1)
