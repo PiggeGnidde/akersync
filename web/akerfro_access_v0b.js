@@ -3,8 +3,10 @@
 "use strict";
 const cfg=window.AKERFRO_ACCESS_WEB_CONFIG||{};
 const FILE=cfg.geojson||"data/akerfro_bestmatch/skane_screening.geojson";
+const ENTRY_FILE=cfg.entry_geojson||"data/akerfro_bestmatch/skane_estimated_access.geojson";
 const RANKINGS=cfg.rankings||[];
 let screeningMode=false,screeningData=null,screeningLayer=null,screeningLoad=null,pinnedFieldId=null;
+let accessData=null,accessLoad=null,accessByField=new Map(),selectedAccessLayer=null;
 let savedShowFields=true,savedShowBlocks=true,firstScreenFit=true;
 
 function rankLabel(col){
@@ -23,6 +25,55 @@ function loadScreening(){
  }).finally(function(){screeningLoad=null});
  return screeningLoad;
 }
+
+function loadEstimatedAccess(){
+ if(accessData)return Promise.resolve(accessData);
+ if(accessLoad)return accessLoad;
+ accessLoad=fetch(ENTRY_FILE,{cache:"no-cache"}).then(function(r){
+  if(!r.ok)throw new Error("Estimerad infart HTTP "+r.status);
+  return r.json();
+ }).then(function(data){
+  accessData=data;
+  accessByField=new Map();
+  (data.features||[]).forEach(function(f){
+   const id=String((f.properties||{}).field_id||"");
+   if(!id)return;
+   if(!accessByField.has(id))accessByField.set(id,[]);
+   accessByField.get(id).push(f);
+  });
+  return data;
+ }).finally(function(){accessLoad=null});
+ return accessLoad;
+}
+function clearEstimatedAccess(){
+ if(selectedAccessLayer){map.removeLayer(selectedAccessLayer);selectedAccessLayer=null}
+}
+function showEstimatedAccess(fieldId){
+ clearEstimatedAccess();
+ const feats=accessByField.get(String(fieldId))||[];
+ if(!feats.length)return;
+ selectedAccessLayer=L.geoJSON({type:"FeatureCollection",features:feats},{
+  style:function(f){
+   const k=(f.properties||{}).kind;
+   if(k==="estimated_last_mile")return{color:"#1167a8",weight:4,opacity:.92,dashArray:"8 6"};
+   return{};
+  },
+  pointToLayer:function(f,latlng){
+   return L.circleMarker(latlng,{radius:7,color:"#111",weight:2,fillColor:"#ff8c00",fillOpacity:.95});
+  },
+  onEachFeature:function(f,l){
+   const p=f.properties||{};
+   if(p.kind==="estimated_entry"){
+    l.bindTooltip("Estimerad infart · ej verifierad",{permanent:false,direction:"top"});
+   }else{
+    const lm=valid(p.last_mile_m)?fmt(p.last_mile_m,0)+" m":"";
+    l.bindTooltip("Estimerad anslutning till ordinarie väg"+(lm?" · "+lm:""),{sticky:true});
+   }
+  }
+ }).addTo(map);
+ if(selectedAccessLayer.bringToFront)selectedAccessLayer.bringToFront();
+}
+
 function currentRank(){const el=document.getElementById("akfxRanking");return el?el.value:(RANKINGS[0]||[])[1]}
 function currentTop(){const el=document.getElementById("akfxTopN");return el?Number(el.value):800}
 function onlyA(){return false}
@@ -77,11 +128,12 @@ function panel(p){
    '<span>Rotation</span><b>'+esc(p.rotation_status)+'</b>'+
    '<span>Förfruktssignal</span><b>'+esc(p.predecessor_prior)+'</b>'+
    '<span>Historiskt konservärtsfält</span><b>'+(p.historical_conservart_positive?"Ja":"Nej")+'</b>'+
+   '<span>Estimerad infart</span><b>'+(accessByField.has(String(p.field_id))?"Visas på kartan":"Saknas")+'</b>'+
   '</div>'+
   '<div class="akfx-ranks"><div class="akfx-grid">'+rankLines(p)+'</div></div>'+
   '<div class="akfx-note">'+
    (fallback?'Vägavstånd till Bjuv saknas för detta fält; D5 använder den frysta fågelvägsproxyn som explicit fallback. ':'')+
-   'Screening för urval av kandidater. Inte odlingsgaranti, kontraktsbedömning eller certifierad lastbilsnavigation.'+
+   'Infarten är maskinellt estimerad från kartdata och inte verifierad på plats. Den streckade linjen visar vald kartlagd anslutning till ordinarie väg. Screening för urval av kandidater; inte odlingsgaranti, kontraktsbedömning eller certifierad lastbilsnavigation.'+
   '</div></div>';
 }
 function openPanel(p){
@@ -117,6 +169,7 @@ function renderScreening(){
     pinnedFieldId=p.field_id;
     openPanel(p);
     renderScreening();
+    showEstimatedAccess(p.field_id);
    });
   }
  }).addTo(map);
@@ -130,7 +183,7 @@ function renderScreening(){
  }
 }
 function enterScreening(){
- loadScreening().then(function(){
+ Promise.all([loadScreening(),loadEstimatedAccess()]).then(function(){
   screeningMode=true;firstScreenFit=true;
   const box=document.getElementById("akerfroControls");if(box)box.classList.add("akf-screening-mode");
   const controls=document.getElementById("akfSkaneControls");if(controls)controls.classList.add("show");
@@ -144,6 +197,7 @@ function enterScreening(){
 function exitScreening(silent){
  if(!screeningMode)return;
  screeningMode=false;pinnedFieldId=null;
+ clearEstimatedAccess();
  if(screeningLayer){map.removeLayer(screeningLayer);screeningLayer=null}
  const box=document.getElementById("akerfroControls");if(box)box.classList.remove("akf-screening-mode");
  const controls=document.getElementById("akfSkaneControls");if(controls)controls.classList.remove("show");
