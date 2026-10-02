@@ -115,7 +115,8 @@ def build_public_paved(slit:gpd.GeoDataFrame,keeper:gpd.GeoDataFrame,tol_m:float
     mid=paved[["_slit_idx","geometry"]].copy()
     mid["geometry"]=mid.geometry.interpolate(0.5,normalized=True)
     pubcols=[c for c in ["Väghållartyp","Väghållarnamn","geometry"] if c in public.columns]
-    j=gpd.sjoin_nearest(mid,pubcols,how="left",distance_col="_keeper_link_m")
+    public_match=public[pubcols].copy()
+    j=gpd.sjoin_nearest(mid,public_match,how="left",distance_col="_keeper_link_m")
     j=j[pd.to_numeric(j["_keeper_link_m"],errors="coerce").le(tol_m)].copy()
     if j.empty:
         return paved.head(0).copy()
