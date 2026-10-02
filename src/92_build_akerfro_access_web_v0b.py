@@ -93,7 +93,6 @@ def patch_html(text,geojson_rel):
      <label><span class="akf-mini-label">Ranking</span><select id="akfxRanking" class="akf-select">{options}</select></label>
      <label><span class="akf-mini-label">Visa topp</span><select id="akfxTopN" class="akf-select"><option>200</option><option>500</option><option selected>800</option><option>1000</option><option>2000</option><option>5000</option></select></label>
     </div>
-    <label class="akf-history"><input id="akfxOnlyA" type="checkbox"> Endast A · Stark kandidat</label>
     <button id="akfxZoom" class="akf-top-btn" type="button" style="width:100%;margin-top:5px">Zooma till valt urval</button>
     <div id="akfxStats" class="akf-skane-stat"></div>
     <div class="akf-rank-gradient"></div>
