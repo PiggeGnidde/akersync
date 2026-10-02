@@ -12,6 +12,7 @@ from shapely.ops import substring
 
 ROOT=Path(__file__).resolve().parents[1]
 DEFAULT_D5=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d5"/"bestmatch_d5_fields.parquet"
+DEFAULT_BESTMATCH_V0B=ROOT/"data"/"derived"/"akerfro_akeraccess_bestmatch_v0b"/"bestmatch_v0b_fields.parquet"
 DEFAULT_D0=ROOT/"work"/"akeraccess_v0a"/"skane_d0"/"skane_akeraccess_road_features_d0.parquet"
 DEFAULT_D6C=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d6c"/"bestmatch_d6c_fields.parquet"
 DEFAULT_TARGET=ROOT/"dist_akerfro_access_v0b"
@@ -295,7 +296,7 @@ def main():
     if args.d5:
         d5_path=Path(args.d5)
     else:
-        d5_path=DEFAULT_D5
+        d5_path=DEFAULT_BESTMATCH_V0B if DEFAULT_BESTMATCH_V0B.exists() else DEFAULT_D5
     target=Path(args.target).resolve()
     if not d5_path.exists():raise FileNotFoundError(f"Run D5/D6c first: {d5_path}")
     if target==base:raise RuntimeError("Target must differ from existing real-web base")
