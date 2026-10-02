@@ -6,6 +6,9 @@ import argparse,json,shutil
 from pathlib import Path
 import geopandas as gpd
 import pandas as pd
+from pyproj import Transformer
+from shapely.geometry import LineString, Point
+from shapely.ops import substring
 
 ROOT=Path(__file__).resolve().parents[1]
 DEFAULT_D5=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d5"/"bestmatch_d5_fields.parquet"
@@ -91,7 +94,153 @@ def build_geojson(d5,nmax,rankings):
         if col in gg.columns:gg[col]=pd.to_numeric(gg[col],errors="coerce").astype("Int64")
     return json.loads(gg.to_json(drop_id=True))
 
-def patch_html(text,geojson_rel,rankings):
+
+def build_access_overlay(d5,ids):
+    """Reconstruct the selected C1 estimated entry and mapped last-mile path.
+
+    Uses only cached municipality OSM plus the already selected D0 candidate
+    way. This is visualization/QA, not a new access decision.
+    """
+    from analysis.akeraccess_v0a.entry_discovery_v0a import (
+        discover_field_inputs, load_json, osm_geodataframes,
+        representative_entry_point, slug,
+    )
+    from analysis.akeraccess_v0a.skane_road_features_d0 import load_skane_fields
+    from analysis.akeraccess_v0a.core import DRIVABLE_HIGHWAYS
+    from analysis.akeraccess_v0a.network_core import ANCHOR_HIGHWAYS
+    from analysis.akeraccess_v0a.path_profile_core import (
+        build_tagged_graph, dijkstra_to_anchors,
+        candidate_start_node, reconstruct_to_anchor,
+    )
+
+    blocks_path,skiften_path,_=discover_field_inputs()
+    fields=load_skane_fields(blocks_path,skiften_path)
+    fields["field_id"]=fields["field_id"].map(norm_id)
+    fields=fields[fields["field_id"].isin(ids)][["field_id","municipality","geometry"]].copy()
+    geom_by_id=fields.set_index("field_id")["geometry"]
+
+    dd=d5[d5["field_id"].astype(str).isin(ids)].copy()
+    dd["field_id"]=dd["field_id"].astype(str)
+    to_wgs=Transformer.from_crs(3006,4326,always_xy=True)
+
+    features=[]
+    missing_cache=0
+    missing_way=0
+    no_selected=0
+
+    for municipality,g in dd.groupby("municipality",sort=False):
+        cache=ROOT/"data"/"raw"/"akeraccess_osm"/f"{slug(str(municipality))}_roads_gates.json"
+        if not cache.exists():
+            missing_cache+=len(g)
+            continue
+        payload=load_json(cache)
+        roads,_gates=osm_geodataframes(payload)
+        if roads.empty:
+            missing_cache+=len(g)
+            continue
+        roads_by_id={int(r.osm_way_id):r for r in roads.itertuples(index=False)}
+
+        tr=Transformer.from_crs(4326,3006,always_xy=True)
+        graph,xy,ways,_node_tags,anchors=build_tagged_graph(
+            payload,tr,set(DRIVABLE_HIGHWAYS),set(ANCHOR_HIGHWAYS)
+        )
+        dist,parent=dijkstra_to_anchors(graph,anchors)
+
+        for r in g.itertuples(index=False):
+            fid=str(r.field_id)
+            wid_raw=getattr(r,"path_candidate_osm_way_id",None)
+            if pd.isna(wid_raw):
+                no_selected+=1
+                continue
+            wid=int(wid_raw)
+            road=roads_by_id.get(wid)
+            field_geom=geom_by_id.get(fid)
+            if road is None or field_geom is None or field_geom.is_empty:
+                missing_way+=1
+                continue
+
+            entry=representative_entry_point(field_geom.boundary,road.geometry)
+            elon,elat=to_wgs.transform(float(entry.x),float(entry.y))
+            common={
+                "field_id":fid,
+                "municipality":str(municipality),
+                "estimated":True,
+                "candidate_highway":str(getattr(r,"path_candidate_highway","") or ""),
+                "candidate_kind":str(getattr(r,"path_candidate_kind","") or ""),
+                "candidate_rank":(
+                    int(getattr(r,"path_candidate_rank"))
+                    if pd.notna(getattr(r,"path_candidate_rank",None)) else None
+                ),
+                "last_mile_m":(
+                    float(getattr(r,"path_last_mile_to_anchor_m"))
+                    if pd.notna(getattr(r,"path_last_mile_to_anchor_m",None)) else None
+                ),
+            }
+            features.append({
+                "type":"Feature",
+                "properties":{**common,"kind":"estimated_entry","label":"Estimerad infart"},
+                "geometry":{"type":"Point","coordinates":[elon,elat]},
+            })
+
+            way=ways.get(wid)
+            if way is None:
+                continue
+            start=candidate_start_node((float(entry.x),float(entry.y)),way,xy,dist)
+            if start is None:
+                continue
+            edges,anchor_node=reconstruct_to_anchor(int(start["node"]),parent)
+
+            nodes=[n for n in way["nodes"] if n in xy]
+            if len(nodes)<2:
+                continue
+            line=LineString([xy[n] for n in nodes])
+            proj=line.interpolate(float(start["project_m"]))
+            start_pt=Point(xy[int(start["node"])])
+            a=float(line.project(proj)); b=float(line.project(start_pt))
+            seg=substring(line,min(a,b),max(a,b))
+            segcoords=list(seg.coords) if not seg.is_empty else []
+            if segcoords and Point(segcoords[0]).distance(proj)>Point(segcoords[-1]).distance(proj):
+                segcoords=list(reversed(segcoords))
+
+            route_xy=[(float(entry.x),float(entry.y))]
+            route_xy.extend((float(x),float(y)) for x,y in segcoords)
+            if not route_xy or route_xy[-1] != xy[int(start["node"])]:
+                route_xy.append(xy[int(start["node"])])
+            for _u,v,_ewid,_length in edges:
+                route_xy.append(xy[int(v)])
+
+            # Remove consecutive duplicates.
+            clean=[]
+            for p in route_xy:
+                if not clean or abs(clean[-1][0]-p[0])>1e-6 or abs(clean[-1][1]-p[1])>1e-6:
+                    clean.append(p)
+            if len(clean)>=2:
+                ll=[to_wgs.transform(x,y) for x,y in clean]
+                features.append({
+                    "type":"Feature",
+                    "properties":{
+                        **common,
+                        "kind":"estimated_last_mile",
+                        "label":"Estimerad anslutning till ordinarie väg",
+                        "anchor_node":int(anchor_node),
+                    },
+                    "geometry":{"type":"LineString","coordinates":[[float(lon),float(lat)] for lon,lat in ll]},
+                })
+
+    meta={
+        "selected_fields":len(ids),
+        "overlay_features":len(features),
+        "estimated_entry_points":sum(1 for f in features if f["properties"]["kind"]=="estimated_entry"),
+        "estimated_last_mile_lines":sum(1 for f in features if f["properties"]["kind"]=="estimated_last_mile"),
+        "missing_osm_cache_fields":int(missing_cache),
+        "missing_selected_way_fields":int(missing_way),
+        "no_selected_candidate_fields":int(no_selected),
+        "semantics":"Estimated entry and selected C1 mapped last-mile reconstructed from cached OSM. Not field-verified."
+    }
+    return {"type":"FeatureCollection","features":features},meta
+
+
+def patch_html(text,geojson_rel,entry_geojson_rel,rankings):
     if MARKER_BASE not in text:raise RuntimeError("Existing ÅkerFrö web marker missing")
     if MARKER_NEW in text:raise RuntimeError("Target already patched; rebuild from clean base")
     text=replace_once(text,"</head>",'<link rel="stylesheet" href="assets/akerfro_access_v0b.css">\n<!-- '+MARKER_NEW+' -->\n</head>',"CSS hook")
@@ -112,7 +261,7 @@ def patch_html(text,geojson_rel,rankings):
     <div class="akf-rank-labels"><span>Bäst rank</span><span>Längre ned i urvalet</span></div>
    </div>'''
     text=replace_once(text,history,screening,"Skåne controls")
-    config={"geojson":geojson_rel,"rankings":[list(x) for x in rankings],"top_choices":TOP_CHOICES,"status":"CANDIDATE_NOT_FROZEN"}
+    config={"geojson":geojson_rel,"entry_geojson":entry_geojson_rel,"rankings":[list(x) for x in rankings],"top_choices":TOP_CHOICES,"status":"CANDIDATE_NOT_FROZEN"}
     scripts='<script>window.AKERFRO_ACCESS_WEB_CONFIG='+json.dumps(config,ensure_ascii=False,separators=(",",":"))+';</script>\n<script src="assets/akerfro_access_v0b.js"></script>\n'
     return replace_once(text,"</body>",scripts+"</body>","JS hook")
 
@@ -144,15 +293,22 @@ def main():
     data_dir=target/"data"/"akerfro_bestmatch";data_dir.mkdir(parents=True,exist_ok=True)
     geo_path=data_dir/"skane_screening.geojson"
     geo_path.write_text(json.dumps(gj,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
-    meta={"schema_version":"akerfro-access-web-v0b","status":"CANDIDATE_NOT_FROZEN","field_union_count":n,"rankings":[{"label":a,"column":b} for a,b in rankings],"top_choices":TOP_CHOICES,"screening_source":str(d5_path),"route_coverage_note":"D5/D6c has explicit straight-line fallback where D4 route is missing.","geojson":"data/akerfro_bestmatch/skane_screening.geojson"}
+    union_ids={str(f.get("properties",{}).get("field_id","")) for f in (gj.get("features") or [])}
+    union_ids.discard("")
+    print("Reconstructing estimated entrances / selected last-mile paths from cached OSM...")
+    access_gj,access_meta=build_access_overlay(d5,union_ids)
+    access_path=data_dir/"skane_estimated_access.geojson"
+    access_path.write_text(json.dumps(access_gj,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
+    meta={"schema_version":"akerfro-access-web-v0b","status":"CANDIDATE_NOT_FROZEN","field_union_count":n,"rankings":[{"label":a,"column":b} for a,b in rankings],"top_choices":TOP_CHOICES,"screening_source":str(d5_path),"route_coverage_note":"D5/D6c has explicit straight-line fallback where D4 route is missing.","geojson":"data/akerfro_bestmatch/skane_screening.geojson","estimated_access_geojson":"data/akerfro_bestmatch/skane_estimated_access.geojson","estimated_access":access_meta}
     (data_dir/"skane_index.json").write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding="utf-8")
     assets=target/"assets";assets.mkdir(parents=True,exist_ok=True)
     shutil.copy2(ROOT/"web"/"akerfro_access_v0b.css",assets/"akerfro_access_v0b.css")
     shutil.copy2(ROOT/"web"/"akerfro_access_v0b.js",assets/"akerfro_access_v0b.js")
     index=target/"index.html"
-    index.write_text(patch_html(index.read_text(encoding="utf-8"),"data/akerfro_bestmatch/skane_screening.geojson",rankings),encoding="utf-8")
+    index.write_text(patch_html(index.read_text(encoding="utf-8"),"data/akerfro_bestmatch/skane_screening.geojson","data/akerfro_bestmatch/skane_estimated_access.geojson",rankings),encoding="utf-8")
     print(f"Whole-Skåne field union: {n:,}")
     print(f"GeoJSON: {geo_path} ({geo_path.stat().st_size/1024/1024:.1f} MiB)")
+    print(f"Estimated access overlay: {access_path} · entries={access_meta['estimated_entry_points']:,} · paths={access_meta['estimated_last_mile_lines']:,}")
     print(f"Index: {index}")
     print("="*112);print("ÅkerFrö × ÅkerAccess WEB v0b BUILD: PASS");print("="*112)
     return 0
