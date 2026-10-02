@@ -257,7 +257,7 @@ function popup(p,rankCol){
       'Road AreaLogistik: <b>'+num(p.road_area_logistics_score,1)+'</b><br>'
     : '')+
   'Till närmaste körbara väg: <b>'+num(p.nearest_drivable_osm_m,1)+' m</b><br>'+
-  'Till statlig/kommunal väg: <b>'+num(p.nearest_statlig_kommunal_nvdb_m,1)+' m</b><br>'+
+  'Till statligt/kommunalt väghållen väg: <b>'+num(p.nearest_statlig_kommunal_nvdb_m,1)+' m</b><br>'+
   (Number.isFinite(Number(p.field_to_bjuv_road_km))
     ? 'Vägavstånd till Bjuv: <b>'+num(p.field_to_bjuv_road_km,1)+' km</b><br>'+
       '<span class="small">Fågelväg: '+num(p.distance_bjuv_km,1)+' km</span><br>'
