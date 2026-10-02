@@ -126,14 +126,14 @@ def main():
     if args.d5:
         d5_path=Path(args.d5)
     else:
-        d5_path=DEFAULT_D6C if DEFAULT_D6C.exists() else DEFAULT_D5
+        d5_path=DEFAULT_D5
     target=Path(args.target).resolve()
     if not d5_path.exists():raise FileNotFoundError(f"Run D5/D6c first: {d5_path}")
     if target==base:raise RuntimeError("Target must differ from existing real-web base")
     print("="*112);print("ÅkerFrö × ÅkerAccess WEB v0b - WHOLE-SKÅNE SCREENING");print("="*112)
     print(f"Base real web: {base}");print(f"D5: {d5_path}");print(f"Target preview: {target}")
     d5=pd.read_parquet(d5_path);d5["field_id"]=d5["field_id"].map(norm_id)
-    rankings=RANKINGS_D6C if all(c in d5.columns for c in ["rank_d6c_balanced","rank_d6c_match_first","rank_d6c_logistics_forward"]) else RANKINGS_D5
+    rankings=RANKINGS_D5
     required=[col for _label,col in rankings]+["field_id"]
     missing=[c for c in required if c not in d5.columns]
     if missing:raise RuntimeError("D5 missing: "+", ".join(missing))
