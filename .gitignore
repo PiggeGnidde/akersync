@@ -13,6 +13,7 @@ ATL_AkerSync_*.csv
 # Derived data and built HTML are reproducible
 data/derived/
 dist/
+dist_akerpass_unified_v0a/
 
 # Whitebox / temp
 work/
