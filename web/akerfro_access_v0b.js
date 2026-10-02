@@ -57,7 +57,7 @@ function panel(p){
    '<span>AreaLogistik · väg</span><b>'+fmt(p.road_area_logistics_score,1)+'</b>'+
    '<span>BestMatch v0b · balanserad</span><b>'+fmt(p.bestmatch_d5_balanced_score,1)+'</b>'+
    '<span>Till närmaste körbara väg</span><b>'+fmt(p.nearest_drivable_osm_m,1)+' m</b>'+
-   '<span>Till statlig/kommunal väg</span><b>'+fmt(p.nearest_statlig_kommunal_nvdb_m,1)+' m</b>'+
+   '<span>Till statligt/kommunalt väghållen väg</span><b>'+fmt(p.nearest_statlig_kommunal_nvdb_m,1)+' m</b>'+
    '<span>Vägavstånd till Bjuv</span><b>'+routeText(p)+'</b>'+
    '<span>Fågelväg till Bjuv</span><b>'+fmt(p.distance_bjuv_km,1)+' km</b>'+
    '<span>Rotation</span><b>'+esc(p.rotation_status)+'</b>'+
