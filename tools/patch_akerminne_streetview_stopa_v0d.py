@@ -140,5 +140,10 @@ s = s.replace(
     1,
 )
 P.write_text(s, encoding="utf-8")
+B = Path(r"C:\\AkerMinne_StreetView_STOPA\\RUN_STOPA.bat")
+if B.exists():
+    b = B.read_text(encoding="utf-8", errors="replace")
+    b = b.replace("STOPPUNKT A v0c", "STOPPUNKT A v0d")
+    B.write_text(b, encoding="utf-8")
 print("OK: v0d installerad på plats.")
 print("Ny metod: Street View-datum -> samma ÅkerMinne-år; maj > juni > juli; andra månader kasseras.")
