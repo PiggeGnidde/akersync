@@ -67,7 +67,7 @@ def discover_direct_cases(pool, meta: StreetViewMetadata, municipality: str, nee
                 rec.update(year=int(y), crop=h.crop, truth_positive=bool(h.truth_positive), rape_any=bool(h.rape_any),
                            minne_source=h.minne_source, meta_status=hit.status, meta_date=hit.date,
                            pano_id=hit.pano_id, pano_lat=hit.lat, pano_lon=hit.lon,
-                           query_lat=hit.query_lat, query_lon=hit.lon,
+                           query_lat=hit.query_lat, query_lon=hit.query_lon,
                            pano_boundary_dist_m=hit.dist_query_to_pano_m,
                            meta_score=capture_metadata_score(hit))
                 rec["total_score"] = float(f["base_score"]) + rec["meta_score"]
