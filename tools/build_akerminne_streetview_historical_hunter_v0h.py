@@ -17,6 +17,72 @@ s = s.replace(
     'DEFAULT_OUT = Path(r"C:\\AkerSync-AkerAccess\\work\\akerminne_streetview_positive_hunt_v0g")',
     'DEFAULT_OUT = Path(r"C:\\AkerSync-AkerAccess\\work\\akerminne_streetview_historical_hunter_v0h")', 1)
 
+# v0g inherited the original two-municipality loader. v0h must really load all Skåne.
+OLD_READ_MINNE = r'''def read_minne(root: Path) -> pd.DataFrame:
+    frames = []
+    for m in MUNICIPALITIES:
+        files = locate_minne_files(root, m)
+        if not files:
+            raise FileNotFoundError(f"Hittar ingen ÅkerMinne parquet för {m} under {root}")
+        for p in files:
+            d = pd.read_parquet(p)
+            d = d.copy()
+            d["__municipality"] = m
+            d["__source"] = str(p)
+            frames.append(d)
+    df = pd.concat(frames, ignore_index=True, sort=False)
+    return normalize_minne_long(df)
+'''
+
+NEW_READ_MINNE = r'''def read_minne(root: Path) -> pd.DataFrame:
+    municipalities = [
+        "bjuv","bromolla","burlov","bastad","eslov","helsingborg","hassleholm",
+        "hoganas","horby","hoor","klippan","kristianstad","kavlinge","landskrona",
+        "lomma","lund","malmo","osby","perstorp","simrishamn","sjobo","skurup",
+        "staffanstorp","svalov","svedala","tomelilla","trelleborg","vellinge",
+        "ystad","astorp","angelholm","orkelljunga","ostra_goinge"
+    ]
+    frames = []
+    missing = []
+    for m in municipalities:
+        files = locate_minne_files(root, m)
+        if not files:
+            missing.append(m)
+            continue
+        for p in files:
+            d = pd.read_parquet(p)
+            d = d.copy()
+            d["__municipality"] = m
+            d["__source"] = str(p)
+            frames.append(d)
+    if not frames:
+        raise FileNotFoundError(f"Hittar inga ÅkerMinne-kommunfiler under {root}")
+    if missing:
+        print("VARNING: ÅkerMinne kommunfiler saknas för:", missing)
+    df = pd.concat(frames, ignore_index=True, sort=False)
+    out = normalize_minne_long(df)
+    print(f"ÅkerMinne kommuner inlästa: {out['municipality'].nunique()} ({sorted(out['municipality'].unique())})")
+    return out
+'''
+
+if OLD_READ_MINNE not in s:
+    raise SystemExit("FEL: read_minne-blocket hittades inte i v0g-basen.")
+s = s.replace(OLD_READ_MINNE, NEW_READ_MINNE, 1)
+
+OLD_POOL_PRINT = r'''    for m in MUNICIPALITIES:
+        pm = pool[pool["municipality"] == m]
+        print(f"  {m.title()}: {len(pm):,}; höstraps={int(pm['truth_positive'].sum()):,}; negativa ej raps/rybs={int((~pm['rape_any']).sum()):,}")
+'''
+
+NEW_POOL_PRINT = r'''    print(f"Kommuner i kandidatpool: {pool['municipality'].nunique()}")
+    rape_by_m = pool[pool["truth_positive"]].groupby("municipality").size().sort_values(ascending=False)
+    print("Höstraps field-years, topp 10 kommuner:", rape_by_m.head(10).to_dict())
+'''
+
+if OLD_POOL_PRINT not in s:
+    raise SystemExit("FEL: pool-printblocket hittades inte i v0g-basen.")
+s = s.replace(OLD_POOL_PRINT, NEW_POOL_PRINT, 1)
+
 HELPERS = r'''
 
 # ---------------- v0h HISTORICAL MAY HUNTER ----------------
