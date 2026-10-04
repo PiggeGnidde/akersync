@@ -418,6 +418,10 @@ def _norm_text_id(x) -> str:
     if x is None:
         return ""
     s = str(x).strip()
+    if "|" not in s and s.count(":") == 1:
+        left, right = s.split(":", 1)
+        if left.strip().isdigit() and right.strip():
+            s = left.strip() + "|" + right.strip()
     if s.endswith(".0"):
         try:
             return str(int(float(s)))
@@ -514,21 +518,32 @@ def _patch_column_table(container: dict, values: dict[str, dict], found: set[str
 
     for data_key in ("rows", "data", "records", "fields"):
         rows = container.get(data_key)
-        if not isinstance(rows, list):
+
+        if isinstance(rows, dict):
+            iterator = rows.items()
+        elif isinstance(rows, list):
+            iterator = enumerate(rows)
+        else:
             continue
-        for row in rows:
+
+        for row_key, row in iterator:
             if not isinstance(row, list):
                 continue
+
+            # Prefer an explicit id carried in the row. Otherwise accept a
+            # dictionary key such as block|skifte / block:skifte.
+            fid = ""
             if fid_col:
                 fi = cols.index(fid_col)
-                if fi >= len(row):
-                    continue
-                fid = _norm_text_id(row[fi])
-            else:
+                if fi < len(row):
+                    fid = _norm_text_id(row[fi])
+            elif block_col and skifte_col:
                 bi, si = cols.index(block_col), cols.index(skifte_col)
-                if bi >= len(row) or si >= len(row):
-                    continue
-                fid = f"{_norm_text_id(row[bi])}|{_norm_text_id(row[si])}"
+                if bi < len(row) and si < len(row):
+                    fid = f"{_norm_text_id(row[bi])}|{_norm_text_id(row[si])}"
+            if not fid and isinstance(rows, dict):
+                fid = _norm_text_id(row_key)
+
             if fid not in values:
                 continue
             if ci < len(row):
