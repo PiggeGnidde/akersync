@@ -3,10 +3,11 @@
 """Build ÅkerPass Unified Preview Web v0a.
 
 Frozen inputs are not recalculated. The build:
-1) regenerates the latest ÅkerFrö × ÅkerAccess presentation from frozen BestMatch v0b,
-2) forward-ports the already-built/frozen ÅkerVatten + VISS/VattenTryck web payload,
-3) copies Rapskartan 2025 as a separate sub-view,
-4) writes a reproducibility manifest.
+1) regenerates the ÅkerFrö × ÅkerAccess presentation from frozen BestMatch v0c,
+2) forward-ports frozen Rotation v1.1 into the municipality ÅkerFrö sidecars,
+3) forward-ports the already-built/frozen ÅkerVatten + VISS/VattenTryck web payload,
+4) copies Rapskartan 2025 as a separate sub-view,
+5) writes a reproducibility manifest.
 
 The source ÅkerVatten-VISS dist is treated as a frozen web artifact: only
 data/akervatten/* and assets/akervatten_v0a.{css,js} are copied. Its old
@@ -27,16 +28,21 @@ import zipfile
 from pathlib import Path
 from typing import Iterable
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work" / "akerpass_unified_web_v0a"
 ACCESS_BASE = WORK / "access_base"
 DEFAULT_DIST = ROOT / "dist_akerpass_unified_v0a"
-BESTMATCH = ROOT / "data" / "derived" / "akerfro_akeraccess_bestmatch_v0b" / "bestmatch_v0b_fields.parquet"
+BESTMATCH = ROOT / "data" / "derived" / "akerfro_akeraccess_bestmatch_v0c" / "bestmatch_v0c_fields.parquet"
+ROTATION = ROOT / "data" / "derived" / "akerfro_rotation_v1a" / "akerfro_rotation_v1a_fields.parquet"
 
 EXPECTED_FIELDS = 128_636
 EXPECTED_WATER_MUNICIPALITIES = 33
 EXPECTED_VISS_POSITIVE = 16_626
 EXPECTED_GW_LEVEL_IMPACT = 5_495
+EXPECTED_ROTATION_RELEASED = 43
+EXPECTED_BESTMATCH_CANDIDATES = 16_004
 
 WATER_MARK = "AKERVATTEN_WEB_UI_V0A"
 VISS_MARK = "AKERVATTEN_VISS_UI_V0A"
@@ -408,14 +414,143 @@ def patch_unified_html(index: Path, water_index: dict) -> None:
 
     index.write_text(text, encoding="utf-8")
 
+def patch_rotation_v1a_sidecars(target: Path) -> dict:
+    """Patch only the 43 formally frozen Rotation v1.1 releases into the copied
+    municipality ÅkerFrö web sidecars.
+
+    The source ÅkerFrö web remains untouched. We overwrite the existing
+    artkandidat_class / rotation_status values in the copied unified dist and
+    preserve every other field and ranking value. This is presentation
+    forward-porting of a frozen downstream product, not model recalculation.
+    """
+    if not ROTATION.is_file():
+        raise FileNotFoundError(f"Frozen Rotation v1.1 product missing: {ROTATION}")
+    rot = pd.read_parquet(
+        ROTATION,
+        columns=[
+            "current_field_id", "artkandidat_class_v1a", "rotation_status_v1a",
+            "rotation_v1a_evidence", "rotation_v1a_release_candidate",
+            "artkandidat_reason_v1a",
+        ],
+    )
+    released = rot[rot["rotation_v1a_release_candidate"].fillna(False).astype(bool)].copy()
+    if len(released) != EXPECTED_ROTATION_RELEASED:
+        raise RuntimeError(f"Rotation v1.1 release anchor drift: {len(released)} != {EXPECTED_ROTATION_RELEASED}")
+    values = {
+        str(r.current_field_id): {
+            "artkandidat_class": str(r.artkandidat_class_v1a),
+            "rotation_status": str(r.rotation_status_v1a),
+            "rotation_v1a_evidence": str(r.rotation_v1a_evidence),
+            "artkandidat_reason": str(r.artkandidat_reason_v1a),
+        }
+        for r in released.itertuples(index=False)
+    }
+
+    base = target / "data" / "akerfro"
+    if not base.is_dir():
+        raise RuntimeError("Copied ÅkerFrö municipality data missing")
+    found: set[str] = set()
+    files_modified = 0
+    staffanstorp_94a_seen = False
+
+    for p in sorted(base.rglob("*.json")):
+        if p.name == "skane_index.json":
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8-sig"))
+        except Exception:
+            continue
+        fields = d.get("fields")
+        changed = False
+
+        # Compact sidecar format: columns + {field_id: [values...]}
+        cols = d.get("columns")
+        if isinstance(cols, list) and isinstance(fields, dict):
+            if "artkandidat_class" in cols and "rotation_status" in cols:
+                ci = cols.index("artkandidat_class")
+                ri = cols.index("rotation_status")
+                reason_i = cols.index("artkandidat_reason") if "artkandidat_reason" in cols else None
+                for fid in set(fields).intersection(values):
+                    row = fields[fid]
+                    if not isinstance(row, list):
+                        continue
+                    row[ci] = values[fid]["artkandidat_class"]
+                    row[ri] = values[fid]["rotation_status"]
+                    if reason_i is not None and reason_i < len(row):
+                        row[reason_i] = values[fid]["artkandidat_reason"]
+                    found.add(fid); changed = True
+                if "61723353349|94A" in fields:
+                    staffanstorp_94a_seen = True
+
+        # Object sidecar format: {field_id: {column: value}}
+        elif isinstance(fields, dict):
+            for fid in set(fields).intersection(values):
+                row = fields[fid]
+                if not isinstance(row, dict) or "artkandidat_class" not in row or "rotation_status" not in row:
+                    continue
+                row["artkandidat_class"] = values[fid]["artkandidat_class"]
+                row["rotation_status"] = values[fid]["rotation_status"]
+                if "artkandidat_reason" in row:
+                    row["artkandidat_reason"] = values[fid]["artkandidat_reason"]
+                found.add(fid); changed = True
+            if "61723353349|94A" in fields:
+                staffanstorp_94a_seen = True
+
+        # Row-list format: fields=[{field_id:..., ...}, ...]
+        elif isinstance(fields, list):
+            for row in fields:
+                if not isinstance(row, dict):
+                    continue
+                fid = str(row.get("field_id") or row.get("current_field_id") or "")
+                if fid in values and "artkandidat_class" in row and "rotation_status" in row:
+                    row["artkandidat_class"] = values[fid]["artkandidat_class"]
+                    row["rotation_status"] = values[fid]["rotation_status"]
+                    if "artkandidat_reason" in row:
+                        row["artkandidat_reason"] = values[fid]["artkandidat_reason"]
+                    found.add(fid); changed = True
+                if fid == "61723353349|94A":
+                    staffanstorp_94a_seen = True
+
+        if changed:
+            p.write_text(stable_json(d), encoding="utf-8")
+            files_modified += 1
+
+    missing = sorted(set(values) - found)
+    if missing:
+        raise RuntimeError(
+            f"Rotation v1.1 web forward-port found only {len(found)}/{EXPECTED_ROTATION_RELEASED} released fields; "
+            f"missing examples: {', '.join(missing[:10])}"
+        )
+    if not staffanstorp_94a_seen:
+        raise RuntimeError("Staffanstorp 94A regression anchor not found in copied ÅkerFrö sidecars")
+
+    idx = base / "skane_index.json"
+    meta = json.loads(idx.read_text(encoding="utf-8-sig"))
+    meta["rotation_policy"] = "akerfro-rotation-v1a"
+    meta["rotation_v1a_status"] = "FORMALLY_FROZEN"
+    meta["rotation_v1a_released_fields"] = EXPECTED_ROTATION_RELEASED
+    meta["rotation_v1a_source_sha256"] = sha256(ROTATION)
+    meta["rotation_v1a_web_semantics"] = "43 frozen C->A/B boundary-spill releases forward-ported; all other municipality ÅkerFrö values preserved."
+    idx.write_text(stable_json(meta), encoding="utf-8")
+    return {
+        "source": str(ROTATION),
+        "sha256": sha256(ROTATION),
+        "released_fields_patched": len(found),
+        "sidecar_files_modified": files_modified,
+        "staffanstorp_94a_seen": staffanstorp_94a_seen,
+    }
+
+
 def normalize_access_product_meta(target: Path) -> None:
     p = target / "data" / "akerfro_bestmatch" / "skane_index.json"
     if not p.is_file():
         raise RuntimeError("Access/BestMatch web index missing")
     d = json.loads(p.read_text(encoding="utf-8-sig"))
-    d["status"] = "FROZEN_BESTMATCH_V0B_PRESENTATION"
-    d["canonical_product"] = "data/derived/akerfro_akeraccess_bestmatch_v0b/bestmatch_v0b_fields.parquet"
-    d["freeze_note"] = "BestMatch v0b frozen 50% ÄrtMatch + 25% väg-AreaLogistik + 25% ÅkerAccess v0a; alternative ranking columns are diagnostic only."
+    d["status"] = "FROZEN_BESTMATCH_V0C_PRESENTATION"
+    d["product_version"] = "v0c"
+    d["candidate_fields"] = EXPECTED_BESTMATCH_CANDIDATES
+    d["canonical_product"] = "data/derived/akerfro_akeraccess_bestmatch_v0c/bestmatch_v0c_fields.parquet"
+    d["freeze_note"] = "BestMatch v0c frozen: Rotation v1.1 eligibility + unchanged 50% ÄrtMatch + 25% väg-AreaLogistik + 25% ÅkerAccess v0a; A before B."
     p.write_text(stable_json(d), encoding="utf-8")
 
 def manifest_files(root: Path) -> list[dict]:
@@ -435,9 +570,11 @@ def main() -> int:
 
     if not BESTMATCH.is_file():
         raise FileNotFoundError(
-            f"Frozen BestMatch v0b product missing: {BESTMATCH}\n"
-            "Run/restore the frozen product before unified web build; D5 fallback is not allowed."
+            f"Frozen BestMatch v0c product missing: {BESTMATCH}\n"
+            "Run/restore the frozen v0c product before unified web build; D5/v0b fallback is not allowed."
         )
+    if not ROTATION.is_file():
+        raise FileNotFoundError(f"Frozen Rotation v1.1 product missing: {ROTATION}")
 
     WORK.mkdir(parents=True, exist_ok=True)
     if ACCESS_BASE.exists():
@@ -450,10 +587,10 @@ def main() -> int:
     ]
     if args.akerfro_base:
         access_cmd += ["--base-dist", str(args.akerfro_base)]
-    print("[1/5] Build fresh Access/BestMatch presentation from frozen BestMatch v0b...")
+    print("[1/6] Build fresh Access/BestMatch presentation from frozen BestMatch v0c...")
     run(access_cmd)
 
-    print("[2/5] Auto-discover and validate frozen ÅkerVatten + VISS/VattenTryck v1 web payload...")
+    print("[2/6] Auto-discover and validate frozen ÅkerVatten + VISS/VattenTryck v1 web payload...")
     water_src, water_evidence = discover_water(args.water_viss_dist)
     print("ÅkerVatten-VISS source:", water_src)
     print("VISS positive fields:", f"{water_evidence['viss_positive_fields']:,}")
@@ -463,6 +600,10 @@ def main() -> int:
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(ACCESS_BASE, target)
+
+    print("[3/6] Forward-port frozen Rotation v1.1 into municipality ÅkerFrö sidecars...")
+    rotation_evidence = patch_rotation_v1a_sidecars(target)
+    print("Rotation v1.1 releases patched:", f"{rotation_evidence['released_fields_patched']:,}")
 
     water_dest = target / "data" / "akervatten"
     if water_dest.exists():
@@ -476,21 +617,23 @@ def main() -> int:
     patch_unified_html(target / "index.html", water_index)
     normalize_access_product_meta(target)
 
-    print("[3/5] Auto-discover and copy Rapskartan 2025 as separate special view...")
+    print("[4/6] Auto-discover and copy Rapskartan 2025 as separate special view...")
     raps_src, raps_kind = find_raps_dir(args.rapskartan)
     raps_meta = copy_raps(raps_src, raps_kind, target / "rapskartan25")
     print("Rapskartan source:", raps_src)
 
-    print("[4/5] Write unified manifest...")
+    print("[5/6] Write unified manifest...")
     manifest = {
         "schema_version": "akerpass-unified-web-v0a",
         "status": "BUILT_NOT_YET_VERIFIED",
         "repository_head": git_head(),
         "frozen_inputs": {
-            "bestmatch_v0b": {
+            "bestmatch_v0c": {
                 "path": str(BESTMATCH),
                 "sha256": sha256(BESTMATCH),
+                "candidate_fields": EXPECTED_BESTMATCH_CANDIDATES,
             },
+            "akerfro_rotation_v1a": rotation_evidence,
             "akervatten_viss_vattentryck_v1": water_evidence,
             "rapskartan_2025": raps_meta,
         },
@@ -504,11 +647,12 @@ def main() -> int:
     }
     (WORK / "build_manifest.json").write_text(stable_json(manifest), encoding="utf-8")
 
-    print("[5/5] Build complete; run independent unified verifier...")
+    print("[6/6] Build complete; run independent unified verifier...")
     print("=" * 108)
     print("BUILD_AKERPASS_UNIFIED_WEB_V0A: PASS")
     print("Target:", target)
-    print("Frozen BestMatch v0b: YES")
+    print("Frozen Rotation v1.1: YES · 43 releases")
+    print("Frozen BestMatch v0c: YES · 16,004 candidates")
     print("ÅkerVatten + VISS/VattenTryck v1: YES")
     print("Rapskartan 2025 special view: YES")
     print("New total score: NO")
