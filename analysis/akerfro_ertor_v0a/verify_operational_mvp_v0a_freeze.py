@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "work/akerfro_ertor_v0a/operational_mvp_v0a_freeze/akerfro_operational_mvp_v0a_freeze_manifest.json"
+LOCAL_ROOT = Path(__file__).resolve().parents[2]
 
 
 def sha256(path: Path) -> str:
@@ -21,13 +21,23 @@ def sha256(path: Path) -> str:
 
 
 def main() -> int:
-    if not MANIFEST.exists():
-        raise FileNotFoundError(f"Freeze manifest missing: {MANIFEST}")
-    m = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--root",
+        default=str(LOCAL_ROOT),
+        help="Repository/worktree root containing the original freeze manifest and frozen files",
+    )
+    args = ap.parse_args()
+    root = Path(args.root)
+    manifest = root / "work/akerfro_ertor_v0a/operational_mvp_v0a_freeze/akerfro_operational_mvp_v0a_freeze_manifest.json"
+
+    if not manifest.exists():
+        raise FileNotFoundError(f"Freeze manifest missing: {manifest}")
+    m = json.loads(manifest.read_text(encoding="utf-8"))
 
     problems = []
     for rel, spec in m["files"].items():
-        p = ROOT / rel
+        p = root / rel
         if not p.exists():
             problems.append(f"MISSING {rel}")
             continue
@@ -37,7 +47,7 @@ def main() -> int:
         if int(p.stat().st_size) != int(spec["bytes"]):
             problems.append(f"SIZE MISMATCH {rel}")
 
-    c10 = ROOT / "data/derived/akerfro_ertor_v0a/artkandidat_v0a_operational_fields.parquet"
+    c10 = root / "data/derived/akerfro_ertor_v0a/artkandidat_v0a_operational_fields.parquet"
     if c10.exists():
         df = pd.read_parquet(c10)
         a = m["anchors"]
@@ -59,6 +69,7 @@ def main() -> int:
     print("=" * 100)
     print("ÅkerFrö operational MVP v0a FREEZE VERIFY")
     print("=" * 100)
+    print(f"Freeze root: {root}")
     print(f"Freeze: {m['freeze_name']}")
     print(f"Files verified: {len(m['files'])}")
     print(f"Population: {m['anchors']['population_fields']:,}")
