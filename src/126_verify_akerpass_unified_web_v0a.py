@@ -260,6 +260,20 @@ def _fid_from_mapping(obj: dict) -> str:
     return f"{block}|{skifte}" if block and skifte else ""
 
 
+def _dict_decode(container: dict, dict_name: str, value):
+    dictionaries = container.get("dictionaries")
+    if not isinstance(dictionaries, dict):
+        return value
+    values = dictionaries.get(dict_name)
+    if not isinstance(values, list):
+        return value
+    try:
+        i = int(value)
+    except Exception:
+        return value
+    return values[i] if 0 <= i < len(values) else value
+
+
 def _collect_from_tree(node, wanted: set[str], out: dict[str, dict]) -> None:
     if isinstance(node, dict):
         # Direct row / GeoJSON properties.
@@ -280,13 +294,24 @@ def _collect_from_tree(node, wanted: set[str], out: dict[str, dict]) -> None:
                         "rotation_status": nested.get("rotation_status"),
                     }
 
-        # Compact columnar representation.
+        # Compact representation. The current production web uses:
+        # columns=["class",...,"rotation_status",...],
+        # dictionaries={class:[...], rotation_status:[...]},
+        # fields={"block|skifte":[dictionary indexes,...]}.
         cols = node.get("columns")
-        if isinstance(cols, list) and "artkandidat_class" in cols and "rotation_status" in cols:
-            ci, ri = cols.index("artkandidat_class"), cols.index("rotation_status")
+        class_col = None
+        if isinstance(cols, list):
+            if "artkandidat_class" in cols:
+                class_col = "artkandidat_class"
+            elif "class" in cols:
+                class_col = "class"
+
+        if isinstance(cols, list) and class_col and "rotation_status" in cols:
+            ci, ri = cols.index(class_col), cols.index("rotation_status")
             fid_col = next((x for x in ("field_id","current_field_id","fid") if x in cols), None)
             block_col = next((x for x in ("blockid","block_id","block","current_block_id","jordbruksblock") if x in cols), None)
             skifte_col = next((x for x in ("skiftesbeteckning","skifte","skifte_id","current_skiftesbeteckning") if x in cols), None)
+
             for data_key in ("rows","data","records","fields"):
                 rows = node.get(data_key)
                 if isinstance(rows, dict):
@@ -295,23 +320,30 @@ def _collect_from_tree(node, wanted: set[str], out: dict[str, dict]) -> None:
                     iterator = enumerate(rows)
                 else:
                     continue
+
                 for row_key, row in iterator:
                     if not isinstance(row, list):
                         continue
                     rf = ""
                     if fid_col:
                         ii = cols.index(fid_col)
-                        if ii < len(row): rf = _norm_text_id(row[ii])
+                        if ii < len(row):
+                            rf = _norm_text_id(row[ii])
                     elif block_col and skifte_col:
                         bi, si = cols.index(block_col), cols.index(skifte_col)
                         if bi < len(row) and si < len(row):
                             rf = f"{_norm_text_id(row[bi])}|{_norm_text_id(row[si])}"
                     if not rf and isinstance(rows, dict):
                         rf = _norm_text_id(row_key)
+
                     if rf in wanted and ci < len(row) and ri < len(row):
+                        cls = row[ci]
+                        if class_col == "class":
+                            cls = _dict_decode(node, "class", cls)
+                        rot = _dict_decode(node, "rotation_status", row[ri])
                         out[rf] = {
-                            "artkandidat_class": row[ci],
-                            "rotation_status": row[ri],
+                            "artkandidat_class": cls,
+                            "rotation_status": rot,
                         }
 
         # Direct dict keyed by field id.
