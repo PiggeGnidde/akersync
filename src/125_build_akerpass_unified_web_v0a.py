@@ -206,6 +206,13 @@ def find_raps_dir(explicit: Path | None) -> tuple[Path, str]:
     if explicit:
         candidates.append(explicit)
 
+    # Known historical package often lives in the user's Downloads folder.
+    downloads = Path.home() / "Downloads"
+    candidates.extend([
+        downloads / "rapskartan_web_onecom.zip",
+        downloads / "rapskartan_web_onecom",
+    ])
+
     roots = list(candidate_roots())
     for root in roots:
         candidates.extend([
