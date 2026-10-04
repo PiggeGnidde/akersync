@@ -43,8 +43,8 @@ def main()->int:
             problems.append("ZIP SHA256 MISMATCH")
 
     expected={str(x["path"]):x for x in m["dist"]["files_manifest"]}
-    if len(expected)!=187:
-        problems.append(f"MANIFEST FILE COUNT {len(expected)} != 187")
+    if len(expected)!=189:
+        problems.append(f"MANIFEST FILE COUNT {len(expected)} != 189")
 
     if zp.is_file():
         print("="*118)
