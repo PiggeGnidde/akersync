@@ -97,6 +97,8 @@ def candidate_roots() -> Iterable[Path]:
         Path(r"C:\AkerSync-AkerVatten"),
         Path(r"C:\AkerSync-VattenWeb"),
         Path(r"C:\AkerSync-Vatten"),
+        Path(r"C:\AkerSync-Rapskartan"),
+        Path(r"C:\AkerSyncRepo"),
     ]
     for p in explicit:
         if p not in seen:
@@ -194,67 +196,112 @@ def looks_like_raps_html(text: str) -> bool:
     return "rapskartan" in low and ("2025" in low or "raps" in low)
 
 def find_raps_dir(explicit: Path | None) -> tuple[Path, str]:
+    """Find the already-built Rapskartan 2025 web without asking the user to hunt for it.
+
+    Search order is deliberately biased toward the known historical artifact
+    rapskartan_web_onecom.zip and the C:\AkerSync-Rapskartan worktree. We inspect
+    only plausible ÅkerSync roots and Rapskartan-like paths; no full C: crawl.
+    """
     candidates: list[Path] = []
     if explicit:
         candidates.append(explicit)
-    for root in candidate_roots():
+
+    roots = list(candidate_roots())
+    for root in roots:
         candidates.extend([
+            root,
+            root / "rapskartan_web_onecom.zip",
             root / "dist_rapskartan",
             root / "dist_rapskartan_2025",
             root / "rapskartan",
             root / "rapskartan25",
             root / "dist",
+            root / "web",
         ])
         try:
             candidates.extend(sorted(root.glob("*raps*")))
+            candidates.extend(sorted(root.glob("*Raps*")))
         except OSError:
             pass
-    checked = []
-    seen = set()
-    for p in candidates:
+
+    checked: list[str] = []
+    seen: set[Path] = set()
+
+    def inspect_candidate(p: Path) -> tuple[Path, str] | None:
         try:
             p = p.resolve()
         except OSError:
-            continue
+            return None
         if p in seen:
-            continue
-        seen.add(p); checked.append(str(p))
+            return None
+        seen.add(p)
+        checked.append(str(p))
+
         if p.is_dir() and (p / "index.html").is_file():
-            text = (p / "index.html").read_text(encoding="utf-8", errors="replace")
+            try:
+                text = (p / "index.html").read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                text = ""
             if looks_like_raps_html(text):
                 return p, "directory"
+
         if p.is_file() and p.suffix.lower() == ".zip":
             try:
                 with zipfile.ZipFile(p) as z:
                     indices = [n for n in z.namelist() if n.lower().endswith("index.html")]
                     for name in indices:
-                        text = z.read(name).decode("utf-8", errors="replace")
+                        try:
+                            text = z.read(name).decode("utf-8", errors="replace")
+                        except Exception:
+                            continue
                         if looks_like_raps_html(text):
                             return p, "zip"
-            except zipfile.BadZipFile:
+            except (OSError, zipfile.BadZipFile):
                 pass
+        return None
 
-    drive = ROOT.anchor or "C:\\"
-    try:
-        for root in sorted(Path(drive).glob("AkerSync*")):
-            for p in list(root.glob("*.zip")) + list(root.glob("*raps*.zip")):
-                if p in seen:
+    # Fast/direct candidates first.
+    for p in candidates:
+        hit = inspect_candidate(p)
+        if hit:
+            return hit
+
+    # Targeted recursive search inside known ÅkerSync roots. This catches the
+    # historical one.com package even if it was placed in a release/work folder.
+    exact_zip_names = {"rapskartan_web_onecom.zip"}
+    for root in roots:
+        if not root.exists() or not root.is_dir():
+            continue
+        try:
+            for p in root.rglob("*.zip"):
+                low = p.name.lower()
+                if low in exact_zip_names or ("raps" in low and ("web" in low or "onecom" in low)):
+                    hit = inspect_candidate(p)
+                    if hit:
+                        return hit
+        except OSError:
+            pass
+
+        # Search Rapskartan-ish HTML directories, but skip obviously large raw/data trees.
+        try:
+            for idx in root.rglob("index.html"):
+                parts_low = [x.lower() for x in idx.parts]
+                if any(x in {"data", "raw", ".git", ".venv", "__pycache__"} for x in parts_low):
                     continue
-                checked.append(str(p))
-                try:
-                    with zipfile.ZipFile(p) as z:
-                        for name in [n for n in z.namelist() if n.lower().endswith("index.html")]:
-                            text = z.read(name).decode("utf-8", errors="replace")
-                            if looks_like_raps_html(text):
-                                return p.resolve(), "zip"
-                except (OSError, zipfile.BadZipFile):
-                    pass
-    except OSError:
-        pass
+                joined = "/".join(parts_low)
+                if "raps" not in joined and "rapskartan" not in joined:
+                    continue
+                hit = inspect_candidate(idx.parent)
+                if hit:
+                    return hit
+        except OSError:
+            pass
 
     raise FileNotFoundError(
-        "Could not auto-discover the existing Rapskartan 2025 web.\nChecked likely AkerSync locations.\n"
-        "Pass --rapskartan explicitly with its dist directory or web ZIP."
+        "Could not auto-discover the existing Rapskartan 2025 web.\n"
+        "Looked specifically for rapskartan_web_onecom.zip and Rapskartan-like web dirs under "
+        "C:\\AkerSync-Rapskartan, C:\\AkerSyncRepo and other C:\\AkerSync* roots.\n"
+        "Pass --rapskartan explicitly only if the artifact truly lives elsewhere."
     )
 
 def copy_raps(source: Path, kind: str, target: Path) -> dict:
