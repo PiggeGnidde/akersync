@@ -301,16 +301,11 @@ def main():
     if args.d5:
         d5_path=Path(args.d5)
     else:
-        if DEFAULT_BESTMATCH_V0C.exists():
-            d5_path=DEFAULT_BESTMATCH_V0C
-        elif DEFAULT_BESTMATCH_V0B.exists():
-            d5_path=DEFAULT_BESTMATCH_V0B
-        else:
-            d5_path=DEFAULT_D5
+        d5_path=DEFAULT_BESTMATCH_V0B if DEFAULT_BESTMATCH_V0B.exists() else DEFAULT_D5
     target=Path(args.target).resolve()
     if not d5_path.exists():raise FileNotFoundError(f"Run D5/D6c first: {d5_path}")
     if target==base:raise RuntimeError("Target must differ from existing real-web base")
-    print("="*112);print("ÅkerFrö × ÅkerAccess WEB v0b - WHOLE-SKÅNE SCREENING");print("="*112)
+    print("="*112);print("ÅkerFrö × ÅkerAccess WEB - WHOLE-SKÅNE SCREENING");print("="*112)
     print(f"Base real web: {base}");print(f"D5: {d5_path}");print(f"Target preview: {target}")
     d5=pd.read_parquet(d5_path);d5["field_id"]=d5["field_id"].map(norm_id)
     if "bestmatch_v0c_rank" in d5.columns:
@@ -352,6 +347,6 @@ def main():
     print(f"GeoJSON: {geo_path} ({geo_path.stat().st_size/1024/1024:.1f} MiB)")
     print(f"Estimated access overlay: {access_path} · entries={access_meta['estimated_entry_points']:,} · paths={access_meta['estimated_last_mile_lines']:,}")
     print(f"Index: {index}")
-    print("="*112);print("ÅkerFrö × ÅkerAccess WEB v0b BUILD: PASS");print("="*112)
+    print("="*112);print(f"ÅkerFrö × ÅkerAccess WEB {product_version} BUILD: PASS");print("="*112)
     return 0
 if __name__=="__main__":raise SystemExit(main())
