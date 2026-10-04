@@ -106,10 +106,10 @@ function publicRoadText(p){
    : "saknas";
 }
 function bestMatchValue(p){
- return p.bestmatch_d5_balanced_score;
+ return valid(p.bestmatch_v0c_score)?p.bestmatch_v0c_score:p.bestmatch_d5_balanced_score;
 }
 function bestMatchLabel(p){
- return "BestMatch v0b · balanserad";
+ return cfg.product_version==="v0c"?"BestMatch v0c · fryst 50/25/25":"BestMatch v0b · balanserad";
 }
 function panel(p){
  const fallback=p.bjuv_proximity_d5_source==="C10_STRAIGHTLINE_FALLBACK";
@@ -125,7 +125,7 @@ function panel(p){
    '<span>Till statligt/kommunalt väghållen väg</span><b>'+publicRoadText(p)+'</b>'+
    '<span>Vägavstånd till Bjuv</span><b>'+routeText(p)+'</b>'+
    '<span>Fågelväg till Bjuv</span><b>'+fmt(p.distance_bjuv_km,1)+' km</b>'+
-   '<span>Rotation</span><b>'+esc(p.rotation_status)+'</b>'+
+   '<span>Rotation</span><b>'+esc(p.rotation_status_v1a||p.rotation_status)+'</b>'+
    '<span>Förfruktssignal</span><b>'+esc(p.predecessor_prior)+'</b>'+
    '<span>Historiskt konservärtsfält</span><b>'+(p.historical_conservart_positive?"Ja":"Nej")+'</b>'+
    '<span>Estimerad infart</span><b>'+(accessByField.has(String(p.field_id))?"Visas på kartan":"Saknas")+'</b>'+
