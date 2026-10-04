@@ -1,0 +1,51 @@
+{
+  "schema_version": "akerfro-rotation-v1a-policy-v1",
+  "product_name": "ÅkerFrö Rotation v1.1 candidate",
+  "candidate_year": 2026,
+  "recent_year_min": 2021,
+  "recent_year_max": 2025,
+  "strict_boundary_spill": {
+    "other_current_field_historical_share_min": 0.999,
+    "this_current_field_historical_share_max_exclusive": 0.001,
+    "require_different_dominant_current_field": true,
+    "require_same_admin_key_false": true,
+    "require_historical_primary_false": true,
+    "require_mutual_primary_false": true,
+    "require_all_recent_conservart_components_strict_spill": true
+  },
+  "release_guardrails": {
+    "recent_clean_conservart_blocks_release": true,
+    "recent_clean_other_pea_blocks_release": true,
+    "recent_clean_faba_blocks_release": true,
+    "predecessor_positive_promotes_released_field_to_A_else_B": true
+  },
+  "expected_anchors": {
+    "population_fields": 128636,
+    "original_class_counts": {
+      "A_STRONG_CANDIDATE": 7847,
+      "B_PHYSICAL_CANDIDATE": 14882,
+      "C_ROTATION_CAUTION": 1424,
+      "D_NOT_HIGH_PHYSICAL_MATCH": 104483
+    },
+    "c_conservart_no_recent_clean_fields": 169,
+    "all_recent_components_strict_spill_fields": 45,
+    "strict_spill_blocked_by_other_pea_or_faba": 2,
+    "released_fields": 43,
+    "released_to_A": 28,
+    "released_to_B": 15,
+    "v1a_class_counts": {
+      "A_STRONG_CANDIDATE": 7875,
+      "B_PHYSICAL_CANDIDATE": 14897,
+      "C_ROTATION_CAUTION": 1381,
+      "D_NOT_HIGH_PHYSICAL_MATCH": 104483
+    }
+  },
+  "semantic_guardrails": [
+    "This is downstream of frozen ÅkerFrö v0a/C8 and does not modify any frozen input.",
+    "Boundary spill is lineage evidence, not proof that no crop ever touched the current field.",
+    "Released fields retain ROTATION_OK_BOUNDARY_SPILL provenance in the product.",
+    "Mixed/partial CONSERVART remains caution unless every recent CONSERVART component satisfies the strict spill rule.",
+    "Any recent clean OTHER_PEA or FABA_BEAN still blocks release.",
+    "No ÄrtMatch, predecessor, AreaFit, logistics, ÅkerAccess or BestMatch weights are retuned."
+  ]
+}
