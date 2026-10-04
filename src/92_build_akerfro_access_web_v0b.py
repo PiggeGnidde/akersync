@@ -13,12 +13,16 @@ from shapely.ops import substring
 ROOT=Path(__file__).resolve().parents[1]
 DEFAULT_D5=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d5"/"bestmatch_d5_fields.parquet"
 DEFAULT_BESTMATCH_V0B=ROOT/"data"/"derived"/"akerfro_akeraccess_bestmatch_v0b"/"bestmatch_v0b_fields.parquet"
+DEFAULT_BESTMATCH_V0C=ROOT/"data"/"derived"/"akerfro_akeraccess_bestmatch_v0c"/"bestmatch_v0c_fields.parquet"
 DEFAULT_D0=ROOT/"work"/"akeraccess_v0a"/"skane_d0"/"skane_akeraccess_road_features_d0.parquet"
 DEFAULT_D6C=ROOT/"work"/"akeraccess_v0a"/"bestmatch_d6c"/"bestmatch_d6c_fields.parquet"
 DEFAULT_TARGET=ROOT/"dist_akerfro_access_v0b"
 MARKER_BASE="AKERFRO_ERTOR_WEB_UI_V0A"
 MARKER_NEW="AKERFRO_ACCESS_WEB_UI_V0B"
 BASE_CANDIDATES=[Path(r"C:\AkerSync-AkerFroWeb\dist"),Path(r"C:\AkerSyncRepo\dist"),Path(r"C:\AkerSync-AkerFro\dist")]
+RANKINGS_V0C=[
+    ("BestMatch v0c – fryst 50/25/25","bestmatch_v0c_rank"),
+]
 RANKINGS_D5=[
     ("BestMatch v0b – balanserad (vägavstånd)","rank_d5_balanced"),
     ("BestMatch v0b – match först","rank_d5_match_first"),
@@ -76,11 +80,12 @@ def build_geojson(d5,nmax,rankings):
     g=gpd.GeoDataFrame(g,geometry="geometry",crs=3006).to_crs(4326)
     g["geometry"]=g.geometry.simplify(0.000015,preserve_topology=True)
     props=[
-        "field_id","municipality","field_area_ha","artkandidat_class","artmatch_score",
+        "field_id","municipality","field_area_ha","artkandidat_class","artkandidat_class_v1a","artmatch_score",
         "area_fit_score","road_access_score","road_area_logistics_score",
         "bestmatch_balanced_score","bestmatch_d5_match_first_score","bestmatch_d5_balanced_score",
         "bestmatch_d5_logistics_forward_score",
         "bestmatch_d6c_match_first_score","bestmatch_d6c_balanced_score","bestmatch_d6c_logistics_forward_score",
+        "bestmatch_v0c_score","bestmatch_v0c_rank",
         "rank_c10_baseline","rank_bestmatch_balanced",
         "rank_d5_match_first","rank_d5_balanced","rank_d5_logistics_forward",
         "rank_d6c_match_first","rank_d6c_balanced","rank_d6c_logistics_forward",
@@ -88,7 +93,7 @@ def build_geojson(d5,nmax,rankings):
         "nearest_belagd_statlig_kommunal_nvdb_m","road_access_score_paved",
         "field_to_bjuv_road_km",
         "distance_bjuv_km","bjuv_proximity_d5_source","bjuv_route_status",
-        "rotation_status","predecessor_prior","historical_conservart_positive",
+        "rotation_status","rotation_status_v1a","rotation_v1a_evidence","predecessor_prior","historical_conservart_positive",
     ]
     props=[c for c in props if c in g.columns]
     gg=g[props+["geometry"]].copy()
@@ -261,7 +266,7 @@ def build_access_overlay(d5,ids):
     return {"type":"FeatureCollection","features":features},meta
 
 
-def patch_html(text,geojson_rel,entry_geojson_rel,rankings):
+def patch_html(text,geojson_rel,entry_geojson_rel,rankings,product_version,status):
     if MARKER_BASE not in text:raise RuntimeError("Existing ÅkerFrö web marker missing")
     if MARKER_NEW in text:raise RuntimeError("Target already patched; rebuild from clean base")
     text=replace_once(text,"</head>",'<link rel="stylesheet" href="assets/akerfro_access_v0b.css">\n<!-- '+MARKER_NEW+' -->\n</head>',"CSS hook")
@@ -282,7 +287,7 @@ def patch_html(text,geojson_rel,entry_geojson_rel,rankings):
     <div class="akf-rank-labels"><span>Bäst rank</span><span>Längre ned i urvalet</span></div>
    </div>'''
     text=replace_once(text,history,screening,"Skåne controls")
-    config={"geojson":geojson_rel,"entry_geojson":entry_geojson_rel,"rankings":[list(x) for x in rankings],"top_choices":TOP_CHOICES,"status":"CANDIDATE_NOT_FROZEN"}
+    config={"geojson":geojson_rel,"entry_geojson":entry_geojson_rel,"rankings":[list(x) for x in rankings],"top_choices":TOP_CHOICES,"status":status,"product_version":product_version}
     scripts='<script>window.AKERFRO_ACCESS_WEB_CONFIG='+json.dumps(config,ensure_ascii=False,separators=(",",":"))+';</script>\n<script src="assets/akerfro_access_v0b.js"></script>\n'
     return replace_once(text,"</body>",scripts+"</body>","JS hook")
 
@@ -296,14 +301,30 @@ def main():
     if args.d5:
         d5_path=Path(args.d5)
     else:
-        d5_path=DEFAULT_BESTMATCH_V0B if DEFAULT_BESTMATCH_V0B.exists() else DEFAULT_D5
+        if DEFAULT_BESTMATCH_V0C.exists():
+            d5_path=DEFAULT_BESTMATCH_V0C
+        elif DEFAULT_BESTMATCH_V0B.exists():
+            d5_path=DEFAULT_BESTMATCH_V0B
+        else:
+            d5_path=DEFAULT_D5
     target=Path(args.target).resolve()
     if not d5_path.exists():raise FileNotFoundError(f"Run D5/D6c first: {d5_path}")
     if target==base:raise RuntimeError("Target must differ from existing real-web base")
     print("="*112);print("ÅkerFrö × ÅkerAccess WEB v0b - WHOLE-SKÅNE SCREENING");print("="*112)
     print(f"Base real web: {base}");print(f"D5: {d5_path}");print(f"Target preview: {target}")
     d5=pd.read_parquet(d5_path);d5["field_id"]=d5["field_id"].map(norm_id)
-    rankings=RANKINGS_D5
+    if "bestmatch_v0c_rank" in d5.columns:
+        rankings=RANKINGS_V0C
+        product_version="v0c"
+        product_status="FROZEN_BESTMATCH_V0C_PRESENTATION"
+        if "rotation_status_v1a" in d5.columns:
+            d5["rotation_status"]=d5["rotation_status_v1a"].where(d5["rotation_status_v1a"].notna(),d5.get("rotation_status"))
+        if "artkandidat_class_v1a" in d5.columns:
+            d5["artkandidat_class"]=d5["artkandidat_class_v1a"].where(d5["artkandidat_class_v1a"].notna(),d5.get("artkandidat_class"))
+    else:
+        rankings=RANKINGS_D5
+        product_version="v0b"
+        product_status="CANDIDATE_NOT_FROZEN"
     required=[col for _label,col in rankings]+["field_id"]
     missing=[c for c in required if c not in d5.columns]
     if missing:raise RuntimeError("D5 missing: "+", ".join(missing))
@@ -320,13 +341,13 @@ def main():
     access_gj,access_meta=build_access_overlay(d5,union_ids)
     access_path=data_dir/"skane_estimated_access.geojson"
     access_path.write_text(json.dumps(access_gj,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
-    meta={"schema_version":"akerfro-access-web-v0b","status":"CANDIDATE_NOT_FROZEN","field_union_count":n,"rankings":[{"label":a,"column":b} for a,b in rankings],"top_choices":TOP_CHOICES,"screening_source":str(d5_path),"route_coverage_note":"D5/D6c has explicit straight-line fallback where D4 route is missing.","geojson":"data/akerfro_bestmatch/skane_screening.geojson","estimated_access_geojson":"data/akerfro_bestmatch/skane_estimated_access.geojson","estimated_access":access_meta}
+    meta={"schema_version":"akerfro-access-web-v0b","status":product_status,"product_version":product_version,"field_union_count":n,"rankings":[{"label":a,"column":b} for a,b in rankings],"top_choices":TOP_CHOICES,"screening_source":str(d5_path),"route_coverage_note":"D5 has explicit straight-line fallback where D4 route is missing.","geojson":"data/akerfro_bestmatch/skane_screening.geojson","estimated_access_geojson":"data/akerfro_bestmatch/skane_estimated_access.geojson","estimated_access":access_meta}
     (data_dir/"skane_index.json").write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding="utf-8")
     assets=target/"assets";assets.mkdir(parents=True,exist_ok=True)
     shutil.copy2(ROOT/"web"/"akerfro_access_v0b.css",assets/"akerfro_access_v0b.css")
     shutil.copy2(ROOT/"web"/"akerfro_access_v0b.js",assets/"akerfro_access_v0b.js")
     index=target/"index.html"
-    index.write_text(patch_html(index.read_text(encoding="utf-8"),"data/akerfro_bestmatch/skane_screening.geojson","data/akerfro_bestmatch/skane_estimated_access.geojson",rankings),encoding="utf-8")
+    index.write_text(patch_html(index.read_text(encoding="utf-8"),"data/akerfro_bestmatch/skane_screening.geojson","data/akerfro_bestmatch/skane_estimated_access.geojson",rankings,product_version,product_status),encoding="utf-8")
     print(f"Whole-Skåne field union: {n:,}")
     print(f"GeoJSON: {geo_path} ({geo_path.stat().st_size/1024/1024:.1f} MiB)")
     print(f"Estimated access overlay: {access_path} · entries={access_meta['estimated_entry_points']:,} · paths={access_meta['estimated_last_mile_lines']:,}")
