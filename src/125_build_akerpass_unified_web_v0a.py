@@ -50,6 +50,7 @@ ACCESS_MARK = "AKERFRO_ACCESS_WEB_UI_V0B"
 FRO_MARK = "AKERFRO_ERTOR_WEB_UI_V0A"
 NORM_MARK = "AKERNORM_WEB_UI_V1"
 UNIFIED_MARK = "AKERPASS_UNIFIED_WEB_V0A"
+ROTATION_PRIORITY_MARK = "AKERFRO_ROTATION_V1A_PRIORITY_UI"
 
 WATER_CONTROLS = r"""
   <div id="akervattenControls" class="akv-controls">
@@ -753,6 +754,141 @@ def patch_rotation_v1a_sidecars(target: Path) -> dict:
     }
 
 
+def install_rotation_v1a_priority_ui(target: Path) -> dict:
+    """Replace stale frozen-v0a priority text only for the 43 v1.1 releases.
+
+    The old C10 priority stays untouched in source data for provenance. A tiny
+    presentation map tells the browser what the current downstream status is:
+    BestMatch v0c rank for the 37 D5 candidates, or explicit D0 <1 ha exclusion
+    for the remaining six.
+    """
+    if not ROTATION.is_file() or not BESTMATCH.is_file():
+        raise FileNotFoundError("Rotation v1.1 / BestMatch v0c frozen products required")
+
+    rot = pd.read_parquet(
+        ROTATION,
+        columns=["current_field_id","rotation_v1a_release_candidate"],
+    )
+    rel = rot[rot["rotation_v1a_release_candidate"].fillna(False).astype(bool)].copy()
+    if len(rel) != EXPECTED_ROTATION_RELEASED:
+        raise RuntimeError("Rotation v1.1 release anchor drift while building priority UI")
+
+    bm = pd.read_parquet(BESTMATCH, columns=["field_id","bestmatch_v0c_rank"]).copy()
+    bm["field_id"] = bm["field_id"].astype(str)
+    ranks = {
+        str(r.field_id): int(r.bestmatch_v0c_rank)
+        for r in bm.itertuples(index=False)
+        if pd.notna(r.bestmatch_v0c_rank)
+    }
+
+    mapping = {}
+    in_bestmatch = 0
+    outside = 0
+    for fid in rel["current_field_id"].astype(str):
+        if fid in ranks:
+            rank = int(ranks[fid])
+            mapping[fid] = {
+                "status": "BESTMATCH_V0C",
+                "rank": rank,
+                "label": f"BestMatch v0c #{rank:,}".replace(",", " "),
+            }
+            in_bestmatch += 1
+        else:
+            mapping[fid] = {
+                "status": "D0_AREA_LT_1_HA",
+                "rank": None,
+                "label": "Ej i BestMatch · <1 ha",
+            }
+            outside += 1
+
+    if in_bestmatch != 37 or outside != 6:
+        raise RuntimeError(
+            f"Rotation priority UI anchors drift: BestMatch={in_bestmatch}, outside={outside}"
+        )
+
+    data_path = target / "data" / "akerfro" / "rotation_v1a_priority_override.json"
+    payload = {
+        "schema_version": "akerfro-rotation-v1a-priority-ui-v1",
+        "status": "PRESENTATION_ONLY_FROZEN_INPUTS",
+        "rotation_release_fields": EXPECTED_ROTATION_RELEASED,
+        "bestmatch_v0c_fields": in_bestmatch,
+        "d0_area_lt_1ha_fields": outside,
+        "semantics": (
+            "For Rotation v1.1 boundary-spill releases only, replace stale v0a/C10 "
+            "priority text in the municipality drawer with frozen BestMatch v0c rank; "
+            "fields excluded by frozen D0 area>=1ha show explicit exclusion text."
+        ),
+        "fields": mapping,
+    }
+    data_path.write_text(stable_json(payload), encoding="utf-8")
+
+    js_path = target / "assets" / "akerfro_rotation_v1a_priority_ui.js"
+    js = r'''/* AKERFRO_ROTATION_V1A_PRIORITY_UI */
+(function(){
+"use strict";
+const FILE="data/akerfro/rotation_v1a_priority_override.json";
+let mapping=null;
+function currentFieldId(){
+  const q=new URLSearchParams(location.search);
+  const block=q.get("block"),skifte=q.get("skifte");
+  return block&&skifte ? String(block)+"|"+String(skifte) : "";
+}
+function replaceText(){
+  if(!mapping)return;
+  const fid=currentFieldId(),item=mapping[fid];
+  if(!item)return;
+  const root=document.body;if(!root)return;
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  const nodes=[];
+  while(walker.nextNode())nodes.push(walker.currentNode);
+  nodes.forEach(function(n){
+    const parent=n.parentElement;
+    if(!parent||["SCRIPT","STYLE"].includes(parent.tagName))return;
+    const s=n.nodeValue||"";
+    if(!/prioritet\s*#/i.test(s))return;
+    n.nodeValue=s.replace(/prioritet\s*#\s*[\d\s\u00a0]+/ig,item.label);
+  });
+}
+function boot(){
+  fetch(FILE,{cache:"no-cache"}).then(function(r){
+    if(!r.ok)throw new Error("Rotation v1.1 priority UI HTTP "+r.status);
+    return r.json();
+  }).then(function(d){
+    mapping=(d&&d.fields)||{};
+    replaceText();
+    const obs=new MutationObserver(function(){replaceText()});
+    obs.observe(document.body,{subtree:true,childList:true,characterData:true});
+    window.addEventListener("popstate",replaceText);
+  }).catch(function(e){console.error(e)});
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);
+else boot();
+})();
+'''
+    js_path.write_text(js, encoding="utf-8")
+
+    index = target / "index.html"
+    text = index.read_text(encoding="utf-8")
+    if ROTATION_PRIORITY_MARK in text:
+        raise RuntimeError("Rotation v1.1 priority UI already installed")
+    hook = (
+        f'<!-- {ROTATION_PRIORITY_MARK} -->\n'
+        '<script src="assets/akerfro_rotation_v1a_priority_ui.js"></script>\n'
+    )
+    text = replace_once(text, "</body>", hook + "</body>", "Rotation v1.1 priority UI hook")
+    index.write_text(text, encoding="utf-8")
+
+    return {
+        "fields": len(mapping),
+        "bestmatch_v0c_fields": in_bestmatch,
+        "d0_area_lt_1ha_fields": outside,
+        "data": "data/akerfro/rotation_v1a_priority_override.json",
+        "js": "assets/akerfro_rotation_v1a_priority_ui.js",
+        "staffanstorp_2a_rank": mapping["61723351559|2A"]["rank"],
+        "staffanstorp_2b_rank": mapping["61723351559|2B"]["rank"],
+    }
+
+
 def normalize_access_product_meta(target: Path) -> None:
     p = target / "data" / "akerfro_bestmatch" / "skane_index.json"
     if not p.is_file():
@@ -816,6 +952,12 @@ def main() -> int:
     print("[3/6] Forward-port frozen Rotation v1.1 into municipality ÅkerFrö sidecars...")
     rotation_evidence = patch_rotation_v1a_sidecars(target)
     print("Rotation v1.1 releases patched:", f"{rotation_evidence['released_fields_patched']:,}")
+    priority_ui = install_rotation_v1a_priority_ui(target)
+    print(
+        "Rotation v1.1 priority UI:",
+        f"{priority_ui['bestmatch_v0c_fields']} BestMatch ranks · "
+        f"{priority_ui['d0_area_lt_1ha_fields']} explicit <1 ha exclusions",
+    )
 
     water_dest = target / "data" / "akervatten"
     if water_dest.exists():
@@ -846,6 +988,7 @@ def main() -> int:
                 "candidate_fields": EXPECTED_BESTMATCH_CANDIDATES,
             },
             "akerfro_rotation_v1a": rotation_evidence,
+            "akerfro_rotation_v1a_priority_ui": priority_ui,
             "akervatten_viss_vattentryck_v1": water_evidence,
             "rapskartan_2025": raps_meta,
         },
