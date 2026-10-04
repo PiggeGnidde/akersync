@@ -2,12 +2,13 @@
 
 ## Scope
 
-This integration branch starts from frozen ÅkerAccess / BestMatch v0b and builds one local preview containing:
+This r1 integration starts from frozen ÅkerFrö Rotation v1.1 and BestMatch v0c and builds one local preview containing:
 
 - existing ÅkerPass / ÅkerNorm core,
 - ÅkerFrö,
 - frozen ÅkerAccess v0a,
-- frozen BestMatch v0b,
+- frozen ÅkerFrö Rotation v1.1 municipality classification,
+- frozen BestMatch v0c (same 50/25/25 policy as v0b, Rotation v1.1 eligibility),
 - frozen ÅkerVatten plus VISS/VattenTryck v1,
 - Rapskartan 2025 as the separate sub-view \`/rapskartan25/\`.
 
@@ -17,7 +18,7 @@ No model is recalculated and no new combined ÅkerPass or ÅkerVatten score is c
 
 The unified build does **not** use the old ÅkerVatten index.html as its base.
 
-It first regenerates the Access/BestMatch presentation from the canonical frozen BestMatch v0b table. It then auto-discovers the already-built final ÅkerVatten-VISS web dist and forward-ports only:
+It first regenerates the Access/BestMatch presentation from the canonical frozen BestMatch v0c table. It then patches exactly the 43 formally frozen Rotation v1.1 boundary-spill releases into the copied municipality ÅkerFrö sidecars; the source ÅkerFrö web is never modified. It then auto-discovers the already-built final ÅkerVatten-VISS web dist and forward-ports only:
 
 - \`data/akervatten/*\`
 - \`assets/akervatten_v0a.css\`
@@ -37,12 +38,12 @@ Rapskartan is copied unchanged except for a deterministic backlink to the main �
 CALL BUILD_AKERPASS_UNIFIED_WEB_V0A.bat
 \`\`\`
 
-The wrapper first re-verifies frozen BestMatch v0b, then builds the unified dist and runs the independent unified verifier.
+The wrapper first re-verifies frozen Rotation v1.1 and BestMatch v0c, then builds the unified dist and runs the independent unified verifier. The verifier checks all 43 municipality-sidecar releases plus the Staffanstorp regression case (2A/2B released; 94A remains caution).
 
 Expected stop:
 
 \`\`\`text
-AKERPASS UNIFIED WEB U2: BUILD PASS / VERIFY PASS
+AKERPASS UNIFIED WEB U3-R1: BUILD PASS / VERIFY PASS
 \`\`\`
 
 Output:
@@ -80,7 +81,8 @@ If an artifact lives outside the normal AkerSync worktrees, run the Python build
 The integration must not change:
 
 - ÅkerAccess v0a score,
-- BestMatch v0b weights or class ordering,
+- Rotation v1.1 release policy,
+- BestMatch v0c weights or class ordering,
 - ÅkerVatten evidence dimensions,
 - VISS/VattenTryck v1 semantics or provenance,
 - Rapskartan model.
