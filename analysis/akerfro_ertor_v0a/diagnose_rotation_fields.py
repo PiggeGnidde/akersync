@@ -52,12 +52,14 @@ def find_named(name:str):
     return hits
 
 def choose_rotation_product():
+    # Prefer full-population products (128,636 fields). BestMatch/D5 contain
+    # only the A/B candidate universe, so C_ROTATION_CAUTION fields would be absent.
     names=[
-        "bestmatch_v0b_fields.parquet",
-        "bestmatch_d5_fields.parquet",
-        "artkandidat_v0a_operational_fields.parquet",
         "artkandidat_v0a_fields.parquet",
+        "artkandidat_v0a_operational_fields.parquet",
         "rotation_eligibility_2026.parquet",
+        "bestmatch_d5_fields.parquet",
+        "bestmatch_v0b_fields.parquet",
     ]
     for n in names:
         hits=find_named(n)
