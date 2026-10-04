@@ -490,13 +490,67 @@ def _patch_record_mapping(obj: dict, values: dict[str, dict], found: set[str]) -
     return changed
 
 
+def _dict_encode(container: dict, dict_name: str, value: str):
+    """Encode a text value using the sidecar's own dictionary, extending it if needed."""
+    dictionaries = container.get("dictionaries")
+    if not isinstance(dictionaries, dict):
+        return value
+    values = dictionaries.get(dict_name)
+    if not isinstance(values, list):
+        return value
+    if value not in values:
+        values.append(value)
+    return values.index(value)
+
+
+def _dict_decode(container: dict, dict_name: str, value):
+    dictionaries = container.get("dictionaries")
+    if not isinstance(dictionaries, dict):
+        return value
+    values = dictionaries.get(dict_name)
+    if not isinstance(values, list):
+        return value
+    try:
+        i = int(value)
+    except Exception:
+        return value
+    return values[i] if 0 <= i < len(values) else value
+
+
+def _refresh_class_counts(container: dict) -> None:
+    """Recompute municipality class_counts after compact-row edits."""
+    if not isinstance(container.get("class_counts"), dict):
+        return
+    cols = container.get("columns")
+    rows = container.get("fields")
+    if not isinstance(cols, list) or not isinstance(rows, (dict, list)):
+        return
+    class_col = "artkandidat_class" if "artkandidat_class" in cols else ("class" if "class" in cols else None)
+    if class_col is None:
+        return
+    ci = cols.index(class_col)
+    counts: dict[str, int] = {}
+    iterator = rows.values() if isinstance(rows, dict) else rows
+    for row in iterator:
+        if not isinstance(row, list) or ci >= len(row):
+            continue
+        raw = row[ci]
+        label = _dict_decode(container, "class", raw) if class_col == "class" else raw
+        label = str(label)
+        counts[label] = counts.get(label, 0) + 1
+    container["class_counts"] = counts
+
+
 def _patch_column_table(container: dict, values: dict[str, dict], found: set[str]) -> bool:
-    """Patch compact {columns:[...], rows/data/fields:[...]} tables."""
+    """Patch compact dictionary-coded or raw column tables."""
     cols = container.get("columns")
     if not isinstance(cols, list):
         return False
 
-    class_col = "artkandidat_class" if "artkandidat_class" in cols else None
+    class_col = (
+        "artkandidat_class" if "artkandidat_class" in cols
+        else ("class" if "class" in cols else None)
+    )
     rot_col = "rotation_status" if "rotation_status" in cols else None
     if class_col is None or rot_col is None:
         return False
@@ -509,16 +563,12 @@ def _patch_column_table(container: dict, values: dict[str, dict], found: set[str
         "skiftesbeteckning", "skifte", "skifte_id", "current_skiftesbeteckning"
     ) if x in cols), None)
 
-    if not fid_col and not (block_col and skifte_col):
-        return False
-
     ci, ri = cols.index(class_col), cols.index(rot_col)
     reason_i = cols.index("artkandidat_reason") if "artkandidat_reason" in cols else None
     changed = False
 
     for data_key in ("rows", "data", "records", "fields"):
         rows = container.get(data_key)
-
         if isinstance(rows, dict):
             iterator = rows.items()
         elif isinstance(rows, list):
@@ -530,8 +580,6 @@ def _patch_column_table(container: dict, values: dict[str, dict], found: set[str
             if not isinstance(row, list):
                 continue
 
-            # Prefer an explicit id carried in the row. Otherwise accept a
-            # dictionary key such as block|skifte / block:skifte.
             fid = ""
             if fid_col:
                 fi = cols.index(fid_col)
@@ -546,13 +594,24 @@ def _patch_column_table(container: dict, values: dict[str, dict], found: set[str
 
             if fid not in values:
                 continue
+
+            v = values[fid]
             if ci < len(row):
-                row[ci] = values[fid]["artkandidat_class"]
+                row[ci] = (
+                    _dict_encode(container, "class", v["artkandidat_class"])
+                    if class_col == "class"
+                    else v["artkandidat_class"]
+                )
             if ri < len(row):
-                row[ri] = values[fid]["rotation_status"]
+                row[ri] = _dict_encode(container, "rotation_status", v["rotation_status"])
             if reason_i is not None and reason_i < len(row):
-                row[reason_i] = values[fid]["artkandidat_reason"]
-            found.add(fid); changed = True
+                row[reason_i] = v["artkandidat_reason"]
+
+            found.add(fid)
+            changed = True
+
+    if changed:
+        _refresh_class_counts(container)
     return changed
 
 
