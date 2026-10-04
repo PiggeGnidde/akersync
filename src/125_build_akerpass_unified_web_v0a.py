@@ -512,7 +512,7 @@ def patch_rotation_v1a_sidecars(target: Path) -> dict:
                     staffanstorp_94a_seen = True
 
         if changed:
-            p.write_text(stable_json(d), encoding="utf-8")
+            p.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             files_modified += 1
 
     missing = sorted(set(values) - found)
