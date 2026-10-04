@@ -221,8 +221,120 @@ def verify_access(dist: Path, problems: list[str]) -> dict:
     }
 
 
+def _norm_text_id(x) -> str:
+    if x is None:
+        return ""
+    s = str(x).strip()
+    if "|" not in s and s.count(":") == 1:
+        left, right = s.split(":", 1)
+        if left.strip().isdigit() and right.strip():
+            s = left.strip() + "|" + right.strip()
+    if s.endswith(".0"):
+        try:
+            return str(int(float(s)))
+        except Exception:
+            pass
+    return s
+
+
+def _fid_from_mapping(obj: dict) -> str:
+    for key in ("field_id", "current_field_id", "fid"):
+        if key in obj and obj.get(key) not in (None, ""):
+            s = _norm_text_id(obj.get(key))
+            if "|" in s:
+                return s
+    block = ""
+    skifte = ""
+    for key in (
+        "blockid", "block_id", "block", "current_block_id",
+        "jordbruksblock", "blockId", "BLOCKID",
+    ):
+        if key in obj and obj.get(key) not in (None, ""):
+            block = _norm_text_id(obj.get(key)); break
+    for key in (
+        "skiftesbeteckning", "skifte", "skifte_id", "current_skiftesbeteckning",
+        "skiftesbeteckn", "skiftebeteckning", "SKIFTESBETECKNING",
+    ):
+        if key in obj and obj.get(key) not in (None, ""):
+            skifte = _norm_text_id(obj.get(key)); break
+    return f"{block}|{skifte}" if block and skifte else ""
+
+
+def _collect_from_tree(node, wanted: set[str], out: dict[str, dict]) -> None:
+    if isinstance(node, dict):
+        # Direct row / GeoJSON properties.
+        fid = _fid_from_mapping(node)
+        if fid in wanted and ("artkandidat_class" in node or "rotation_status" in node):
+            out[fid] = {
+                "artkandidat_class": node.get("artkandidat_class"),
+                "rotation_status": node.get("rotation_status"),
+            }
+
+        # Nested ÅkerFrö object inside a row.
+        if fid in wanted:
+            for key in ("akerfro", "åkerfro", "fro", "artkandidat"):
+                nested = node.get(key)
+                if isinstance(nested, dict) and ("artkandidat_class" in nested or "rotation_status" in nested):
+                    out[fid] = {
+                        "artkandidat_class": nested.get("artkandidat_class"),
+                        "rotation_status": nested.get("rotation_status"),
+                    }
+
+        # Compact columnar representation.
+        cols = node.get("columns")
+        if isinstance(cols, list) and "artkandidat_class" in cols and "rotation_status" in cols:
+            ci, ri = cols.index("artkandidat_class"), cols.index("rotation_status")
+            fid_col = next((x for x in ("field_id","current_field_id","fid") if x in cols), None)
+            block_col = next((x for x in ("blockid","block_id","block","current_block_id","jordbruksblock") if x in cols), None)
+            skifte_col = next((x for x in ("skiftesbeteckning","skifte","skifte_id","current_skiftesbeteckning") if x in cols), None)
+            for data_key in ("rows","data","records","fields"):
+                rows = node.get(data_key)
+                if isinstance(rows, dict):
+                    iterator = rows.items()
+                elif isinstance(rows, list):
+                    iterator = enumerate(rows)
+                else:
+                    continue
+                for row_key, row in iterator:
+                    if not isinstance(row, list):
+                        continue
+                    rf = ""
+                    if fid_col:
+                        ii = cols.index(fid_col)
+                        if ii < len(row): rf = _norm_text_id(row[ii])
+                    elif block_col and skifte_col:
+                        bi, si = cols.index(block_col), cols.index(skifte_col)
+                        if bi < len(row) and si < len(row):
+                            rf = f"{_norm_text_id(row[bi])}|{_norm_text_id(row[si])}"
+                    if not rf and isinstance(rows, dict):
+                        rf = _norm_text_id(row_key)
+                    if rf in wanted and ci < len(row) and ri < len(row):
+                        out[rf] = {
+                            "artkandidat_class": row[ci],
+                            "rotation_status": row[ri],
+                        }
+
+        # Direct dict keyed by field id.
+        for key, child in node.items():
+            k = _norm_text_id(key)
+            if k in wanted and isinstance(child, dict):
+                if "artkandidat_class" in child or "rotation_status" in child:
+                    out[k] = {
+                        "artkandidat_class": child.get("artkandidat_class"),
+                        "rotation_status": child.get("rotation_status"),
+                    }
+
+        for child in node.values():
+            if isinstance(child, (dict, list)):
+                _collect_from_tree(child, wanted, out)
+
+    elif isinstance(node, list):
+        for child in node:
+            if isinstance(child, (dict, list)):
+                _collect_from_tree(child, wanted, out)
+
+
 def _collect_akerfro_records(dist: Path, wanted: set[str]) -> dict[str, dict]:
-    """Read selected field records from the copied municipality ÅkerFrö sidecars."""
     out: dict[str, dict] = {}
     base = dist / "data" / "akerfro"
     for p in sorted(base.rglob("*.json")):
@@ -232,38 +344,7 @@ def _collect_akerfro_records(dist: Path, wanted: set[str]) -> dict[str, dict]:
             d = load_json(p)
         except Exception:
             continue
-        fields = d.get("fields")
-        cols = d.get("columns")
-
-        if isinstance(cols, list) and isinstance(fields, dict):
-            if "artkandidat_class" not in cols or "rotation_status" not in cols:
-                continue
-            ci, ri = cols.index("artkandidat_class"), cols.index("rotation_status")
-            for fid in wanted.intersection(fields):
-                row = fields[fid]
-                if isinstance(row, list) and ci < len(row) and ri < len(row):
-                    out[fid] = {
-                        "artkandidat_class": row[ci],
-                        "rotation_status": row[ri],
-                    }
-        elif isinstance(fields, dict):
-            for fid in wanted.intersection(fields):
-                row = fields[fid]
-                if isinstance(row, dict):
-                    out[fid] = {
-                        "artkandidat_class": row.get("artkandidat_class"),
-                        "rotation_status": row.get("rotation_status"),
-                    }
-        elif isinstance(fields, list):
-            for row in fields:
-                if not isinstance(row, dict):
-                    continue
-                fid = str(row.get("field_id") or row.get("current_field_id") or "")
-                if fid in wanted:
-                    out[fid] = {
-                        "artkandidat_class": row.get("artkandidat_class"),
-                        "rotation_status": row.get("rotation_status"),
-                    }
+        _collect_from_tree(d, wanted, out)
     return out
 
 
