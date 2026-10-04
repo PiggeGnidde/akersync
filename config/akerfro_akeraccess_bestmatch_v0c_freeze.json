@@ -1,0 +1,54 @@
+{
+  "schema_version": "akerfro-akeraccess-bestmatch-v0c-freeze-policy-v1",
+  "freeze_name": "akerfro-akeraccess-bestmatch-v0c",
+  "selected_policy": "balanced_50_25_25",
+  "rotation_eligibility": "akerfro-rotation-v1a",
+  "candidate_classes": [
+    "A_STRONG_CANDIDATE",
+    "B_PHYSICAL_CANDIDATE"
+  ],
+  "policy_weights": {
+    "artmatch": 0.50,
+    "road_area_logistics": 0.25,
+    "local_road_access": 0.25
+  },
+  "class_order_is_hard": true,
+  "expected_candidate_fields": 16004,
+  "expected_class_counts": {
+    "A_STRONG_CANDIDATE": 7447,
+    "B_PHYSICAL_CANDIDATE": 8557
+  },
+  "expected_vs_v0b": {
+    "v0b_candidate_fields": 15967,
+    "new_candidates": 37,
+    "dropped_candidates": 0
+  },
+  "expected_topn_churn": {
+    "200": 1,
+    "500": 3,
+    "800": 4,
+    "1000": 4,
+    "2000": 10,
+    "5000": 21
+  },
+  "expected_balanced_historical_hits": {
+    "200": 10,
+    "500": 26,
+    "800": 37,
+    "1000": 49,
+    "2000": 88,
+    "5000": 201
+  },
+  "route_semantics": "approximate OSM road-network distance to Bjuv; not certified truck navigation",
+  "fallback_semantics": "if D4 route is missing, frozen C10 straight-line Bjuv proximity is used and explicitly flagged",
+  "guardrails": [
+    "Frozen BestMatch v0b remains read-only and is used as the policy/regression baseline.",
+    "Frozen ÅkerFrö Rotation v1.1 is the only source of candidate-eligibility change.",
+    "No BestMatch component score or weight is refitted.",
+    "A_STRONG_CANDIDATE remains a hard tier before B_PHYSICAL_CANDIDATE.",
+    "The weighted score is exactly 0.50 ÄrtMatch + 0.25 road AreaLogistik + 0.25 frozen ÅkerAccess v0a.",
+    "D4 road distance remains approximate OSM routing and is not certified truck navigation.",
+    "Historical clean CONSERVART is diagnostic only and is not used to fit the policy.",
+    "NVDB Slitlager remains excluded."
+  ]
+}
