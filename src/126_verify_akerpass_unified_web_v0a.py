@@ -11,6 +11,8 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work" / "akerpass_unified_web_v0a"
 DEFAULT_DIST = ROOT / "dist_akerpass_unified_v0a"
@@ -19,6 +21,10 @@ EXPECTED_FIELDS = 128_636
 EXPECTED_MUNICIPALITIES = 33
 EXPECTED_VISS_POSITIVE = 16_626
 EXPECTED_GW_LEVEL_IMPACT = 5_495
+EXPECTED_ROTATION_RELEASED = 43
+EXPECTED_BESTMATCH_CANDIDATES = 16_004
+EXPECTED_SCREENING_UNION = 5_000
+ROTATION = ROOT / "data" / "derived" / "akerfro_rotation_v1a" / "akerfro_rotation_v1a_fields.parquet"
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -157,19 +163,165 @@ def verify_water(dist: Path, problems: list[str]) -> dict:
     return {"field_count": total, "viss_positive_fields": positive, "groundwater_level_impact_fields": level}
 
 def verify_access(dist: Path, problems: list[str]) -> dict:
-    p = dist / "data" / "akerfro_bestmatch" / "skane_index.json"
+    base = dist / "data" / "akerfro_bestmatch"
+    p = base / "skane_index.json"
     d = load_json(p)
-    if d.get("status") != "FROZEN_BESTMATCH_V0B_PRESENTATION":
-        problems.append("BESTMATCH WEB META NOT MARKED FROZEN V0B PRESENTATION")
+    if d.get("status") != "FROZEN_BESTMATCH_V0C_PRESENTATION":
+        problems.append("BESTMATCH WEB META NOT MARKED FROZEN V0C PRESENTATION")
+    if d.get("product_version") != "v0c":
+        problems.append("BESTMATCH WEB META PRODUCT VERSION IS NOT v0c")
     canonical = str(d.get("canonical_product", ""))
-    if "bestmatch_v0b_fields.parquet" not in canonical:
-        problems.append("BESTMATCH CANONICAL PRODUCT METADATA MISSING")
-    if int(d.get("field_union_count", 0)) < 5000:
-        problems.append("BESTMATCH WHOLE-SKÅNE SCREENING UNION TOO SMALL")
+    if "bestmatch_v0c_fields.parquet" not in canonical:
+        problems.append("BESTMATCH v0c CANONICAL PRODUCT METADATA MISSING")
+    if int(d.get("candidate_fields", 0)) != EXPECTED_BESTMATCH_CANDIDATES:
+        problems.append("BESTMATCH v0c CANDIDATE ANCHOR MISMATCH")
+    if int(d.get("field_union_count", 0)) != EXPECTED_SCREENING_UNION:
+        problems.append(
+            f"BESTMATCH WHOLE-SKÅNE SCREENING UNION {d.get('field_union_count')} != {EXPECTED_SCREENING_UNION}"
+        )
+    rankings = d.get("rankings") or []
+    rank_cols = [str(x.get("column")) for x in rankings if isinstance(x, dict)]
+    if rank_cols != ["bestmatch_v0c_rank"]:
+        problems.append(f"BESTMATCH SCREENING RANKING IS NOT FROZEN v0c ONLY: {rank_cols}")
+
     for rel in ("skane_screening.geojson", "skane_estimated_access.geojson"):
-        if not (dist / "data" / "akerfro_bestmatch" / rel).is_file():
+        if not (base / rel).is_file():
             problems.append(f"MISSING ACCESS WEB ARTIFACT {rel}")
-    return {"field_union_count": int(d.get("field_union_count", 0)), "status": d.get("status")}
+
+    geo = load_json(base / "skane_screening.geojson")
+    feats = geo.get("features") or []
+    if len(feats) != EXPECTED_SCREENING_UNION:
+        problems.append(f"BESTMATCH GEOJSON FEATURE COUNT {len(feats)} != {EXPECTED_SCREENING_UNION}")
+    by_id = {
+        str((f.get("properties") or {}).get("field_id", "")): (f.get("properties") or {})
+        for f in feats
+    }
+    anchors = {
+        "61723351559|2A": 1436,
+        "61723351559|2B": 273,
+    }
+    for fid, expected_rank in anchors.items():
+        props = by_id.get(fid)
+        if not props:
+            problems.append(f"BESTMATCH v0c STAFFANSTORP ANCHOR MISSING {fid}")
+            continue
+        if str(props.get("artkandidat_class")) != "A_STRONG_CANDIDATE":
+            problems.append(f"BESTMATCH v0c STAFFANSTORP CLASS WRONG {fid}")
+        if str(props.get("rotation_status_v1a")) != "ROTATION_OK_BOUNDARY_SPILL":
+            problems.append(f"BESTMATCH v0c STAFFANSTORP ROTATION WRONG {fid}")
+        if int(props.get("bestmatch_v0c_rank") or -1) != expected_rank:
+            problems.append(
+                f"BESTMATCH v0c STAFFANSTORP RANK WRONG {fid}: {props.get('bestmatch_v0c_rank')} != {expected_rank}"
+            )
+
+    return {
+        "field_union_count": int(d.get("field_union_count", 0)),
+        "candidate_fields": int(d.get("candidate_fields", 0)),
+        "status": d.get("status"),
+    }
+
+
+def _collect_akerfro_records(dist: Path, wanted: set[str]) -> dict[str, dict]:
+    """Read selected field records from the copied municipality ÅkerFrö sidecars."""
+    out: dict[str, dict] = {}
+    base = dist / "data" / "akerfro"
+    for p in sorted(base.rglob("*.json")):
+        if p.name == "skane_index.json":
+            continue
+        try:
+            d = load_json(p)
+        except Exception:
+            continue
+        fields = d.get("fields")
+        cols = d.get("columns")
+
+        if isinstance(cols, list) and isinstance(fields, dict):
+            if "artkandidat_class" not in cols or "rotation_status" not in cols:
+                continue
+            ci, ri = cols.index("artkandidat_class"), cols.index("rotation_status")
+            for fid in wanted.intersection(fields):
+                row = fields[fid]
+                if isinstance(row, list) and ci < len(row) and ri < len(row):
+                    out[fid] = {
+                        "artkandidat_class": row[ci],
+                        "rotation_status": row[ri],
+                    }
+        elif isinstance(fields, dict):
+            for fid in wanted.intersection(fields):
+                row = fields[fid]
+                if isinstance(row, dict):
+                    out[fid] = {
+                        "artkandidat_class": row.get("artkandidat_class"),
+                        "rotation_status": row.get("rotation_status"),
+                    }
+        elif isinstance(fields, list):
+            for row in fields:
+                if not isinstance(row, dict):
+                    continue
+                fid = str(row.get("field_id") or row.get("current_field_id") or "")
+                if fid in wanted:
+                    out[fid] = {
+                        "artkandidat_class": row.get("artkandidat_class"),
+                        "rotation_status": row.get("rotation_status"),
+                    }
+    return out
+
+
+def verify_rotation_v1a(dist: Path, problems: list[str]) -> dict:
+    idx = load_json(dist / "data" / "akerfro" / "skane_index.json")
+    if idx.get("rotation_policy") != "akerfro-rotation-v1a":
+        problems.append("ÅKERFRÖ MUNICIPALITY META MISSING ROTATION v1.1 POLICY")
+    if idx.get("rotation_v1a_status") != "FORMALLY_FROZEN":
+        problems.append("ÅKERFRÖ ROTATION v1.1 META NOT FROZEN")
+    if int(idx.get("rotation_v1a_released_fields", 0)) != EXPECTED_ROTATION_RELEASED:
+        problems.append("ÅKERFRÖ ROTATION v1.1 RELEASE META COUNT MISMATCH")
+
+    if not ROTATION.is_file():
+        problems.append(f"FROZEN ROTATION v1.1 PRODUCT MISSING: {ROTATION}")
+        return {"released_fields": 0}
+
+    rot = pd.read_parquet(
+        ROTATION,
+        columns=[
+            "current_field_id", "artkandidat_class_v1a", "rotation_status_v1a",
+            "rotation_v1a_release_candidate",
+        ],
+    )
+    rel = rot[rot["rotation_v1a_release_candidate"].fillna(False).astype(bool)].copy()
+    if len(rel) != EXPECTED_ROTATION_RELEASED:
+        problems.append(f"FROZEN ROTATION v1.1 RELEASE COUNT {len(rel)} != {EXPECTED_ROTATION_RELEASED}")
+
+    expected = {
+        str(r.current_field_id): (str(r.artkandidat_class_v1a), str(r.rotation_status_v1a))
+        for r in rel.itertuples(index=False)
+    }
+    wanted = set(expected) | {"61723353349|94A"}
+    got = _collect_akerfro_records(dist, wanted)
+    missing = sorted(set(expected) - set(got))
+    if missing:
+        problems.append(
+            f"ROTATION v1.1 RELEASES MISSING FROM MUNICIPALITY SIDECARS: {len(missing)}; "
+            + ", ".join(missing[:8])
+        )
+    for fid, (exp_class, exp_status) in expected.items():
+        row = got.get(fid)
+        if not row:
+            continue
+        if str(row.get("artkandidat_class")) != exp_class:
+            problems.append(f"ROTATION v1.1 SIDECAR CLASS MISMATCH {fid}")
+        if str(row.get("rotation_status")) != exp_status:
+            problems.append(f"ROTATION v1.1 SIDECAR STATUS MISMATCH {fid}")
+
+    anchor = got.get("61723353349|94A")
+    if not anchor:
+        problems.append("ROTATION v1.1 STAFFANSTORP 94A SIDECAR ANCHOR MISSING")
+    else:
+        if str(anchor.get("artkandidat_class")) != "C_ROTATION_CAUTION":
+            problems.append("ROTATION v1.1 STAFFANSTORP 94A CLASS CHANGED")
+        if str(anchor.get("rotation_status")) != "CAUTION_RECENT_CONSERVART":
+            problems.append("ROTATION v1.1 STAFFANSTORP 94A ROTATION STATUS CHANGED")
+
+    return {"released_fields": len(rel), "sidecar_records_verified": len(set(expected).intersection(got))}
 
 def verify_html(dist: Path, problems: list[str]) -> None:
     p = dist / "index.html"
@@ -244,6 +396,7 @@ def main() -> int:
             problems.append("BUILD MANIFEST CLAIMS DEPLOYMENT")
 
     verify_html(dist, problems)
+    rotation = verify_rotation_v1a(dist, problems)
     access = verify_access(dist, problems)
     water = verify_water(dist, problems)
     verify_raps(dist, problems)
@@ -258,6 +411,7 @@ def main() -> int:
         "dist": str(dist),
         "files": len(files),
         "bytes": total_bytes,
+        "rotation_v1a": rotation,
         "access": access,
         "water_viss": water,
         "rapskartan_present": (dist / "rapskartan25" / "index.html").is_file(),
@@ -277,7 +431,9 @@ def main() -> int:
     print("ÅkerPass Unified Preview Web v0a - VERIFY")
     print("=" * 108)
     print(f"Files: {len(files):,} · size: {total_bytes / 1024 / 1024:.1f} MiB")
-    print(f"BestMatch screening union: {access.get('field_union_count', 0):,}")
+    print(f"Rotation v1.1 releases verified in municipality sidecars: {rotation.get('sidecar_records_verified', 0):,}/{EXPECTED_ROTATION_RELEASED}")
+    print(f"BestMatch v0c candidates: {access.get('candidate_fields', 0):,}")
+    print(f"BestMatch v0c screening union: {access.get('field_union_count', 0):,}")
     print(f"ÅkerVatten fields: {water.get('field_count', 0):,}")
     print(f"VISS positive fields: {water.get('viss_positive_fields', 0):,}")
     print(f"Groundwater-level impact fields: {water.get('groundwater_level_impact_fields', 0):,}")
