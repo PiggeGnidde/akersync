@@ -59,13 +59,17 @@ def main():
         x=pd.to_numeric(f[col],errors="coerce")
         return x.ge(RECENT_MIN)&x.le(RECENT_MAX)
 
-    clean_target=recent_clean("last_conservart_clean_year")
-    other_pea=recent_clean("last_other_pea_clean_year")
-    faba=recent_clean("last_faba_bean_clean_year")
-    original_c=f["artkandidat_class"].astype(str).eq("C_ROTATION_CAUTION")
-    original_cons=f["rotation_status"].astype(str).eq("CAUTION_RECENT_CONSERVART")
-    high=f["artmatch_high"].fillna(False).astype(bool) if "artmatch_high" in f else f["artkandidat_class"].astype(str).isin(["A_STRONG_CANDIDATE","B_PHYSICAL_CANDIDATE","C_ROTATION_CAUTION"])
-    positive_pred=f["predecessor_prior"].astype(str).eq("POSITIVE")
+    # Force plain bool Series. Parquet nullable dtypes can otherwise yield
+    # object arrays containing pd.NA, which NumPy refuses as boolean indices.
+    clean_target=recent_clean("last_conservart_clean_year").fillna(False).astype(bool)
+    other_pea=recent_clean("last_other_pea_clean_year").fillna(False).astype(bool)
+    faba=recent_clean("last_faba_bean_clean_year").fillna(False).astype(bool)
+    original_c=f["artkandidat_class"].astype(str).eq("C_ROTATION_CAUTION").fillna(False).astype(bool)
+    original_cons=f["rotation_status"].astype(str).eq("CAUTION_RECENT_CONSERVART").fillna(False).astype(bool)
+    high=(f["artmatch_high"].fillna(False).astype(bool)
+          if "artmatch_high" in f
+          else f["artkandidat_class"].astype(str).isin(["A_STRONG_CANDIDATE","B_PHYSICAL_CANDIDATE","C_ROTATION_CAUTION"]).fillna(False).astype(bool))
+    positive_pred=f["predecessor_prior"].astype(str).eq("POSITIVE").fillna(False).astype(bool)
 
     print("="*118)
     print("ÅkerFrö ROTATION COMPONENT MATERIALITY · READ-ONLY SKÅNE SENSITIVITY")
@@ -79,14 +83,14 @@ def main():
 
     rows=[]
     for t in THRESHOLDS:
-        mixed_material=f["max_recent_mixed_share"].gt(0) if t==0 else f["max_recent_mixed_share"].ge(t)
-        target_recent=clean_target|mixed_material
-        rotation_ok=~(target_recent|other_pea|faba)
+        mixed_material=(f["max_recent_mixed_share"].gt(0) if t==0 else f["max_recent_mixed_share"].ge(t)).fillna(False).astype(bool)
+        target_recent=(clean_target|mixed_material).fillna(False).astype(bool)
+        rotation_ok=(~(target_recent|other_pea|faba)).fillna(False).astype(bool)
         # Match frozen C8 precedence: conservart first, then other pea, then faba.
         status=np.full(len(f),"ROTATION_OK",dtype=object)
-        status[faba.to_numpy()]="CAUTION_RECENT_FABA"
-        status[(other_pea & ~faba).to_numpy()]="CAUTION_RECENT_OTHER_PEA"
-        status[target_recent.to_numpy()]="CAUTION_RECENT_CONSERVART"
+        status[faba.to_numpy(dtype=bool)]="CAUTION_RECENT_FABA"
+        status[(other_pea & ~faba).to_numpy(dtype=bool)]="CAUTION_RECENT_OTHER_PEA"
+        status[target_recent.to_numpy(dtype=bool)]="CAUTION_RECENT_CONSERVART"
 
         new_c=high & ~rotation_ok
         new_a=high & rotation_ok & positive_pred
