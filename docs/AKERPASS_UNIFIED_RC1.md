@@ -5,7 +5,7 @@ It deliberately does **not** rebuild the web during packaging.
 
 ## Frozen RC anchors
 
-- dist files: 187
+- dist files: 189
 - Rotation v1.1 releases in municipality sidecars: 43/43
 - Rotation priority presentation: 37 BestMatch v0c ranks + 6 explicit D0 <1 ha exclusions
 - BestMatch v0c candidates: 16,004
