@@ -26,3 +26,4 @@ __pycache__/
 *.pyc
 .venv/
 qa/input_manifest.json
+dist_akerfro_access_v0b/
