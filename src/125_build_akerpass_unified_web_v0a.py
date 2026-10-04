@@ -85,7 +85,10 @@ def git_head() -> str:
 
 def run(cmd: list[str]) -> None:
     print("+", subprocess.list2cmdline(cmd), flush=True)
-    subprocess.run(cmd, cwd=ROOT, check=True)
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(ROOT) + (os.pathsep + existing if existing else "")
+    subprocess.run(cmd, cwd=ROOT, check=True, env=env)
 
 def candidate_roots() -> Iterable[Path]:
     seen = set()
