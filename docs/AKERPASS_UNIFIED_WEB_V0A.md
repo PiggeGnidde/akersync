@@ -20,6 +20,12 @@ The unified build does **not** use the old ÅkerVatten index.html as its base.
 
 It first regenerates the Access/BestMatch presentation from the canonical frozen BestMatch v0c table. It then patches exactly the 43 formally frozen Rotation v1.1 boundary-spill releases into the copied municipality ÅkerFrö sidecars; the source ÅkerFrö web is never modified. It then auto-discovers the already-built final ÅkerVatten-VISS web dist and forward-ports only:
 
+For those 43 releases, the municipality drawer also receives a presentation-only priority correction. The old frozen C10 priority remains untouched in the source data, but is no longer shown as the current priority:
+
+- 37 fields inside the frozen D0/BestMatch universe show their frozen BestMatch v0c rank;
+- 6 fields excluded by the frozen D0 area >=1 ha rule show `Ej i BestMatch · <1 ha`.
+
+
 - \`data/akervatten/*\`
 - \`assets/akervatten_v0a.css\`
 - \`assets/akervatten_v0a.js\`
