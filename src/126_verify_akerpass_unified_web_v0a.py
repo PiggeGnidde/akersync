@@ -394,6 +394,15 @@ def main() -> int:
             problems.append("BUILD MANIFEST CLAIMS WATER LEGAL ASSESSMENT")
         if scope.get("deployment_performed") is not False:
             problems.append("BUILD MANIFEST CLAIMS DEPLOYMENT")
+        frozen = build_manifest.get("frozen_inputs") or {}
+        if "bestmatch_v0c" not in frozen:
+            problems.append("BUILD MANIFEST MISSING FROZEN BESTMATCH v0c")
+        elif int((frozen.get("bestmatch_v0c") or {}).get("candidate_fields", 0)) != EXPECTED_BESTMATCH_CANDIDATES:
+            problems.append("BUILD MANIFEST BESTMATCH v0c CANDIDATE ANCHOR MISMATCH")
+        if "akerfro_rotation_v1a" not in frozen:
+            problems.append("BUILD MANIFEST MISSING FROZEN ROTATION v1.1")
+        elif int((frozen.get("akerfro_rotation_v1a") or {}).get("released_fields_patched", 0)) != EXPECTED_ROTATION_RELEASED:
+            problems.append("BUILD MANIFEST ROTATION v1.1 RELEASE ANCHOR MISMATCH")
 
     verify_html(dist, problems)
     rotation = verify_rotation_v1a(dist, problems)
