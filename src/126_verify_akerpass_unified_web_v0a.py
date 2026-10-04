@@ -567,6 +567,16 @@ def main() -> int:
             problems.append("BUILD MANIFEST MISSING FROZEN ROTATION v1.1")
         elif int((frozen.get("akerfro_rotation_v1a") or {}).get("released_fields_patched", 0)) != EXPECTED_ROTATION_RELEASED:
             problems.append("BUILD MANIFEST ROTATION v1.1 RELEASE ANCHOR MISMATCH")
+        pui = frozen.get("akerfro_rotation_v1a_priority_ui")
+        if not isinstance(pui, dict):
+            problems.append("BUILD MANIFEST MISSING ROTATION v1.1 PRIORITY UI")
+        else:
+            if int(pui.get("fields", 0)) != 43:
+                problems.append("BUILD MANIFEST ROTATION PRIORITY UI FIELD COUNT MISMATCH")
+            if int(pui.get("bestmatch_v0c_fields", 0)) != 37:
+                problems.append("BUILD MANIFEST ROTATION PRIORITY UI BESTMATCH COUNT MISMATCH")
+            if int(pui.get("d0_area_lt_1ha_fields", 0)) != 6:
+                problems.append("BUILD MANIFEST ROTATION PRIORITY UI D0 COUNT MISMATCH")
 
     verify_html(dist, problems)
     rotation = verify_rotation_v1a(dist, problems)
