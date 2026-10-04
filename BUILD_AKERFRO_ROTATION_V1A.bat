@@ -22,8 +22,20 @@ if errorlevel 1 (
 )
 
 echo [0/5] Verify frozen upstream products...
-call VERIFY_AKERFRO_OPERATIONAL_MVP_V0A_FREEZE.bat
+set "AKERFRO_FREEZE_ROOT="
+if exist "%CD%\work\akerfro_ertor_v0a\operational_mvp_v0a_freeze\akerfro_operational_mvp_v0a_freeze_manifest.json" set "AKERFRO_FREEZE_ROOT=%CD%"
+if not defined AKERFRO_FREEZE_ROOT if exist "C:\AkerSync-AkerFro\work\akerfro_ertor_v0a\operational_mvp_v0a_freeze\akerfro_operational_mvp_v0a_freeze_manifest.json" set "AKERFRO_FREEZE_ROOT=C:\AkerSync-AkerFro"
+
+if not defined AKERFRO_FREEZE_ROOT (
+  echo FAIL: could not auto-discover the original ÅkerFrö operational freeze manifest.
+  echo Checked current worktree and C:\AkerSync-AkerFro.
+  goto :fail
+)
+
+echo Operational freeze root: %AKERFRO_FREEZE_ROOT%
+py -3 analysis\akerfro_ertor_v0a\verify_operational_mvp_v0a_freeze.py --root "%AKERFRO_FREEZE_ROOT%"
 if errorlevel 1 goto :fail
+
 call VERIFY_AKERFRO_AKERACCESS_BESTMATCH_V0B_FREEZE.bat
 if errorlevel 1 goto :fail
 
