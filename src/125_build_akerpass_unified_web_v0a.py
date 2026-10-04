@@ -414,14 +414,190 @@ def patch_unified_html(index: Path, water_index: dict) -> None:
 
     index.write_text(text, encoding="utf-8")
 
-def patch_rotation_v1a_sidecars(target: Path) -> dict:
-    """Patch only the 43 formally frozen Rotation v1.1 releases into the copied
-    municipality ÅkerFrö web sidecars.
+def _norm_text_id(x) -> str:
+    if x is None:
+        return ""
+    s = str(x).strip()
+    if s.endswith(".0"):
+        try:
+            return str(int(float(s)))
+        except Exception:
+            pass
+    return s
 
-    The source ÅkerFrö web remains untouched. We overwrite the existing
-    artkandidat_class / rotation_status values in the copied unified dist and
-    preserve every other field and ranking value. This is presentation
-    forward-porting of a frozen downstream product, not model recalculation.
+
+def _fid_from_mapping(obj: dict) -> str:
+    """Best-effort current-field id from the web-sidecar record itself."""
+    for key in ("field_id", "current_field_id", "fid"):
+        if key in obj and obj.get(key) not in (None, ""):
+            s = _norm_text_id(obj.get(key))
+            if "|" in s:
+                return s
+
+    block = ""
+    skifte = ""
+    for key in (
+        "blockid", "block_id", "block", "current_block_id",
+        "jordbruksblock", "blockId", "BLOCKID",
+    ):
+        if key in obj and obj.get(key) not in (None, ""):
+            block = _norm_text_id(obj.get(key))
+            break
+    for key in (
+        "skiftesbeteckning", "skifte", "skifte_id", "current_skiftesbeteckning",
+        "skiftesbeteckn", "skiftebeteckning", "SKIFTESBETECKNING",
+    ):
+        if key in obj and obj.get(key) not in (None, ""):
+            skifte = _norm_text_id(obj.get(key))
+            break
+    return f"{block}|{skifte}" if block and skifte else ""
+
+
+def _patch_record_mapping(obj: dict, values: dict[str, dict], found: set[str]) -> bool:
+    """Patch one row/property dict if it identifies a frozen release field."""
+    fid = _fid_from_mapping(obj)
+    if fid not in values:
+        return False
+
+    changed = False
+    v = values[fid]
+
+    # Common direct fields.
+    if "artkandidat_class" in obj:
+        obj["artkandidat_class"] = v["artkandidat_class"]; changed = True
+    if "rotation_status" in obj:
+        obj["rotation_status"] = v["rotation_status"]; changed = True
+    if "artkandidat_reason" in obj:
+        obj["artkandidat_reason"] = v["artkandidat_reason"]; changed = True
+
+    # Some web payloads group ÅkerFrö values in a nested object.
+    for key in ("akerfro", "åkerfro", "fro", "artkandidat"):
+        nested = obj.get(key)
+        if isinstance(nested, dict):
+            if "artkandidat_class" in nested:
+                nested["artkandidat_class"] = v["artkandidat_class"]; changed = True
+            if "rotation_status" in nested:
+                nested["rotation_status"] = v["rotation_status"]; changed = True
+            if "artkandidat_reason" in nested:
+                nested["artkandidat_reason"] = v["artkandidat_reason"]; changed = True
+
+    if changed:
+        found.add(fid)
+    return changed
+
+
+def _patch_column_table(container: dict, values: dict[str, dict], found: set[str]) -> bool:
+    """Patch compact {columns:[...], rows/data/fields:[...]} tables."""
+    cols = container.get("columns")
+    if not isinstance(cols, list):
+        return False
+
+    class_col = "artkandidat_class" if "artkandidat_class" in cols else None
+    rot_col = "rotation_status" if "rotation_status" in cols else None
+    if class_col is None or rot_col is None:
+        return False
+
+    fid_col = next((x for x in ("field_id", "current_field_id", "fid") if x in cols), None)
+    block_col = next((x for x in (
+        "blockid", "block_id", "block", "current_block_id", "jordbruksblock"
+    ) if x in cols), None)
+    skifte_col = next((x for x in (
+        "skiftesbeteckning", "skifte", "skifte_id", "current_skiftesbeteckning"
+    ) if x in cols), None)
+
+    if not fid_col and not (block_col and skifte_col):
+        return False
+
+    ci, ri = cols.index(class_col), cols.index(rot_col)
+    reason_i = cols.index("artkandidat_reason") if "artkandidat_reason" in cols else None
+    changed = False
+
+    for data_key in ("rows", "data", "records", "fields"):
+        rows = container.get(data_key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, list):
+                continue
+            if fid_col:
+                fi = cols.index(fid_col)
+                if fi >= len(row):
+                    continue
+                fid = _norm_text_id(row[fi])
+            else:
+                bi, si = cols.index(block_col), cols.index(skifte_col)
+                if bi >= len(row) or si >= len(row):
+                    continue
+                fid = f"{_norm_text_id(row[bi])}|{_norm_text_id(row[si])}"
+            if fid not in values:
+                continue
+            if ci < len(row):
+                row[ci] = values[fid]["artkandidat_class"]
+            if ri < len(row):
+                row[ri] = values[fid]["rotation_status"]
+            if reason_i is not None and reason_i < len(row):
+                row[reason_i] = values[fid]["artkandidat_reason"]
+            found.add(fid); changed = True
+    return changed
+
+
+def _patch_json_tree(node, values: dict[str, dict], found: set[str]) -> bool:
+    """Recursively patch row-like records, GeoJSON properties and compact tables."""
+    changed = False
+    if isinstance(node, dict):
+        changed |= _patch_column_table(node, values, found)
+        changed |= _patch_record_mapping(node, values, found)
+
+        # Dictionary keyed directly by field id.
+        for key, child in list(node.items()):
+            key_s = _norm_text_id(key)
+            if key_s in values:
+                v = values[key_s]
+                if isinstance(child, dict):
+                    local = False
+                    if "artkandidat_class" in child:
+                        child["artkandidat_class"] = v["artkandidat_class"]; local = True
+                    if "rotation_status" in child:
+                        child["rotation_status"] = v["rotation_status"]; local = True
+                    if "artkandidat_reason" in child:
+                        child["artkandidat_reason"] = v["artkandidat_reason"]; local = True
+                    if local:
+                        found.add(key_s); changed = True
+                elif isinstance(child, list):
+                    # Handled when the parent also carries a columns array.
+                    pass
+
+        for child in node.values():
+            if isinstance(child, (dict, list)):
+                changed |= _patch_json_tree(child, values, found)
+
+    elif isinstance(node, list):
+        for child in node:
+            if isinstance(child, (dict, list)):
+                changed |= _patch_json_tree(child, values, found)
+    return changed
+
+
+def _contains_field_identity(node, fid: str) -> bool:
+    """Read-only recursive identity search used for the 94A regression anchor."""
+    block, skifte = fid.split("|", 1)
+    if isinstance(node, dict):
+        if _fid_from_mapping(node) == fid:
+            return True
+        if fid in node:
+            return True
+        return any(_contains_field_identity(v, fid) for v in node.values() if isinstance(v, (dict, list)))
+    if isinstance(node, list):
+        return any(_contains_field_identity(v, fid) for v in node if isinstance(v, (dict, list)))
+    return False
+
+
+def patch_rotation_v1a_sidecars(target: Path) -> dict:
+    """Forward-port the 43 formally frozen Rotation v1.1 releases.
+
+    The ÅkerFrö web payload has existed in more than one JSON representation.
+    This routine therefore identifies current fields semantically rather than
+    assuming one particular sidecar shape.
     """
     if not ROTATION.is_file():
         raise FileNotFoundError(f"Frozen Rotation v1.1 product missing: {ROTATION}")
@@ -449,9 +625,11 @@ def patch_rotation_v1a_sidecars(target: Path) -> dict:
     base = target / "data" / "akerfro"
     if not base.is_dir():
         raise RuntimeError("Copied ÅkerFrö municipality data missing")
+
     found: set[str] = set()
     files_modified = 0
     staffanstorp_94a_seen = False
+    json_files = 0
 
     for p in sorted(base.rglob("*.json")):
         if p.name == "skane_index.json":
@@ -460,57 +638,12 @@ def patch_rotation_v1a_sidecars(target: Path) -> dict:
             d = json.loads(p.read_text(encoding="utf-8-sig"))
         except Exception:
             continue
-        fields = d.get("fields")
-        changed = False
+        json_files += 1
 
-        # Compact sidecar format: columns + {field_id: [values...]}
-        cols = d.get("columns")
-        if isinstance(cols, list) and isinstance(fields, dict):
-            if "artkandidat_class" in cols and "rotation_status" in cols:
-                ci = cols.index("artkandidat_class")
-                ri = cols.index("rotation_status")
-                reason_i = cols.index("artkandidat_reason") if "artkandidat_reason" in cols else None
-                for fid in set(fields).intersection(values):
-                    row = fields[fid]
-                    if not isinstance(row, list):
-                        continue
-                    row[ci] = values[fid]["artkandidat_class"]
-                    row[ri] = values[fid]["rotation_status"]
-                    if reason_i is not None and reason_i < len(row):
-                        row[reason_i] = values[fid]["artkandidat_reason"]
-                    found.add(fid); changed = True
-                if "61723353349|94A" in fields:
-                    staffanstorp_94a_seen = True
+        if _contains_field_identity(d, "61723353349|94A"):
+            staffanstorp_94a_seen = True
 
-        # Object sidecar format: {field_id: {column: value}}
-        elif isinstance(fields, dict):
-            for fid in set(fields).intersection(values):
-                row = fields[fid]
-                if not isinstance(row, dict) or "artkandidat_class" not in row or "rotation_status" not in row:
-                    continue
-                row["artkandidat_class"] = values[fid]["artkandidat_class"]
-                row["rotation_status"] = values[fid]["rotation_status"]
-                if "artkandidat_reason" in row:
-                    row["artkandidat_reason"] = values[fid]["artkandidat_reason"]
-                found.add(fid); changed = True
-            if "61723353349|94A" in fields:
-                staffanstorp_94a_seen = True
-
-        # Row-list format: fields=[{field_id:..., ...}, ...]
-        elif isinstance(fields, list):
-            for row in fields:
-                if not isinstance(row, dict):
-                    continue
-                fid = str(row.get("field_id") or row.get("current_field_id") or "")
-                if fid in values and "artkandidat_class" in row and "rotation_status" in row:
-                    row["artkandidat_class"] = values[fid]["artkandidat_class"]
-                    row["rotation_status"] = values[fid]["rotation_status"]
-                    if "artkandidat_reason" in row:
-                        row["artkandidat_reason"] = values[fid]["artkandidat_reason"]
-                    found.add(fid); changed = True
-                if fid == "61723353349|94A":
-                    staffanstorp_94a_seen = True
-
+        changed = _patch_json_tree(d, values, found)
         if changed:
             p.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             files_modified += 1
@@ -518,8 +651,9 @@ def patch_rotation_v1a_sidecars(target: Path) -> dict:
     missing = sorted(set(values) - found)
     if missing:
         raise RuntimeError(
-            f"Rotation v1.1 web forward-port found only {len(found)}/{EXPECTED_ROTATION_RELEASED} released fields; "
-            f"missing examples: {', '.join(missing[:10])}"
+            f"Rotation v1.1 web forward-port found only {len(found)}/{EXPECTED_ROTATION_RELEASED} released fields "
+            f"across {json_files} ÅkerFrö JSON sidecars; missing examples: {', '.join(missing[:10])}. "
+            "This means the base web uses an additional field encoding that must be handled explicitly."
         )
     if not staffanstorp_94a_seen:
         raise RuntimeError("Staffanstorp 94A regression anchor not found in copied ÅkerFrö sidecars")
@@ -530,13 +664,17 @@ def patch_rotation_v1a_sidecars(target: Path) -> dict:
     meta["rotation_v1a_status"] = "FORMALLY_FROZEN"
     meta["rotation_v1a_released_fields"] = EXPECTED_ROTATION_RELEASED
     meta["rotation_v1a_source_sha256"] = sha256(ROTATION)
-    meta["rotation_v1a_web_semantics"] = "43 frozen C->A/B boundary-spill releases forward-ported; all other municipality ÅkerFrö values preserved."
+    meta["rotation_v1a_web_semantics"] = (
+        "43 frozen C->A/B boundary-spill releases forward-ported; "
+        "all other municipality ÅkerFrö values preserved."
+    )
     idx.write_text(stable_json(meta), encoding="utf-8")
     return {
         "source": str(ROTATION),
         "sha256": sha256(ROTATION),
         "released_fields_patched": len(found),
         "sidecar_files_modified": files_modified,
+        "json_sidecars_scanned": json_files,
         "staffanstorp_94a_seen": staffanstorp_94a_seen,
     }
 
