@@ -436,6 +436,56 @@ def verify_rotation_v1a(dist: Path, problems: list[str]) -> dict:
 
     return {"released_fields": len(rel), "sidecar_records_verified": len(set(expected).intersection(got))}
 
+def verify_rotation_priority_ui(dist: Path, problems: list[str]) -> dict:
+    p = dist / "data" / "akerfro" / "rotation_v1a_priority_override.json"
+    d = load_json(p)
+    if d.get("schema_version") != "akerfro-rotation-v1a-priority-ui-v1":
+        problems.append("ROTATION PRIORITY UI SCHEMA MISMATCH")
+    if int(d.get("rotation_release_fields", 0)) != 43:
+        problems.append("ROTATION PRIORITY UI FIELD COUNT MISMATCH")
+    if int(d.get("bestmatch_v0c_fields", 0)) != 37:
+        problems.append("ROTATION PRIORITY UI BESTMATCH COUNT MISMATCH")
+    if int(d.get("d0_area_lt_1ha_fields", 0)) != 6:
+        problems.append("ROTATION PRIORITY UI D0 EXCLUSION COUNT MISMATCH")
+
+    fields = d.get("fields") or {}
+    if len(fields) != 43:
+        problems.append(f"ROTATION PRIORITY UI MAP SIZE {len(fields)} != 43")
+
+    anchors = {
+        "61723351559|2A": 1436,
+        "61723351559|2B": 273,
+    }
+    for fid, rank in anchors.items():
+        row = fields.get(fid) or {}
+        if row.get("status") != "BESTMATCH_V0C":
+            problems.append(f"ROTATION PRIORITY UI STATUS WRONG {fid}")
+        if int(row.get("rank") or -1) != rank:
+            problems.append(f"ROTATION PRIORITY UI RANK WRONG {fid}")
+        expected = f"BestMatch v0c #{rank:,}".replace(",", " ")
+        if row.get("label") != expected:
+            problems.append(f"ROTATION PRIORITY UI LABEL WRONG {fid}: {row.get('label')}")
+
+    outside = [v for v in fields.values() if isinstance(v, dict) and v.get("status") == "D0_AREA_LT_1_HA"]
+    if len(outside) != 6 or any(v.get("label") != "Ej i BestMatch · <1 ha" for v in outside):
+        problems.append("ROTATION PRIORITY UI <1 ha LABEL/COUNT MISMATCH")
+
+    js = dist / "assets" / "akerfro_rotation_v1a_priority_ui.js"
+    if not js.is_file():
+        problems.append("ROTATION PRIORITY UI JS MISSING")
+    else:
+        jt = js.read_text(encoding="utf-8", errors="replace")
+        for token in ("AKERFRO_ROTATION_V1A_PRIORITY_UI", "prioritet", "MutationObserver"):
+            if token not in jt:
+                problems.append(f"ROTATION PRIORITY UI JS MISSING TOKEN {token}")
+
+    return {
+        "fields": len(fields),
+        "bestmatch_v0c_fields": int(d.get("bestmatch_v0c_fields", 0)),
+        "d0_area_lt_1ha_fields": int(d.get("d0_area_lt_1ha_fields", 0)),
+    }
+
+
 def verify_html(dist: Path, problems: list[str]) -> None:
     p = dist / "index.html"
     if not p.is_file():
@@ -448,6 +498,7 @@ def verify_html(dist: Path, problems: list[str]) -> None:
         'data-layer="fro"', 'data-layer="vatten"', 'data-akv-layer="viss"',
         "window.AKERVATTEN_WEB_CONFIG", "assets/akervatten_v0a.js",
         'href="rapskartan25/"', "$" + "{akervattenSection(p)}",
+        "AKERFRO_ROTATION_V1A_PRIORITY_UI", "assets/akerfro_rotation_v1a_priority_ui.js",
     )
     for token in required:
         if token not in text:
@@ -519,6 +570,7 @@ def main() -> int:
 
     verify_html(dist, problems)
     rotation = verify_rotation_v1a(dist, problems)
+    priority_ui = verify_rotation_priority_ui(dist, problems)
     access = verify_access(dist, problems)
     water = verify_water(dist, problems)
     verify_raps(dist, problems)
@@ -534,6 +586,7 @@ def main() -> int:
         "files": len(files),
         "bytes": total_bytes,
         "rotation_v1a": rotation,
+        "rotation_v1a_priority_ui": priority_ui,
         "access": access,
         "water_viss": water,
         "rapskartan_present": (dist / "rapskartan25" / "index.html").is_file(),
@@ -554,6 +607,10 @@ def main() -> int:
     print("=" * 108)
     print(f"Files: {len(files):,} · size: {total_bytes / 1024 / 1024:.1f} MiB")
     print(f"Rotation v1.1 releases verified in municipality sidecars: {rotation.get('sidecar_records_verified', 0):,}/{EXPECTED_ROTATION_RELEASED}")
+    print(
+        f"Rotation v1.1 priority UI: {priority_ui.get('bestmatch_v0c_fields', 0)} BestMatch ranks · "
+        f"{priority_ui.get('d0_area_lt_1ha_fields', 0)} explicit <1 ha exclusions"
+    )
     print(f"BestMatch v0c candidates: {access.get('candidate_fields', 0):,}")
     print(f"BestMatch v0c screening union: {access.get('field_union_count', 0):,}")
     print(f"ÅkerVatten fields: {water.get('field_count', 0):,}")
