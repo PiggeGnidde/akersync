@@ -17,7 +17,7 @@ try:
 except Exception:
     pq = None
 
-VERSION = "akerswap-c0-real-portfolio-audit-v0a"
+VERSION = "akerswap-c0-real-portfolio-audit-v0b"
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "work" / "akerswap_c0_real_portfolio_audit_v0a"
 
@@ -34,23 +34,24 @@ PREFERRED_FILES = [
     Path(r"C:\AkerSyncRaw\jv_skane_2025\arslager_block_skane_2025.gpkg"),
 ]
 
-POSITIVE_TOKENS = (
-    "brukare", "bruknings", "brukningsenhet", "jordbrukare",
-    "kund", "kundnr", "kundnummer",
-    "ansokan", "ansok", "sam", "samansokan",
-    "sokande", "foretag", "foretags", "enterprise",
+SEMANTIC_ROOTS = (
+    "brukare", "brukningsenhet", "jordbrukare",
+    "kund", "sokande", "foretag", "enterprise",
     "operator", "producer", "producent",
     "holding", "farm", "farmer",
-    "person", "personnr", "personnummer",
-    "orgnr", "organisationsnummer", "organisation",
-    "agare", "arrendator",
+    "person", "organisation", "agare", "arrendator",
 )
 
-NEGATIVE_EXACT = {
-    "blockid", "block_id", "skifte", "field_id", "field_key",
-    "geometry", "geom", "region", "kommun", "lan",
-    "groda", "crop", "year", "ar", "kod", "code", "area", "areal",
-}
+ID_MARKERS = (
+    "id", "nr", "nummer", "key", "uuid", "guid",
+)
+
+HARD_EXCLUDE = (
+    "area", "areal", "ha", "hektar", "belopp", "amount",
+    "kod", "code", "region", "kommun", "lan",
+    "crop", "groda", "year", "ar",
+    "block", "skifte", "field", "geometry", "geom",
+)
 
 
 def norm(x):
@@ -61,9 +62,32 @@ def norm(x):
 
 def token_score(col):
     n = norm(col)
-    pos = sum(1 for t in POSITIVE_TOKENS if norm(t) in n)
-    neg = 1 if n in NEGATIVE_EXACT else 0
-    return pos * 10 - neg * 10
+    parts = [p for p in n.split("_") if p]
+
+    # Measurements / classifications can never be portfolio identifiers.
+    if any(x in parts or n.endswith("_" + x) or n.startswith(x + "_") for x in HARD_EXCLUDE):
+        return -100
+
+    semantic = any(norm(t) in n for t in SEMANTIC_ROOTS)
+    idish = any(
+        m in parts or n.endswith("_" + m) or n.endswith(m)
+        for m in ID_MARKERS
+    )
+
+    # Strong explicit identifiers even without separator.
+    explicit = any(x in n for x in (
+        "kundnr", "kundnummer", "personnr", "personnummer",
+        "orgnr", "organisationsnummer", "brukarid",
+        "brukareid", "foretagsid", "operatorid", "farmid",
+    ))
+
+    if explicit:
+        return 100
+    if semantic and idish:
+        return 50
+    if semantic:
+        return 10
+    return 0
 
 
 def schema(path):
@@ -187,6 +211,25 @@ def main():
     files = discover_files()
     print(f"Candidate files discovered: {len(files)}")
 
+    preferred_schema_rows = []
+    for p in PREFERRED_FILES:
+        if p.exists():
+            cols = schema(p)
+            print("")
+            print("PRIMARY_SCHEMA:", p)
+            print("  " + " | ".join(cols))
+            for c in cols:
+                preferred_schema_rows.append({
+                    "file": str(p),
+                    "column": c,
+                    "norm": norm(c),
+                    "identifier_score": token_score(c),
+                })
+
+    pd.DataFrame(preferred_schema_rows).to_csv(
+        OUT / "primary_source_schema.csv", index=False, encoding="utf-8-sig"
+    )
+
     schema_rows = []
     candidate_rows = []
 
@@ -303,7 +346,7 @@ def main():
 
     if verdict == "CANDIDATE_ID_FOUND":
         md += [
-            "Minst en kolumn beter sig statistiskt som en möjlig portföljnyckel.",
+            "Minst en semantiskt identifier-liknande kolumn beter sig statistiskt som en möjlig portföljnyckel.",
             "Detta är inte ännu bevis att kolumnen verkligen betyder brukare/företag.",
             "Nästa steg är semantisk kontroll av de bästa kandidaterna innan någon ÅkerSwap-analys görs.",
             "",
