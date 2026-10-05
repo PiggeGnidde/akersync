@@ -15,8 +15,8 @@ def load():
 class T(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        self.m=load()
-        self.text=SCRIPT.read_text(encoding="utf-8")
+        cls.m=load()
+        cls.text=SCRIPT.read_text(encoding="utf-8")
 
     def test_frozen_design(self):
         self.assertEqual(self.m.EXPECTED_SAMPLE,100)
