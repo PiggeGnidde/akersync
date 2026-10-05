@@ -16,7 +16,15 @@ if not "%BRANCH%"=="%EXPECTED_BRANCH%" (echo ERROR: wrong branch& exit /b 1)
 for /f "delims=" %%S in ('git status --short') do (echo ERROR: working tree must be clean& git status --short& exit /b 1)
 for /f "delims=" %%H in ('git rev-parse HEAD') do set "HEAD=%%H"
 echo HEAD=%HEAD%
-if exist "%OUT%" (echo ERROR: output already exists: %OUT%& exit /b 1)
+if exist "%OUT%\AKERPULS_FINAL_SKANE_REVIEW_MAP_V1_MANIFEST.json" (
+  echo ERROR: completed output already exists: %OUT%
+  exit /b 1
+)
+if exist "%OUT%" (
+  echo Removing incomplete previous map output: %OUT%
+  rmdir /s /q "%OUT%"
+  if exist "%OUT%" (echo ERROR: could not remove incomplete output& exit /b 1)
+)
 
 echo.
 echo [1/2] Final-map contract tests
