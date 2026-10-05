@@ -113,19 +113,35 @@ Survival relativt single-hub:
 
 ## Tolkning
 
-Detta är den viktigaste falsifieringen.
+Detta är ett viktigt **konservativt falsifieringstest**, men ska inte tolkas som en realistisk standardmodell för en typisk lokal Sjöbo-gård.
 
-När lantbrukaren får flera rationella operationella hubbar försvinner ungefär 3/4–4/5 av den naiva single-hub-vinsten.
+I B2 fick varje syntetisk brukarportfölj fritt använda 2–3 optimalt placerade operationella hubbar inom ett relativt begränsat lokalt område. Detta är sannolikt en betydligt generösare multi-hub-modell än vad som normalt är ekonomiskt eller praktiskt motiverat inom en liten skånsk kommun.
 
-Det bekräftar den designinsikt som kom från svenska verkliga fall:
+När flera hubbar tillåts på detta sätt försvinner ungefär 3/4–4/5 av den naiva single-hub-vinsten. Resultatet visar därför:
 
-> fjärrmark är inte automatiskt dålig arrondering om verksamheten har satellitbas, lager eller separat maskinpark.
+> ÅkerSwap-värdet kan överskattas kraftigt om man antar att all mark måste betjänas från en enda punkt, men det kan också underskattas om man tillåter extra hubbar utan geografisk eller ekonomisk kostnad.
 
-ÅkerSwap får därför aldrig ranka enbart efter avstånd till en enda juridisk gårdspunkt.
+Det svenska exempel som motiverade multi-hub-idén, Kulla Gunnarstorp/Österlen, gäller geografiskt tydligt separerade driftområden på mycket längre avstånd än de lokala Sjöbo-casen.
 
-Samtidigt kvarstår en medianförbättring på cirka **5–8 %** i den syntetiskt fragmenterade FRAG20-modellen även med 2–3 hubbar.
+### Praktisk designhypotes
 
-Det är inte tillräckligt starkt för en PASS-dom, men det är inte heller noll.
+I Skåne, med relativt små kommuner, är det rimligt att anta att fullvärdiga separata operationella hubbar oftast blir relevanta först när markinnehavet bildar större geografiskt separerade kluster, ofta:
+
+- interkommunalt, eller
+- över flera kommuner,
+- och på avstånd där egen maskinpark, lager eller satellitdrift faktiskt kan motiveras.
+
+Lokal fragmentering inom samma eller närliggande små kommunområden bör därför normalt först testas mot en **single-hub-modell**, medan multi-hub används som separat korrigering för verkliga fjärrkluster.
+
+En framtida multi-hub-modell bör därför inte få skapa hubbar gratis. Den bör minst innehålla:
+
+- minsta geografiska separation mellan hubbar,
+- minsta areal/volym i ett fjärrkluster,
+- alternativt en explicit kostnad/penalty för att etablera extra hubb.
+
+ÅkerSwap får fortfarande aldrig ranka fjärrmark som ineffektiv enbart utifrån avstånd till juridiskt gårdscentrum. Ett stort separat fjärrkluster med egen driftbas kan vara helt rationellt.
+
+Samtidigt ska B2-resultatet inte användas som argument för att den realistiska lokala ÅkerSwap-vinsten i Sjöbo endast är 5–8 %. **5–8 % är ett konservativt worst-case efter en mycket generös multi-hub-korrigering**, inte en skattning av normal lokal verklighet.
 
 Notera att 3-hub-resultatet är något bättre än 2-hub-resultatet. Detta ska inte övertolkas. Hubbarna infereras separat och greedy pair-swap är inte ett globalt optimerat joint hub+swap-problem.
 
@@ -159,11 +175,11 @@ Detta är praktiskt viktigt eftersom små, riktade swaps sannolikt är lättare 
 
 Substitutionsmarknaden är mycket tät i Sjöbo.
 
-## B1+B2+B3: **MARGINAL**
+## B1+B2+B3: **MARGINAL / konservativt test**
 
-Mekanismen finns, men single-hub-modellen överskattar kraftigt nyttan.
+Mekanismen finns och sparse-swap-resultatet är lovande.
 
-Efter multi-hub-korrigering finns fortfarande en restsignal, och sparse-swap-resultatet är lovande.
+Single-hub-modellen kan överskatta nyttan för verkliga fjärrkluster med egen driftbas. Samtidigt är B2:s fria 2–3-hubmodell sannolikt för generös för typisk lokal fragmentering inom Sjöbo och ska därför ses som ett konservativt worst-case, inte som normal lokal driftmodell.
 
 ---
 
