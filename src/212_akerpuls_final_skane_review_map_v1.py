@@ -278,10 +278,37 @@ def main() -> int:
 
     splitw = split[["parent_field_id_2025", "geometry"]].to_crs(4326)
     nogw = nog[["parent_field_id_2025", "geometry"]].to_crs(4326)
-    propcols = ["pair_key", "field_a", "field_b", "satellite_merge_score", "satellite_score_percentile", "p_samecrop", "hprior_percentile", "geometry"]
-    highw = high[propcols].to_crs(4326)
-    stdw = standard[propcols].to_crs(4326)
-    vetow = veto[propcols].to_crs(4326)
+    # The frozen proposal GPKG carries the original M0 satellite columns and
+    # the ranking copy from the one-to-one join. GeoPandas therefore reads them
+    # with _x/_y suffixes. They must agree exactly; use the ranking (_y) copy
+    # for browser popups and rename it back to the canonical display names.
+    for gname, gdf in [("merge_high", high), ("merge_standard", standard), ("merge_veto", veto)]:
+        for basecol in ("satellite_merge_score", "satellite_score_percentile"):
+            xcol, ycol = basecol + "_x", basecol + "_y"
+            if xcol not in gdf.columns or ycol not in gdf.columns:
+                raise RuntimeError(f"{gname} missing expected frozen duplicate columns for {basecol}: {list(gdf.columns)}")
+            a = gdf[xcol].astype(float)
+            b = gdf[ycol].astype(float)
+            both = a.notna() & b.notna()
+            if both.any() and not ((a[both] - b[both]).abs() <= 1e-12).all():
+                raise RuntimeError(f"{gname} frozen duplicate columns disagree for {basecol}")
+
+    def popup_view(gdf):
+        cols = [
+            "pair_key", "field_a", "field_b",
+            "satellite_merge_score_y", "satellite_score_percentile_y",
+            "p_samecrop", "hprior_percentile", "geometry",
+        ]
+        x = gdf[cols].copy()
+        x = x.rename(columns={
+            "satellite_merge_score_y": "satellite_merge_score",
+            "satellite_score_percentile_y": "satellite_score_percentile",
+        })
+        return x.to_crs(4326)
+
+    highw = popup_view(high)
+    stdw = popup_view(standard)
+    vetow = popup_view(veto)
 
     write_text(data / "split_proposals.js", "window.AKERPULS_SPLIT_PROPOSALS=" + geojson(splitw) + ";\n")
     write_text(data / "split_no_geometry.js", "window.AKERPULS_SPLIT_NO_GEOMETRY=" + geojson(nogw) + ";\n")
