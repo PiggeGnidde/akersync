@@ -35,6 +35,11 @@ class T(unittest.TestCase):
         self.assertIn('"automatic_boundary_removal": False', self.text)
         self.assertIn('"field_click_top3_crop_prior": True', self.text)
 
+    def test_exact_id_bridge(self):
+        self.assertIn('str.startswith("2025|").all()', self.text)
+        self.assertIn('str.slice(5)', self.text)
+        self.assertIn('ID_BRIDGE=STRIP_EXACT_2025_PREFIX__ONE_TO_ONE_PASS', self.text)
+
     def test_status(self):
         self.assertEqual(self.m.STATUS, "PASS_TO_FINAL_SKANE_REVIEW_MAP_V1B_CROPPRIOR")
 
