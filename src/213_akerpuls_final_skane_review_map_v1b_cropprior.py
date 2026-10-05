@@ -364,6 +364,15 @@ def main() -> int:
     if official["parent_field_id_2025"].duplicated().any():
         raise RuntimeError("Official field IDs not unique")
 
+    # D2A / map lineage uses legacy IDs: 2025|BLOCKID|SKIFTESBETECKNING.
+    # Frozen M4 uses the stable field key: BLOCKID|SKIFTESBETECKNING.
+    # Bridge the namespaces explicitly and losslessly; never fuzzy-match IDs.
+    if not bool(official["parent_field_id_2025"].str.startswith("2025|").all()):
+        raise RuntimeError("Official legacy IDs are not uniformly prefixed with 2025|")
+    official["m4_field_id"] = official["parent_field_id_2025"].str.slice(5)
+    if official["m4_field_id"].duplicated().any():
+        raise RuntimeError("2025-prefix removal is not one-to-one")
+
     high_ids = set(high["pair_key"].astype(str))
     merge_ids = set(merge["pair_key"].astype(str))
     standard = merge.loc[~merge["pair_key"].astype(str).isin(high_ids)].copy()
@@ -385,20 +394,31 @@ def main() -> int:
     if prior[prior_cols].isna().any().any():
         raise RuntimeError("M4 Top-3 prior contains nulls")
 
-    oid = set(official["parent_field_id_2025"])
+    oid = set(official["m4_field_id"])
     pid = set(prior["current_field_id"])
     if oid != pid:
-        raise RuntimeError(f"Official/M4 field-ID sets differ: official_only={len(oid-pid)} prior_only={len(pid-oid)}")
+        raise RuntimeError(
+            f"Official/M4 bridged field-ID sets differ: official_only={len(oid-pid)} prior_only={len(pid-oid)}"
+        )
 
-    split_ids = set(split["parent_field_id_2025"].astype(str)) | set(nog["parent_field_id_2025"].astype(str))
-    if len(split_ids) != EXPECTED_SPLIT + EXPECTED_SPLIT_NOGEOM:
+    legacy_by_m4 = official.set_index("m4_field_id")["parent_field_id_2025"].to_dict()
+
+    split_ids_legacy = set(split["parent_field_id_2025"].astype(str)) | set(nog["parent_field_id_2025"].astype(str))
+    if len(split_ids_legacy) != EXPECTED_SPLIT + EXPECTED_SPLIT_NOGEOM:
         raise RuntimeError("Split-touched field census is not 618 unique parents")
-    merge_field_ids = (
-        set(merge["field_a"].astype(str))
-        | set(merge["field_b"].astype(str))
-    )
+    if not all(x.startswith("2025|") for x in split_ids_legacy):
+        raise RuntimeError("Split proposal IDs are not in legacy 2025| namespace")
+    split_ids = {x[5:] for x in split_ids_legacy}
+
+    merge_field_ids_legacy = set(merge["field_a"].astype(str)) | set(merge["field_b"].astype(str))
+    if not all(x.startswith("2025|") for x in merge_field_ids_legacy):
+        raise RuntimeError("Merge proposal IDs are not in legacy 2025| namespace")
+    merge_field_ids = {x[5:] for x in merge_field_ids_legacy}
 
     crop = prior.copy()
+    crop["parent_field_id_2025"] = crop["current_field_id"].map(legacy_by_m4)
+    if crop["parent_field_id_2025"].isna().any():
+        raise RuntimeError("M4-to-legacy ID bridge is incomplete")
     crop["split_proposal_touch"] = crop["current_field_id"].isin(split_ids)
     crop["merge_proposal_touch"] = crop["current_field_id"].isin(merge_field_ids)
     crop["geometry_change_proposal"] = crop["split_proposal_touch"] | crop["merge_proposal_touch"]
@@ -428,8 +448,8 @@ def main() -> int:
     print(f"SPLIT_TOUCHED_FIELDS={split_touch_n} MERGE_TOUCHED_FIELDS={merge_touch_n} SPLIT_MERGE_OVERLAP={overlap_touch_n}")
 
     joined = official.merge(
-        crop,
-        left_on="parent_field_id_2025",
+        crop.drop(columns=["parent_field_id_2025"]),
+        left_on="m4_field_id",
         right_on="current_field_id",
         how="left",
         validate="one_to_one",
@@ -447,6 +467,7 @@ def main() -> int:
         raise RuntimeError("Copied proposal GPKG changed")
 
     benchmark_cols = [
+        "parent_field_id_2025",
         "current_field_id",
         "top1_class", "top1_prob",
         "top2_class", "top2_prob",
@@ -553,6 +574,7 @@ def main() -> int:
         },
         "crop_prior_contract": {
             "target_year": 2026,
+            "id_bridge": "LEGACY_2025_PREFIX_STRIPPED_EXACTLY_ONCE__2025|BLOCKID|SKIFTE_TO_BLOCKID|SKIFTE",
             "history_through_year": 2025,
             "top3_persisted_before_2026_validation": True,
             "2026_crop_labels_used": False,
@@ -590,6 +612,7 @@ def main() -> int:
     print(f"PROPOSAL_POLICY_FREEZE_SHA256={EXPECTED_POLICY_SHA}")
     print(f"M4_2026_PRIOR_FREEZE_SHA256={EXPECTED_M4_FREEZE_SHA}")
     print(f"M4_2026_PRIOR_PARQUET_SHA256={EXPECTED_M4_PRIOR_SHA}")
+    print("ID_BRIDGE=STRIP_EXACT_2025_PREFIX__ONE_TO_ONE_PASS")
     print(f"OFFICIAL_2025_FIELDS={EXPECTED_FIELDS}")
     print(f"SPLIT_PROPOSALS={EXPECTED_SPLIT} MERGE_PROPOSALS={EXPECTED_MERGE}")
     print(f"CLEAN_BENCHMARK_FIELDS={clean_n}")
