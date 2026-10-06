@@ -24,7 +24,7 @@ def source_candidates():
         if p not in seen:
             seen.add(p); yield p
     try:
-        for root in sorted(Path(r"C:\").glob("AkerSync*")):
+        for root in sorted(Path("C:/").glob("AkerSync*")):
             p=root/"dist_akerpass_unified_v0a"
             if p not in seen:
                 seen.add(p); yield p
