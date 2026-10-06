@@ -1,4 +1,4 @@
-/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0E */
+/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0F */
 (function(){
 "use strict";
 
@@ -328,8 +328,8 @@ function runSwap(){
     var gainPerHa=x.changed>0?x.gain/x.changed:0;
     return '<tr class="aks-swap-row" data-swap="'+i+'">'+
       '<td><b>'+(i+1)+'</b></td>'+
-      '<td><b>A '+htmlEsc(x.a.skifte_id)+'</b><small>'+fmt1(x.a.area_ha)+' ha · '+fmt1(x.aBeforeKm)+'→'+fmt1(x.aAfterKm)+' km</small></td>'+
-      '<td><b>B '+htmlEsc(x.b.skifte_id)+'</b><small>'+fmt1(x.b.area_ha)+' ha · '+fmt1(x.bBeforeKm)+'→'+fmt1(x.bAfterKm)+' km</small></td>'+
+      '<td><b>Bonde A</b><small>'+fmt1(x.aBeforeKm)+' → '+fmt1(x.bAfterKm)+' km</small><small>ger A '+htmlEsc(x.a.skifte_id)+' ('+fmt1(x.a.area_ha)+' ha)<br>får B '+htmlEsc(x.b.skifte_id)+' ('+fmt1(x.b.area_ha)+' ha)</small></td>'+
+      '<td><b>Bonde B</b><small>'+fmt1(x.bBeforeKm)+' → '+fmt1(x.aAfterKm)+' km</small><small>ger B '+htmlEsc(x.b.skifte_id)+' ('+fmt1(x.b.area_ha)+' ha)<br>får A '+htmlEsc(x.a.skifte_id)+' ('+fmt1(x.a.area_ha)+' ha)</small></td>'+
       '<td class="aks-gain"><b>'+fmt1(x.gain)+'</b><small>'+fmt1(gainPerHa)+' /ha</small><small>A +'+fmt1(x.farmerAGain)+' · B +'+fmt1(x.farmerBGain)+'</small></td>'+
       '<td><small>ΔA '+fmt1(areaDiffPct)+' %<br>ΔScore '+fmt1(x.ds)+'<br>ΔDrift '+fmt1(x.dd)+'</small></td>'+
     '</tr>';
@@ -348,13 +348,13 @@ function runSwap(){
     '<div class="aks-budget"><b>Sparse capture av full gain:</b> 5 % budget → '+(full.gain?pct(s5.gain/full.gain):"–")+
       ' · 10 % → '+(full.gain?pct(s10.gain/full.gain):"–")+
       ' · 20 % → '+(full.gain?pct(s20.gain/full.gain):"–")+'</div>'+
-    (tr?'<div class="aks-table-note">Per skifte: km till nuvarande driftpunkt → km till mottagande bondes driftpunkt. Total gain = sparad ha·km. A/B under gain visar respektive bondes egen förbättring.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Fält från A</th><th>Fält från B</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
+    (tr?'<div class="aks-table-note"><b>Humanoid-läsning:</b> varje bonde visar sitt eget avstånd före → efter bytet. Under står vilket fält bonden ger bort och vilket den får. Total gain = sparad ha·km; A/B under gain är respektive bondes egen vinst.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Bonde A · före→efter</th><th>Bonde B · före→efter</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
         '<div class="aks-small">Inga positiva CORE-swappar hittades för de två virtuella portföljerna.</div>')+
     '<button id="aksCopyResult" class="action aks-wide" type="button">Kopiera resultat</button>';
 
   document.getElementById("aksCopyResult").addEventListener("click",function(){
     var out=[
-      "AKERSWAP_VIRTUAL_FARMERS_RESULT_V0E",
+      "AKERSWAP_VIRTUAL_FARMERS_RESULT_V0F",
       "A_FIELDS="+a.length,
       "A_AREA_HA="+totalArea(a).toFixed(2),
       "B_FIELDS="+b.length,
@@ -386,8 +386,10 @@ function runSwap(){
           " | areaA="+x.a.area_ha.toFixed(2)+
           " | areaB="+x.b.area_ha.toFixed(2)+
           " | area_diff_pct="+(100*x.areaRel).toFixed(1)+
-          " | A_km="+x.aBeforeKm.toFixed(2)+"->"+x.aAfterKm.toFixed(2)+
-          " | B_km="+x.bBeforeKm.toFixed(2)+"->"+x.bAfterKm.toFixed(2)+
+          " | farmerA_km="+x.aBeforeKm.toFixed(2)+"->"+x.bAfterKm.toFixed(2)+
+          " | farmerB_km="+x.bBeforeKm.toFixed(2)+"->"+x.aAfterKm.toFixed(2)+
+          " | outgoing_field_A_to_B_km="+x.aBeforeKm.toFixed(2)+"->"+x.aAfterKm.toFixed(2)+
+          " | outgoing_field_B_to_A_km="+x.bBeforeKm.toFixed(2)+"->"+x.bAfterKm.toFixed(2)+
           " | pair_before_ha_km="+x.before.toFixed(2)+
           " | pair_after_ha_km="+x.after.toFixed(2)+
           " | dScore="+x.ds.toFixed(1)+
