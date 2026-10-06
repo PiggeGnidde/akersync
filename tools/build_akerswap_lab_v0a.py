@@ -2,7 +2,7 @@ from __future__ import annotations
 import hashlib, json, shutil
 from pathlib import Path
 
-VERSION="akerswap-virtual-farmers-lab-v0e"
+VERSION="akerswap-virtual-farmers-lab-v0f"
 ROOT=Path(__file__).resolve().parents[1]
 TARGET=ROOT/"dist_akerswap_lab_v0a"
 WORK=ROOT/"work"/"akerswap_lab_v0a"
@@ -40,7 +40,7 @@ def valid_source(p):
     if not idx.is_file(): return False
     t=idx.read_text(encoding="utf-8",errors="replace")
     required=("AKERPASS_UNIFIED_WEB_V0A","AKERNORM_WEB_UI_V1",'data-layer="fro"','data-layer="vatten"')
-    return all(x in t for x in required) and "AKERSWAP_VIRTUAL_FARMERS_LAB_V0E" not in t
+    return all(x in t for x in required) and "AKERSWAP_VIRTUAL_FARMERS_LAB_V0F" not in t
 
 def find_source():
     hits=[p for p in source_candidates() if valid_source(p)]
