@@ -1,11 +1,13 @@
-/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0B */
+/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0C */
 (function(){
 "use strict";
 
 var STORE="akerswap_virtual_farmers_v0b";
+var HUB_STORE="akerswap_virtual_hubs_v0c";
 var LEGACY_STORE="akerswap_virtual_farmers_select_v0a";
 var COLOR_A="#1769aa", COLOR_B="#d97706", COLOR_SWAP="#6a3d9a";
-var mode=null, picks=new Map(), swapOverlay=null;
+var mode=null, hubMode=null, picks=new Map(), swapOverlay=null, hubOverlay=null;
+var manualHubs={A:null,B:null};
 
 function idOf(p){return p ? String(p.block_id)+"|"+String(p.skifte_id) : "";}
 function finite(x){var v=Number(x);return Number.isFinite(v)?v:null;}
@@ -37,6 +39,16 @@ function load(){
   }catch(e){console.warn(e);}
 }
 function save(){localStorage.setItem(STORE,JSON.stringify(Array.from(picks.values())));}
+function loadHubs(){
+  try{
+    var h=JSON.parse(localStorage.getItem(HUB_STORE)||"{}");
+    ["A","B"].forEach(function(f){
+      var x=h[f];
+      if(x&&finite(x.lat)!==null&&finite(x.lon)!==null)manualHubs[f]={lat:Number(x.lat),lon:Number(x.lon)};
+    });
+  }catch(e){console.warn(e);}
+}
+function saveHubs(){localStorage.setItem(HUB_STORE,JSON.stringify(manualHubs));}
 
 function geometryCenter(geometry){
   if(!geometry||!geometry.coordinates)return null;
@@ -152,6 +164,18 @@ function greedy(candidates,total,budgetFrac,efficiency){
   return {selected:selected,gain:gain,changed:changed};
 }
 
+function renderHubMarkers(){
+  if(!hubOverlay)hubOverlay=L.layerGroup().addTo(map);
+  hubOverlay.clearLayers();
+  ["A","B"].forEach(function(f){
+    var h=manualHubs[f];
+    if(!h)return;
+    var color=f==="A"?COLOR_A:COLOR_B;
+    L.circleMarker([h.lat,h.lon],{radius:9,color:color,weight:3,fillColor:"#fff",fillOpacity:1})
+      .bindTooltip("Gård / maskinstation "+f,{permanent:true,direction:"top"})
+      .addTo(hubOverlay);
+  });
+}
 function render(){
   var a=rows("A"),b=rows("B");
   var ca=document.getElementById("aksCountA"),cb=document.getElementById("aksCountB");
@@ -160,13 +184,30 @@ function render(){
   document.querySelectorAll(".aks-mode").forEach(function(x){
     x.classList.toggle("active",x.dataset.farm===mode);
   });
+  document.querySelectorAll(".aks-hub-mode").forEach(function(x){
+    x.classList.toggle("active",x.dataset.farm===hubMode);
+    var f=x.dataset.farm;
+    x.textContent=(manualHubs[f]?"✓ ":"📍 ")+"Gård "+f;
+  });
+  var ha=document.getElementById("aksHubA"),hb=document.getElementById("aksHubB");
+  if(ha)ha.textContent=manualHubs.A?"manuell driftpunkt":"fallback: centroid";
+  if(hb)hb.textContent=manualHubs.B?"manuell driftpunkt":"fallback: centroid";
   var st=document.getElementById("aksStatus");
-  if(st)st.textContent=mode ?
-    "Klickläge: Bonde "+mode+". Klicka skiften för att lägga till/ta bort." :
-    "Klickläge av. Vanligt skiftesklick öppnar ÅkerPass-panelen.";
+  if(st){
+    if(hubMode)st.textContent="Placera Gård "+hubMode+": klicka valfri punkt på kartan.";
+    else if(mode)st.textContent="Klickläge: Bonde "+mode+". Klicka skiften för att lägga till/ta bort.";
+    else st.textContent="Klickläge av. Vanligt skiftesklick öppnar ÅkerPass-panelen.";
+  }
   try{if(fieldLayer)fieldLayer.setStyle(fieldStyle);}catch(e){}
+  renderHubMarkers();
 }
-function setMode(farm){mode=(mode===farm)?null:farm;render();}
+function setMode(farm){hubMode=null;mode=(mode===farm)?null:farm;render();}
+function setHubMode(farm){mode=null;hubMode=(hubMode===farm)?null:farm;render();}
+function setManualHub(farm,latlng){
+  manualHubs[farm]={lat:Number(latlng.lat),lon:Number(latlng.lng)};
+  hubMode=null;saveHubs();clearResult(false);render();
+  if(typeof toast==="function")toast("Gård "+farm+" satt.");
+}
 
 function toggle(feature,layer){
   var p=feature.properties||{}, fid=idOf(p);
@@ -191,17 +232,22 @@ function clearResult(showToast){
   if(showToast&&typeof toast==="function")toast("ÅkerSwap-resultatet rensat.");
 }
 function clearAll(){
-  picks.clear();mode=null;save();clearResult(false);render();
-  if(typeof toast==="function")toast("ÅkerSwap-valen rensade.");
+  picks.clear();mode=null;hubMode=null;manualHubs={A:null,B:null};
+  save();saveHubs();clearResult(false);render();
+  if(typeof toast==="function")toast("ÅkerSwap-val och gårdspunkter rensade.");
 }
 
 function drawResult(result){
   clearResult(false);
   swapOverlay=L.layerGroup().addTo(map);
-  L.circleMarker([result.hA.lat,result.hA.lon],{radius:8,color:COLOR_A,weight:3,fillColor:"#fff",fillOpacity:1})
-    .bindTooltip("Infererad hubb A",{permanent:true,direction:"top"}).addTo(swapOverlay);
-  L.circleMarker([result.hB.lat,result.hB.lon],{radius:8,color:COLOR_B,weight:3,fillColor:"#fff",fillOpacity:1})
-    .bindTooltip("Infererad hubb B",{permanent:true,direction:"top"}).addTo(swapOverlay);
+  if(result.sourceA!=="MANUAL"){
+    L.circleMarker([result.hA.lat,result.hA.lon],{radius:8,color:COLOR_A,weight:3,fillColor:"#fff",fillOpacity:1})
+      .bindTooltip("Infererad hubb A",{permanent:true,direction:"top"}).addTo(swapOverlay);
+  }
+  if(result.sourceB!=="MANUAL"){
+    L.circleMarker([result.hB.lat,result.hB.lon],{radius:8,color:COLOR_B,weight:3,fillColor:"#fff",fillOpacity:1})
+      .bindTooltip("Infererad hubb B",{permanent:true,direction:"top"}).addTo(swapOverlay);
+  }
   result.full.selected.slice(0,10).forEach(function(x,i){
     L.polyline([[x.a.lat,x.a.lon],[x.b.lat,x.b.lon]],{
       color:COLOR_SWAP,weight:3,opacity:.78,dashArray:"7 5"
@@ -242,7 +288,9 @@ function runSwap(){
     if(typeof toast==="function")toast("Välj minst två analysbara skiften per bonde.");
     return;
   }
-  var hA=weightedHub(a),hB=weightedHub(b);
+  var sourceA=manualHubs.A?"MANUAL":"AREA_WEIGHTED_CENTROID_PROXY";
+  var sourceB=manualHubs.B?"MANUAL":"AREA_WEIGHTED_CENTROID_PROXY";
+  var hA=manualHubs.A||weightedHub(a),hB=manualHubs.B||weightedHub(b);
   var base=baseline(a,b,hA,hB);
   var cands=makeCandidates(a,b,hA,hB);
   var total=totalArea(a)+totalArea(b);
@@ -250,7 +298,7 @@ function runSwap(){
   var s5=greedy(cands,total,0.05,true);
   var s10=greedy(cands,total,0.10,true);
   var s20=greedy(cands,total,0.20,true);
-  var result={hA:hA,hB:hB,base:base,cands:cands,full:full,s5:s5,s10:s10,s20:s20,total:total};
+  var result={hA:hA,hB:hB,sourceA:sourceA,sourceB:sourceB,base:base,cands:cands,full:full,s5:s5,s10:s10,s20:s20,total:total};
   drawResult(result);
 
   var gainPct=base>0?full.gain/base:0;
@@ -267,7 +315,9 @@ function runSwap(){
       '<div><b>'+full.selected.length+'</b><span>föreslagna byten</span></div>'+
       '<div><b>'+pct(changedPct)+'</b><span>areal berörd</span></div>'+
     '</div>'+
-    '<div class="aks-small">Single-hub proxy = areaviktad centroid av valda skiften. CORE: areal ±20 %, ÅkerScore ±10, ÅkerDrift ±10. Baseline '+fmt1(base)+' ha·km. Positiva kandidatpar '+cands.length+'.'+(ignored?" "+ignored+" valda skiften saknar komplett analysdata och ignoreras.":"")+'</div>'+
+    '<div class="aks-small">Driftpunkt A: '+(sourceA==="MANUAL"?"manuell gård/maskinstation":"areaviktad centroid")+
+      ' · B: '+(sourceB==="MANUAL"?"manuell gård/maskinstation":"areaviktad centroid")+
+      '. CORE: areal ±20 %, ÅkerScore ±10, ÅkerDrift ±10. Baseline '+fmt1(base)+' ha·km. Positiva kandidatpar '+cands.length+'.'+(ignored?" "+ignored+" valda skiften saknar komplett analysdata och ignoreras.":"")+'</div>'+
     '<div class="aks-budget"><b>Sparse capture av full gain:</b> 5 % budget → '+(full.gain?pct(s5.gain/full.gain):"–")+
       ' · 10 % → '+(full.gain?pct(s10.gain/full.gain):"–")+
       ' · 20 % → '+(full.gain?pct(s20.gain/full.gain):"–")+'</div>'+
@@ -290,7 +340,12 @@ function runSwap(){
       "CAPTURE_5PCT="+(full.gain?(100*s5.gain/full.gain).toFixed(1):"NA"),
       "CAPTURE_10PCT="+(full.gain?(100*s10.gain/full.gain).toFixed(1):"NA"),
       "CAPTURE_20PCT="+(full.gain?(100*s20.gain/full.gain).toFixed(1):"NA"),
-      "HUB_MODEL=AREA_WEIGHTED_CENTROID_PROXY",
+      "HUB_A_MODEL="+sourceA,
+      "HUB_A_LAT="+hA.lat.toFixed(6),
+      "HUB_A_LON="+hA.lon.toFixed(6),
+      "HUB_B_MODEL="+sourceB,
+      "HUB_B_LAT="+hB.lat.toFixed(6),
+      "HUB_B_LON="+hB.lon.toFixed(6),
       "",
       "[TOP_SWAPS]",
       full.selected.slice(0,10).map(function(x,i){
@@ -319,6 +374,11 @@ function mount(){
       '<button class="action aks-mode" data-farm="B" type="button">Bonde B</button>'+
     '</div>'+
     '<div class="aks-counts"><span id="aksCountA"></span><span id="aksCountB"></span></div>'+
+    '<div class="aks-grid aks-hub-grid">'+
+      '<button class="action aks-hub-mode" data-farm="A" type="button">📍 Gård A</button>'+
+      '<button class="action aks-hub-mode" data-farm="B" type="button">📍 Gård B</button>'+
+    '</div>'+
+    '<div class="aks-hub-status"><span id="aksHubA"></span><span id="aksHubB"></span></div>'+
     '<div id="aksStatus" class="status"></div>'+
     '<div class="aks-grid">'+
       '<button id="aksRun" class="action aks-run" type="button">⇄ Kör ÅkerSwap</button>'+
@@ -328,11 +388,12 @@ function mount(){
     '<div id="aksResult"></div>';
   body.appendChild(box);
   box.querySelectorAll(".aks-mode").forEach(function(x){x.addEventListener("click",function(){setMode(x.dataset.farm);});});
+  box.querySelectorAll(".aks-hub-mode").forEach(function(x){x.addEventListener("click",function(){setHubMode(x.dataset.farm);});});
   document.getElementById("aksRun").addEventListener("click",runSwap);
   document.getElementById("aksClear").addEventListener("click",clearAll);
   document.getElementById("aksCopy").addEventListener("click",copySelection);
 }
-load();
+load();loadHubs();
 
 if(typeof fieldStyle==="function"){
   var baseFieldStyle=fieldStyle;
@@ -346,9 +407,15 @@ if(typeof fieldStyle==="function"){
 if(typeof selectField==="function"){
   var baseSelectField=selectField;
   selectField=function(feature,layer,writeUrl){
+    if(hubMode)return;
     if(mode){toggle(feature,layer);return;}
     return baseSelectField(feature,layer,writeUrl===undefined?true:writeUrl);
   };
 }
+map.on("click",function(e){
+  if(!hubMode)return;
+  var farm=hubMode;
+  setManualHub(farm,e.latlng);
+});
 mount();render();hydrateLegacySelections();
 })();
