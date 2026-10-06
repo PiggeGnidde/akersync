@@ -16,3 +16,8 @@
 .aks-table th,.aks-table td{padding:4px 3px;border-bottom:1px solid #e1e4df;text-align:left}
 .aks-table th:last-child,.aks-table td:last-child{text-align:right}
 @media(max-width:380px){.aks-kpis{grid-template-columns:1fr}.aks-table{font-size:9px}}
+.aks-hub-grid{margin-top:8px}
+.aks-hub-mode{font-size:12px}
+.aks-hub-mode.active[data-farm="A"]{background:#1769aa;border-color:#1769aa;color:white}
+.aks-hub-mode.active[data-farm="B"]{background:#d97706;border-color:#d97706;color:white}
+.aks-hub-status{display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:10px;color:var(--muted);margin:3px 1px 1px}
