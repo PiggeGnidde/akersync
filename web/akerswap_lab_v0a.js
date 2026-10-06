@@ -1,4 +1,4 @@
-/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0F */
+/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0G */
 (function(){
 "use strict";
 
@@ -345,9 +345,11 @@ function runSwap(){
     '<div class="aks-small">Driftpunkt A: '+(sourceA==="MANUAL"?"manuell gård/maskinstation":"areaviktad centroid")+
       ' · B: '+(sourceB==="MANUAL"?"manuell gård/maskinstation":"areaviktad centroid")+
       '. Avstånd = fågelvägsproxy från skiftescentrum till driftpunkt. CORE: areal ±20 %, ÅkerScore ±10, ÅkerDrift ±10. Baseline '+fmt1(base)+' ha·km. Positiva kandidatpar '+cands.length+'.'+(ignored?" "+ignored+" valda skiften saknar komplett analysdata och ignoreras.":"")+'</div>'+
-    '<div class="aks-budget"><b>Sparse capture av full gain:</b> 5 % budget → '+(full.gain?pct(s5.gain/full.gain):"–")+
-      ' · 10 % → '+(full.gain?pct(s10.gain/full.gain):"–")+
-      ' · 20 % → '+(full.gain?pct(s20.gain/full.gain):"–")+'</div>'+
+    '<div class="aks-budget"><b>Hur mycket mark behöver bytas?</b><br>'+
+      'Byt upp till 5 % av marken → få '+(full.gain?pct(s5.gain/full.gain):"–")+' av möjlig körbesparing<br>'+
+      'Byt upp till 10 % → få '+(full.gain?pct(s10.gain/full.gain):"–")+'<br>'+
+      'Byt upp till 20 % → få '+(full.gain?pct(s20.gain/full.gain):"–")+
+      '<br><span class="aks-budget-note">Poängen: några få väl valda skiften kan ge nästan hela nyttan.</span></div>'+
     (tr?'<div class="aks-table-note"><b>Humanoid-läsning:</b> varje bonde visar sitt eget avstånd före → efter bytet. Under står vilket fält bonden ger bort och vilket den får. Total gain = sparad ha·km; A/B under gain är respektive bondes egen vinst.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Bonde A · före→efter</th><th>Bonde B · före→efter</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
         '<div class="aks-small">Inga positiva CORE-swappar hittades för de två virtuella portföljerna.</div>')+
     '<button id="aksCopyResult" class="action aks-wide" type="button">Kopiera resultat</button>';
