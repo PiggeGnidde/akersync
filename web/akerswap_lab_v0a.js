@@ -1,4 +1,4 @@
-/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0H */
+/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0I */
 (function(){
 "use strict";
 
@@ -166,6 +166,53 @@ function makeCandidates(listA,listB,hA,hB){
   });});
   return {allPositive:allPositive,winwin:winwin};
 }
+function weightedMean(list,key){
+  var sw=0,sx=0;
+  list.forEach(function(x){
+    var w=n(x.area_ha),v=finite(x[key]);
+    if(w>0&&v!==null){sw+=w;sx+=w*v;}
+  });
+  return sw>0?sx/sw:null;
+}
+function portfolioAfter(list, farm, selected){
+  var out=new Map();
+  list.forEach(function(x){out.set(x.fid,Object.assign({},x));});
+  selected.forEach(function(sw){
+    if(farm==="A"){
+      out.delete(sw.a.fid);
+      out.set(sw.b.fid,Object.assign({},sw.b,{farm:"A"}));
+    }else{
+      out.delete(sw.b.fid);
+      out.set(sw.a.fid,Object.assign({},sw.a,{farm:"B"}));
+    }
+  });
+  return Array.from(out.values());
+}
+function balanceDiagnostics(a,b,selected){
+  var aa=portfolioAfter(a,"A",selected),bb=portfolioAfter(b,"B",selected);
+  var beforeA=totalArea(a), beforeB=totalArea(b), afterA=totalArea(aa), afterB=totalArea(bb);
+  var scoreA0=weightedMean(a,"akerscore"),scoreA1=weightedMean(aa,"akerscore");
+  var scoreB0=weightedMean(b,"akerscore"),scoreB1=weightedMean(bb,"akerscore");
+  var driftA0=weightedMean(a,"akerdrift"),driftA1=weightedMean(aa,"akerdrift");
+  var driftB0=weightedMean(b,"akerdrift"),driftB1=weightedMean(bb,"akerdrift");
+  return {
+    beforeA:beforeA,beforeB:beforeB,afterA:afterA,afterB:afterB,
+    deltaAreaA:afterA-beforeA,deltaAreaB:afterB-beforeB,
+    deltaAreaPctA:beforeA?((afterA-beforeA)/beforeA):0,
+    deltaAreaPctB:beforeB?((afterB-beforeB)/beforeB):0,
+    scoreA0:scoreA0,scoreA1:scoreA1,scoreB0:scoreB0,scoreB1:scoreB1,
+    deltaScoreA:(scoreA0!==null&&scoreA1!==null)?scoreA1-scoreA0:null,
+    deltaScoreB:(scoreB0!==null&&scoreB1!==null)?scoreB1-scoreB0:null,
+    driftA0:driftA0,driftA1:driftA1,driftB0:driftB0,driftB1:driftB1,
+    deltaDriftA:(driftA0!==null&&driftA1!==null)?driftA1-driftA0:null,
+    deltaDriftB:(driftB0!==null&&driftB1!==null)?driftB1-driftB0:null
+  };
+}
+function signed(x,digits){
+  if(x===null||x===undefined||!Number.isFinite(Number(x)))return "–";
+  var v=Number(x);
+  return (v>0?"+":"")+v.toLocaleString("sv-SE",{maximumFractionDigits:digits});
+}
 function greedy(candidates,total,budgetFrac,efficiency){
   var arr=candidates.slice().sort(function(x,y){
     return efficiency ? y.eff-x.eff : y.gain-x.gain;
@@ -317,7 +364,8 @@ function runSwap(){
   var s5=greedy(cands,total,0.05,true);
   var s10=greedy(cands,total,0.10,true);
   var s20=greedy(cands,total,0.20,true);
-  var result={hA:hA,hB:hB,sourceA:sourceA,sourceB:sourceB,base:base,cands:cands,rejectedOneSided:rejectedOneSided,full:full,s5:s5,s10:s10,s20:s20,total:total};
+  var balance=balanceDiagnostics(a,b,full.selected);
+  var result={hA:hA,hB:hB,sourceA:sourceA,sourceB:sourceB,base:base,cands:cands,rejectedOneSided:rejectedOneSided,full:full,s5:s5,s10:s10,s20:s20,total:total,balance:balance};
   drawResult(result);
 
   var gainPct=base>0?full.gain/base:0;
@@ -350,6 +398,13 @@ function runSwap(){
       'Byt upp till 10 % → få '+(full.gain?pct(s10.gain/full.gain):"–")+'<br>'+
       'Byt upp till 20 % → få '+(full.gain?pct(s20.gain/full.gain):"–")+
       '<br><span class="aks-budget-note">Poängen: några få väl valda skiften kan ge nästan hela nyttan.</span></div>'+
+    '<div class="aks-balance"><b>Blir bytet rättvist även totalt?</b>'+
+      '<div class="aks-balance-grid">'+
+        '<div><strong>Bonde A</strong><span>Areal '+signed(balance.deltaAreaA,1)+' ha ('+signed(100*balance.deltaAreaPctA,1)+' %)</span><span>ÅkerScore '+signed(balance.deltaScoreA,1)+'</span><span>ÅkerDrift '+signed(balance.deltaDriftA,1)+'</span></div>'+
+        '<div><strong>Bonde B</strong><span>Areal '+signed(balance.deltaAreaB,1)+' ha ('+signed(100*balance.deltaAreaPctB,1)+' %)</span><span>ÅkerScore '+signed(balance.deltaScoreB,1)+'</span><span>ÅkerDrift '+signed(balance.deltaDriftB,1)+'</span></div>'+
+      '</div>'+
+      '<span class="aks-budget-note">Detta är kontrollvärden, inte en ny totalscore. Små avvikelser kan förhandlas; stora avvikelser betyder att swap-paketet bör justeras.</span>'+
+    '</div>'+
     (tr?'<div class="aks-table-note"><b>Förklaring:</b> varje bonde visar sitt eget avstånd före → efter bytet. Under står vilket fält bonden ger bort och vilket den får. Total gain = sparad ha·km; A/B under gain är respektive bondes egen vinst.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Bonde A · före→efter</th><th>Bonde B · före→efter</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
         '<div class="aks-small">Inga positiva CORE-swappar hittades för de två virtuella portföljerna.</div>')+
     '<button id="aksCopyResult" class="action aks-wide" type="button">Kopiera resultat</button>';
@@ -377,6 +432,12 @@ function runSwap(){
       "HUB_B_MODEL="+sourceB,
       "HUB_B_LAT="+hB.lat.toFixed(6),
       "HUB_B_LON="+hB.lon.toFixed(6),
+      "PORTFOLIO_A_AREA_CHANGE_HA="+balance.deltaAreaA.toFixed(2),
+      "PORTFOLIO_B_AREA_CHANGE_HA="+balance.deltaAreaB.toFixed(2),
+      "PORTFOLIO_A_SCORE_CHANGE="+(balance.deltaScoreA===null?"NA":balance.deltaScoreA.toFixed(2)),
+      "PORTFOLIO_B_SCORE_CHANGE="+(balance.deltaScoreB===null?"NA":balance.deltaScoreB.toFixed(2)),
+      "PORTFOLIO_A_DRIFT_CHANGE="+(balance.deltaDriftA===null?"NA":balance.deltaDriftA.toFixed(2)),
+      "PORTFOLIO_B_DRIFT_CHANGE="+(balance.deltaDriftB===null?"NA":balance.deltaDriftB.toFixed(2)),
       "",
       "[TOP_SWAPS]",
       full.selected.slice(0,10).map(function(x,i){
