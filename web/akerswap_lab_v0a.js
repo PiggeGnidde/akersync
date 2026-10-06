@@ -3,6 +3,7 @@
 "use strict";
 
 var STORE="akerswap_virtual_farmers_v0b";
+var LEGACY_STORE="akerswap_virtual_farmers_select_v0a";
 var COLOR_A="#1769aa", COLOR_B="#d97706", COLOR_SWAP="#6a3d9a";
 var mode=null, picks=new Map(), swapOverlay=null;
 
@@ -22,13 +23,79 @@ function htmlEsc(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){r
 
 function load(){
   try{
-    var a=JSON.parse(localStorage.getItem(STORE)||"[]");
+    var raw=localStorage.getItem(STORE);
+    var migrated=false;
+    if(!raw){
+      raw=localStorage.getItem(LEGACY_STORE);
+      migrated=!!raw;
+    }
+    var a=JSON.parse(raw||"[]");
     if(Array.isArray(a))a.forEach(function(x){
       if(x&&x.fid&&(x.farm==="A"||x.farm==="B"))picks.set(x.fid,x);
     });
+    if(migrated)save();
   }catch(e){console.warn(e);}
 }
 function save(){localStorage.setItem(STORE,JSON.stringify(Array.from(picks.values())));}
+
+function geometryCenter(geometry){
+  if(!geometry||!geometry.coordinates)return null;
+  var minLat=Infinity,maxLat=-Infinity,minLon=Infinity,maxLon=-Infinity;
+  function walk(x){
+    if(!Array.isArray(x))return;
+    if(x.length>=2&&typeof x[0]==="number"&&typeof x[1]==="number"){
+      var lon=x[0],lat=x[1];
+      if(Number.isFinite(lat)&&Number.isFinite(lon)){
+        minLat=Math.min(minLat,lat);maxLat=Math.max(maxLat,lat);
+        minLon=Math.min(minLon,lon);maxLon=Math.max(maxLon,lon);
+      }
+      return;
+    }
+    x.forEach(walk);
+  }
+  walk(geometry.coordinates);
+  if(!Number.isFinite(minLat)||!Number.isFinite(minLon))return null;
+  return {lat:(minLat+maxLat)/2,lon:(minLon+maxLon)/2};
+}
+async function hydrateLegacySelections(){
+  var missing=Array.from(picks.values()).filter(function(x){
+    return finite(x.lat)===null||finite(x.lon)===null;
+  });
+  if(!missing.length)return;
+
+  var byKommun={};
+  missing.forEach(function(x){
+    var k=String(x.kommun||"");
+    if(!byKommun[k])byKommun[k]=new Set();
+    byKommun[k].add(x.fid);
+  });
+
+  var hydrated=0;
+  var jobs=Object.keys(byKommun).map(async function(k){
+    var meta=window.MANIFEST&&window.MANIFEST.municipalities?window.MANIFEST.municipalities[k]:null;
+    if(!meta)return;
+    try{
+      var response=await fetch(meta.file,{cache:"no-cache"});
+      if(!response.ok)return;
+      var doc=await response.json();
+      var features=(doc.fields&&doc.fields.features)||[];
+      features.forEach(function(feature){
+        var p=(feature||{}).properties||{}, id=idOf(p);
+        if(!byKommun[k].has(id))return;
+        var x=picks.get(id),c=geometryCenter(feature.geometry);
+        if(!x||!c)return;
+        x.lat=c.lat;x.lon=c.lon;
+        if(finite(x.area_ha)===null)x.area_ha=finite(p.area_ha);
+        if(finite(x.akerscore)===null)x.akerscore=finite(p.akerscore);
+        if(finite(x.akerdrift)===null)x.akerdrift=finite(p.akerdrift);
+        hydrated++;
+      });
+    }catch(e){console.warn("ÅkerSwap legacy hydration",k,e);}
+  });
+  await Promise.all(jobs);
+  save();render();
+  if(hydrated&&typeof toast==="function")toast("ÅkerSwap återställde "+hydrated+" tidigare klickade skiften.");
+}
 
 function haversine(a,b){
   var R=6371, rad=Math.PI/180;
@@ -282,5 +349,5 @@ if(typeof selectField==="function"){
     return baseSelectField(feature,layer,writeUrl===undefined?true:writeUrl);
   };
 }
-mount();render();
+mount();render();hydrateLegacySelections();
 })();
