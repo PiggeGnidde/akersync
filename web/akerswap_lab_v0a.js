@@ -1,4 +1,4 @@
-/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0G */
+/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0H */
 (function(){
 "use strict";
 
@@ -350,7 +350,7 @@ function runSwap(){
       'Byt upp till 10 % → få '+(full.gain?pct(s10.gain/full.gain):"–")+'<br>'+
       'Byt upp till 20 % → få '+(full.gain?pct(s20.gain/full.gain):"–")+
       '<br><span class="aks-budget-note">Poängen: några få väl valda skiften kan ge nästan hela nyttan.</span></div>'+
-    (tr?'<div class="aks-table-note"><b>Humanoid-läsning:</b> varje bonde visar sitt eget avstånd före → efter bytet. Under står vilket fält bonden ger bort och vilket den får. Total gain = sparad ha·km; A/B under gain är respektive bondes egen vinst.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Bonde A · före→efter</th><th>Bonde B · före→efter</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
+    (tr?'<div class="aks-table-note"><b>Förklaring:</b> varje bonde visar sitt eget avstånd före → efter bytet. Under står vilket fält bonden ger bort och vilket den får. Total gain = sparad ha·km; A/B under gain är respektive bondes egen vinst.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Bonde A · före→efter</th><th>Bonde B · före→efter</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
         '<div class="aks-small">Inga positiva CORE-swappar hittades för de två virtuella portföljerna.</div>')+
     '<button id="aksCopyResult" class="action aks-wide" type="button">Kopiera resultat</button>';
 
