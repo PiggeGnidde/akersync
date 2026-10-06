@@ -72,7 +72,8 @@ async function hydrateLegacySelections(){
 
   var hydrated=0;
   var jobs=Object.keys(byKommun).map(async function(k){
-    var meta=window.MANIFEST&&window.MANIFEST.municipalities?window.MANIFEST.municipalities[k]:null;
+    var manifest=(typeof MANIFEST!=="undefined")?MANIFEST:null;
+    var meta=manifest&&manifest.municipalities?manifest.municipalities[k]:null;
     if(!meta)return;
     try{
       var response=await fetch(meta.file,{cache:"no-cache"});
