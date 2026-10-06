@@ -34,3 +34,9 @@
 .aks-gain small:last-child{font-weight:700;color:#294d32}
 
 .aks-budget-note{color:var(--muted);font-size:10px}
+
+.aks-balance{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:9px;background:#fafbf8;font-size:11px}
+.aks-balance-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
+.aks-balance-grid div{padding:6px;border-radius:7px;background:white}
+.aks-balance-grid strong,.aks-balance-grid span{display:block}
+.aks-balance-grid span{color:var(--muted);margin-top:2px}
