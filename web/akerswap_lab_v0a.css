@@ -21,3 +21,12 @@
 .aks-hub-mode.active[data-farm="A"]{background:#1769aa;border-color:#1769aa;color:white}
 .aks-hub-mode.active[data-farm="B"]{background:#d97706;border-color:#d97706;color:white}
 .aks-hub-status{display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:10px;color:var(--muted);margin:3px 1px 1px}
+
+.aks-table-note{font-size:10px;line-height:1.35;color:var(--muted);margin-top:7px}
+.aks-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.aks-table{min-width:620px}
+.aks-table td{vertical-align:top}
+.aks-table td small{display:block;color:var(--muted);line-height:1.3;margin-top:2px;white-space:nowrap}
+.aks-table .aks-gain{text-align:right}
+.aks-table .aks-gain b{font-size:12px}
+.aks-swap-row:hover{background:#f3f5f0}
