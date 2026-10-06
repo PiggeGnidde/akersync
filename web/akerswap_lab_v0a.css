@@ -30,3 +30,5 @@
 .aks-table .aks-gain{text-align:right}
 .aks-table .aks-gain b{font-size:12px}
 .aks-swap-row:hover{background:#f3f5f0}
+
+.aks-gain small:last-child{font-weight:700;color:#294d32}
