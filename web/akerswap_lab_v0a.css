@@ -1,9 +1,18 @@
-/* AKERSWAP_VIRTUAL_FARMERS_SELECT_V0A */
+/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0B */
 .aks-lab{margin-top:10px;padding-top:4px;border-top:2px solid #cfd8ce}
-.aks-help{font-size:11px;line-height:1.4;color:var(--muted);margin:4px 0 7px}
+.aks-help,.aks-small{font-size:11px;line-height:1.4;color:var(--muted);margin:4px 0 7px}
 .aks-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:6px}
 .aks-mode.active[data-farm="A"]{background:#e7f1fb;border-color:#1769aa;color:#0d4d80}
 .aks-mode.active[data-farm="B"]{background:#fff1df;border-color:#d97706;color:#8c4a03}
 .aks-counts{display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:11px;font-weight:700;margin:5px 1px}
 .aks-counts span:first-child{color:#1769aa}.aks-counts span:last-child{color:#b85e00}
-.aks-copy{background:#294d32;color:white;border-color:#294d32}
+.aks-run{background:#294d32;color:white;border-color:#294d32}
+.aks-wide{width:100%;margin-top:7px}
+.aks-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:9px}
+.aks-kpis div{background:#edf1e9;border-radius:9px;padding:7px;text-align:center;min-width:0}
+.aks-kpis b{display:block;font-size:17px}.aks-kpis span{display:block;font-size:9px;color:var(--muted);line-height:1.2}
+.aks-budget{font-size:11px;line-height:1.4;padding:7px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.aks-table{width:100%;border-collapse:collapse;margin-top:7px;font-size:10px}
+.aks-table th,.aks-table td{padding:4px 3px;border-bottom:1px solid #e1e4df;text-align:left}
+.aks-table th:last-child,.aks-table td:last-child{text-align:right}
+@media(max-width:380px){.aks-kpis{grid-template-columns:1fr}.aks-table{font-size:9px}}
