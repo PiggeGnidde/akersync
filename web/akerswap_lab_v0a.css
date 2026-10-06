@@ -32,3 +32,5 @@
 .aks-swap-row:hover{background:#f3f5f0}
 
 .aks-gain small:last-child{font-weight:700;color:#294d32}
+
+.aks-budget-note{color:var(--muted);font-size:10px}
