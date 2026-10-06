@@ -1,4 +1,4 @@
-/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0D */
+/* AKERSWAP_VIRTUAL_FARMERS_LAB_V0E */
 (function(){
 "use strict";
 
@@ -140,20 +140,31 @@ function coreCandidate(a,b,hA,hB){
   var before=a.area_ha*aBeforeKm+b.area_ha*bBeforeKm;
   var after =a.area_ha*aAfterKm+b.area_ha*bAfterKm;
   var gain=before-after;
+
+  // Farmer A gives field a and receives field b.
+  // Farmer B gives field b and receives field a.
+  var farmerAGain=a.area_ha*aBeforeKm-b.area_ha*bAfterKm;
+  var farmerBGain=b.area_ha*bBeforeKm-a.area_ha*aAfterKm;
+
   if(gain<=1e-9)return null;
   var changed=a.area_ha+b.area_ha;
   return {
     a:a,b:b,gain:gain,changed:changed,eff:gain/changed,areaRel:rel,ds:ds,dd:dd,
+    farmerAGain:farmerAGain,farmerBGain:farmerBGain,
+    bilateralWin:farmerAGain>=-1e-9 && farmerBGain>=-1e-9,
     aBeforeKm:aBeforeKm,aAfterKm:aAfterKm,bBeforeKm:bBeforeKm,bAfterKm:bAfterKm,
     before:before,after:after
   };
 }
 function makeCandidates(listA,listB,hA,hB){
-  var out=[];
+  var allPositive=[], winwin=[];
   listA.forEach(function(a){listB.forEach(function(b){
-    var x=coreCandidate(a,b,hA,hB);if(x)out.push(x);
+    var x=coreCandidate(a,b,hA,hB);
+    if(!x)return;
+    allPositive.push(x);
+    if(x.bilateralWin)winwin.push(x);
   });});
-  return out;
+  return {allPositive:allPositive,winwin:winwin};
 }
 function greedy(candidates,total,budgetFrac,efficiency){
   var arr=candidates.slice().sort(function(x,y){
@@ -298,13 +309,15 @@ function runSwap(){
   var sourceB=manualHubs.B?"MANUAL":"AREA_WEIGHTED_CENTROID_PROXY";
   var hA=manualHubs.A||weightedHub(a),hB=manualHubs.B||weightedHub(b);
   var base=baseline(a,b,hA,hB);
-  var cands=makeCandidates(a,b,hA,hB);
+  var candidateSets=makeCandidates(a,b,hA,hB);
+  var cands=candidateSets.winwin;
+  var rejectedOneSided=candidateSets.allPositive.length-cands.length;
   var total=totalArea(a)+totalArea(b);
   var full=greedy(cands,total,null,false);
   var s5=greedy(cands,total,0.05,true);
   var s10=greedy(cands,total,0.10,true);
   var s20=greedy(cands,total,0.20,true);
-  var result={hA:hA,hB:hB,sourceA:sourceA,sourceB:sourceB,base:base,cands:cands,full:full,s5:s5,s10:s10,s20:s20,total:total};
+  var result={hA:hA,hB:hB,sourceA:sourceA,sourceB:sourceB,base:base,cands:cands,rejectedOneSided:rejectedOneSided,full:full,s5:s5,s10:s10,s20:s20,total:total};
   drawResult(result);
 
   var gainPct=base>0?full.gain/base:0;
@@ -317,7 +330,7 @@ function runSwap(){
       '<td><b>'+(i+1)+'</b></td>'+
       '<td><b>A '+htmlEsc(x.a.skifte_id)+'</b><small>'+fmt1(x.a.area_ha)+' ha · '+fmt1(x.aBeforeKm)+'→'+fmt1(x.aAfterKm)+' km</small></td>'+
       '<td><b>B '+htmlEsc(x.b.skifte_id)+'</b><small>'+fmt1(x.b.area_ha)+' ha · '+fmt1(x.bBeforeKm)+'→'+fmt1(x.bAfterKm)+' km</small></td>'+
-      '<td class="aks-gain"><b>'+fmt1(x.gain)+'</b><small>'+fmt1(gainPerHa)+' /ha</small></td>'+
+      '<td class="aks-gain"><b>'+fmt1(x.gain)+'</b><small>'+fmt1(gainPerHa)+' /ha</small><small>A +'+fmt1(x.farmerAGain)+' · B +'+fmt1(x.farmerBGain)+'</small></td>'+
       '<td><small>ΔA '+fmt1(areaDiffPct)+' %<br>ΔScore '+fmt1(x.ds)+'<br>ΔDrift '+fmt1(x.dd)+'</small></td>'+
     '</tr>';
   }).join("");
@@ -335,19 +348,21 @@ function runSwap(){
     '<div class="aks-budget"><b>Sparse capture av full gain:</b> 5 % budget → '+(full.gain?pct(s5.gain/full.gain):"–")+
       ' · 10 % → '+(full.gain?pct(s10.gain/full.gain):"–")+
       ' · 20 % → '+(full.gain?pct(s20.gain/full.gain):"–")+'</div>'+
-    (tr?'<div class="aks-table-note">Per skifte: km före→efter byte. Gain = sparad ha·km; /ha = gain per berörd hektar.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Bonde A</th><th>Bonde B</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
+    (tr?'<div class="aks-table-note">Per skifte: km till nuvarande driftpunkt → km till mottagande bondes driftpunkt. Total gain = sparad ha·km. A/B under gain visar respektive bondes egen förbättring.</div><div class="aks-table-wrap"><table class="aks-table"><thead><tr><th>#</th><th>Fält från A</th><th>Fält från B</th><th>gain ha·km</th><th>match</th></tr></thead><tbody>'+tr+'</tbody></table></div>':
         '<div class="aks-small">Inga positiva CORE-swappar hittades för de två virtuella portföljerna.</div>')+
     '<button id="aksCopyResult" class="action aks-wide" type="button">Kopiera resultat</button>';
 
   document.getElementById("aksCopyResult").addEventListener("click",function(){
     var out=[
-      "AKERSWAP_VIRTUAL_FARMERS_RESULT_V0B",
+      "AKERSWAP_VIRTUAL_FARMERS_RESULT_V0E",
       "A_FIELDS="+a.length,
       "A_AREA_HA="+totalArea(a).toFixed(2),
       "B_FIELDS="+b.length,
       "B_AREA_HA="+totalArea(b).toFixed(2),
       "BASELINE_AREA_KM="+base.toFixed(2),
-      "CORE_POSITIVE_CANDIDATE_PAIRS="+cands.length,
+      "CORE_POSITIVE_TOTAL_PAIRS="+candidateSets.allPositive.length,
+      "CORE_WINWIN_CANDIDATE_PAIRS="+cands.length,
+      "CORE_REJECTED_ONE_SIDED_PAIRS="+rejectedOneSided,
       "FULL_SWAPS="+full.selected.length,
       "FULL_GAIN_PCT="+(100*gainPct).toFixed(1),
       "FULL_CHANGED_AREA_PCT="+(100*changedPct).toFixed(1),
@@ -366,6 +381,8 @@ function runSwap(){
         return "SWAP"+(i+1)+"=A:"+x.a.fid+" <-> B:"+x.b.fid+
           " | gain_ha_km="+x.gain.toFixed(2)+
           " | gain_per_changed_ha="+(x.changed?x.gain/x.changed:0).toFixed(2)+
+          " | farmerA_gain_ha_km="+x.farmerAGain.toFixed(2)+
+          " | farmerB_gain_ha_km="+x.farmerBGain.toFixed(2)+
           " | areaA="+x.a.area_ha.toFixed(2)+
           " | areaB="+x.b.area_ha.toFixed(2)+
           " | area_diff_pct="+(100*x.areaRel).toFixed(1)+
